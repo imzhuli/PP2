@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package geo;
+
+message xGeoInfo {
+	string ip         = 1;
+	uint32 country_id = 2;
+	uint32 city_id    = 3;
+}

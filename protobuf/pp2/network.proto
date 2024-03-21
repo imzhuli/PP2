@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package network;
+
+message HostQuery {
+	string Hostname = 1;
+};
+
+message HostQueryResp {
+	string Hostname = 1;
+	string IpString = 2;
+}
