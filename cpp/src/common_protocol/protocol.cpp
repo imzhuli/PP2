@@ -99,19 +99,3 @@ std::vector<ubyte> Decrypt(const void * Data, size_t DataSize, const std::string
 	R.resize(DataSize - padding);
 	return R;
 }
-
-std::string EncodeBase64Key(std::string & Key) {
-	auto   Encrypted       = std::string(Key.length() * 2, '\0');
-	size_t EncryptedLength = 0;
-	RuntimeAssert(!mbedtls_base64_encode((ubyte *)Encrypted.data(), Encrypted.size(), &EncryptedLength, (const ubyte *)Key.data(), Key.length()));
-	Encrypted.resize(EncryptedLength);
-	return Encrypted;
-}
-
-std::string DecodeBase64Key(std::string & Key) {
-	auto   Result    = std::string(Key.length(), '\0');
-	size_t KeyLength = 0;
-	RuntimeAssert(!mbedtls_base64_decode((ubyte *)Result.data(), Result.size(), &KeyLength, (const ubyte *)Key.data(), Key.length()));
-	Result.resize(KeyLength);
-	return Result;
-}

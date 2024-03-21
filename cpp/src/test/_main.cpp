@@ -2,6 +2,7 @@
 #include "../common_protocol/protocol.hpp"
 
 #include <core/core_min.hpp>
+#include <crypto/base64.hpp>
 #include <server_arch/client.hpp>
 
 class xObserver : public xClient {
@@ -31,6 +32,12 @@ auto IoCtx    = xIoContext();
 auto Observer = xObserver();
 
 int main(int argc, char ** argv) {
+
+	auto S = std::string("1234567890");
+	auto E = Base64Encode(S.data(), S.length());
+	cout << "E:" << E << endl;
+	auto D = Base64Decode(E.data(), E.length());
+	cout << "D:" << D << endl;
 
 	auto CL = xCommandLine(
 		argc, argv,

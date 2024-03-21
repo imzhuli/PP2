@@ -15,5 +15,3 @@ using xPbMessage = ::google::protobuf::Message;
 
 std::vector<ubyte> Encrypt(const void * Data, size_t DataSize, const std::string & AesKey);
 std::vector<ubyte> Decrypt(const void * Data, size_t DataSize, const std::string & AesKey);
-std::string        EncodeBase64Key(std::string & Key);
-std::string        DecodeBase64Key(std::string & Key);
