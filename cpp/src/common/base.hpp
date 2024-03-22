@@ -23,6 +23,7 @@ using namespace xel;
 #include <atomic>
 #include <cinttypes>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <tuple>
 
@@ -36,7 +37,7 @@ static constexpr const auto NoReturn = std::tie();
 // clang-format off
 #define CASE_PRINT(x) case x: X_DEBUG_PRINTF("%s", X_STRINGIFY(x)); break
 
-template<typename T> 
+template<typename T>
 // pointer to unique_ptr wrapper
 std::unique_ptr<T> P2U(T * Ptr) {
     return std::unique_ptr<T>(Ptr);

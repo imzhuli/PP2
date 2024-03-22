@@ -32,6 +32,7 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
 endif()
 
 set(lib_dependency
+	maxminddb
 	${MYSQL_LIBRARIES}
 	${LOCAL_3RD_LIBRARIES}
 	${X_LIBRARIES}
@@ -39,7 +40,7 @@ set(lib_dependency
 	${cpp})
 
 # message(STATUS ${lib_dependency})
-	
+
 # local libs
 aux_source_directory("./common"                COMMON_SRC)
 aux_source_directory("./common_job"            COMMON_SRC)

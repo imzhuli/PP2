@@ -1,3 +1,4 @@
+#include "../../pb/pp2/geo.pb.h"
 #include "../common/base.hpp"
 
 #include <core/core_min.hpp>
@@ -22,8 +23,19 @@ public:
 	std::vector<xPacketCommandId> InterestedCommandIds = { 0x01 };
 };
 
-auto IoCtx    = xIoContext();
-auto Consumer = xGeoIpConsumer();
+class xGeoIpUdpServer : xUdpService {
+protected:
+	void OnPacket(const xNetAddress & RemoteAddress, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) override {
+		auto Req = geo::xGeoInfoReq();
+		if (!Req.ParseFromArray(PayloadPtr, PayloadSize)) {
+			return;
+		}
+	}
+};
+
+auto IoCtx     = xIoContext();
+auto Consumer  = xGeoIpConsumer();
+auto UdpServer = xGeoIpUdpServer();
 
 int main(int argc, char ** argv) {
 

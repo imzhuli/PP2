@@ -2,7 +2,12 @@ syntax = "proto3";
 
 package geo;
 
-message xGeoInfo {
+message xGeoInfoReq {
+	string ip = 1;
+	string hello_world = 2; // just for fun
+}
+
+message xGeoInfoResp {
 	string ip         = 1;
 	uint32 country_id = 2;
 	uint32 city_id    = 3;
