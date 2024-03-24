@@ -68,14 +68,14 @@ build_app(server_geoip)
 
 build_app(test)
 build_app(test_consumer)
-build_app(test_observer)
+build_app(test_geoip)
 
 install(TARGETS
 	_server_geoip
 
 	_test
 	_test_consumer
-	_test_observer
+	_test_geoip
 
 	RUNTIME DESTINATION bin
 	ARCHIVE DESTINATION lib

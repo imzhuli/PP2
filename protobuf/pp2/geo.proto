@@ -11,4 +11,5 @@ message xGeoInfoResp {
 	string ip         = 1;
 	uint32 country_id = 2;
 	uint32 city_id    = 3;
+	string city_name  = 4;
 }
