@@ -64,6 +64,7 @@ function(build_app sub_dir_name)
 	target_link_libraries(_${sub_dir_name} PRIVATE ${lib_dependency})
 endfunction()
 
+build_app(server_dns)
 build_app(server_geoip)
 
 build_app(test)
@@ -71,6 +72,7 @@ build_app(test_consumer)
 build_app(test_geoip)
 
 install(TARGETS
+	_server_dns
 	_server_geoip
 
 	_test

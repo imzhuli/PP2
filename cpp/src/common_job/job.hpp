@@ -1,11 +1,9 @@
 #pragma once
 #include "../common/base.hpp"
 
-struct xJobNode
-	: xListNode
-	, xVBase {
-	uint64_t JobId;
-	uint64_t JobCreateTimestampMS;
+struct xJobNode : xListNode {
+protected:
+	X_INLINE ~xJobNode() = default;
 };
 using xJobList = xList<xJobNode>;
 
@@ -69,11 +67,12 @@ private:
 	std::vector<xJobList> WheelNodes;
 };
 
-class xJobPool {
+class xJobQueue {
 public:
 	// from other threads:
 	void       PostWakeupN(int64_t N);
 	void       PostJob(xJobNode & Job);
+	void       GrabJobList(xJobList & DstJobList);
 	xJobNode * WaitForJob();
 	xJobNode * WaitForJobTimeout(uint64_t MS);
 

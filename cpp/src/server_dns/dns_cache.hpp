@@ -1,0 +1,29 @@
+#pragma once
+#include "../common/base.hpp"
+
+struct xDnsReq : xListNode {
+	uint64_t  Index;
+	uint64_t  Timestamp;
+	xVariable Context;
+};
+
+struct xDnsCacheNode : xListNode {
+	enum eState {
+		INIT        = 0,
+		FIRST_QUERY = 1,
+		UPDATING    = 2,
+		UNAVAILABLE = 3,
+	};
+	eState         State;
+	uint64_t       TimestampMS;
+	xNetAddress    A4;
+	xList<xDnsReq> RequestList;
+};
+
+using xDnsResultCallback = void(xVariable Ctx, const xNetAddress & A4);
+
+extern bool GetCachedDnsInfo(const std::string & Hostname, xNetAddress & Output);
+extern bool PostDnsRequest(const std::string & Hostname, xVariable Ctx);
+extern void DispatchResults(xDnsResultCallback Callback);
+extern void ShrinkDnsCache();
+extern void CleanDnsCache();

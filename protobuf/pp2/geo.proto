@@ -4,7 +4,7 @@ package geo;
 
 message xGeoInfoReq {
 	string ip = 1;
-	string hello_world = 2; // just for fun
+	string hello_world = 2;
 }
 
 message xGeoInfoResp {
@@ -12,4 +12,5 @@ message xGeoInfoResp {
 	uint32 country_id = 2;
 	uint32 city_id    = 3;
 	string city_name  = 4;
+	string signature  = 5;
 }

@@ -1,21 +1,25 @@
 #include "./job.hpp"
 
 // from other threads:
-void xJobPool::PostWakeupN(int64_t N) {
+void xJobQueue::PostWakeupN(int64_t N) {
 	JobSemaphore.NotifyN(N);
 }
 
-void xJobPool::PostJob(xJobNode & Job) {
+void xJobQueue::PostJob(xJobNode & Job) {
 	JobSemaphore.Notify([this, &Job] { JobList.GrabTail(Job); });
 }
 
-xJobNode * xJobPool::WaitForJob() {
+void xJobQueue::GrabJobList(xJobList & DstJobList) {
+	JobSemaphore.Reset([this, &DstJobList] { DstJobList.GrabListTail(JobList); });
+}
+
+xJobNode * xJobQueue::WaitForJob() {
 	xJobNode * R = nullptr;
 	JobSemaphore.Wait([this, &R] { R = JobList.PopHead(); });
 	return R;
 }
 
-xJobNode * xJobPool::WaitForJobTimeout(uint64_t MS) {
+xJobNode * xJobQueue::WaitForJobTimeout(uint64_t MS) {
 	xJobNode * R = nullptr;
 	JobSemaphore.WaitFor(xMilliSeconds(MS), [this, &R] { R = JobList.PopHead(); });
 	return R;
