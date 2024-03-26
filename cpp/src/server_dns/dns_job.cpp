@@ -16,14 +16,14 @@ xJobQueue NewDnsJobQueue;
 xJobList  FinishedJobList;
 xSpinlock FinishedJobListLock;
 
-xDnsJob * NewDnsJob(const std::string & Hostname, uint64_t JobId) {
+xDnsJob * NewDnsJob(const std::string & Hostname, xVariable JobCtx) {
 	if (++TotalDnsJob >= MAX_DNS_JOB) {
 		--TotalDnsJob;
 		return nullptr;
 	}
 	auto PJ      = new xDnsJob;
 	PJ->Hostname = Hostname;
-	PJ->JobId    = JobId;
+	PJ->JobCtx   = JobCtx;
 
 	Audit.TotalDnsJob = TotalDnsJob;
 	return PJ;
@@ -37,7 +37,7 @@ void DeleteDnsJob(const xDnsJob * PJ) {
 	Audit.TotalDnsJob = TotalDnsJob;
 }
 
-void DnsQueryThread() {
+void DnsWorkerThread(xNotifier Notifier, xVariable Ctx) {
 	while (auto PJ = (xDnsJob *)NewDnsJobQueue.WaitForJob()) {
 
 		addrinfo   hints = {};
@@ -69,5 +69,6 @@ void DnsQueryThread() {
 			auto G = xSpinlockGuard(FinishedJobListLock);
 			FinishedJobList.GrabTail(*PJ);
 		} while (false);
+		Notifier(Ctx);
 	}
 }

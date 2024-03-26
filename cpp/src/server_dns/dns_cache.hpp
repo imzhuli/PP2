@@ -22,8 +22,9 @@ struct xDnsCacheNode : xListNode {
 
 using xDnsResultCallback = void(xVariable Ctx, const xNetAddress & A4);
 
-extern bool GetCachedDnsInfo(const std::string & Hostname, xNetAddress & Output);
+extern void InitDnsCache(xNotifier Notifier, xVariable Ctx = {});
+extern void CleanDnsCache();
+
 extern bool PostDnsRequest(const std::string & Hostname, xVariable Ctx);
 extern void DispatchResults(xDnsResultCallback Callback);
 extern void ShrinkDnsCache();
-extern void CleanDnsCache();

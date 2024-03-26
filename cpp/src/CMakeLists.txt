@@ -69,6 +69,7 @@ build_app(server_geoip)
 
 build_app(test)
 build_app(test_consumer)
+build_app(test_dns_query)
 build_app(test_geoip)
 
 install(TARGETS
@@ -77,6 +78,7 @@ install(TARGETS
 
 	_test
 	_test_consumer
+	_test_dns_query
 	_test_geoip
 
 	RUNTIME DESTINATION bin

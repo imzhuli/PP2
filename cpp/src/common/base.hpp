@@ -43,4 +43,5 @@ std::unique_ptr<T> P2U(T * Ptr) {
     return std::unique_ptr<T>(Ptr);
 }
 
-
+using xNotifier = void(xVariable);
+X_STATIC_INLINE void TrivialNotifier(xVariable) {}

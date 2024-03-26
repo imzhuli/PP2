@@ -59,7 +59,7 @@ public:
 		PostData(RespBuffer, RespSize);
 	}
 
-	std::vector<xPacketCommandId> InterestedCommandIds = { 0x01 };
+	std::vector<xPacketCommandId> InterestedCommandIds = { Cmd_GeoQuery };
 };
 
 class xGeoIpUdpServer : public xUdpService {
