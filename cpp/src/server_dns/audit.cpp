@@ -3,7 +3,7 @@
 #include <iostream>
 using namespace std;
 
-static constexpr const uint64_t OutputTickerTimeout = 5'000;
+static constexpr const uint64_t OutputTickerTimeout = 60'000;
 
 xAudit Audit;
 

@@ -66,6 +66,8 @@ endfunction()
 
 build_app(server_dns)
 build_app(server_geoip)
+build_app(server_proxy_access)
+build_app(server_terminal)
 
 build_app(test)
 build_app(test_consumer)
@@ -75,6 +77,8 @@ build_app(test_geoip)
 install(TARGETS
 	_server_dns
 	_server_geoip
+	_server_proxy_access
+	_server_terminal
 
 	_test
 	_test_consumer

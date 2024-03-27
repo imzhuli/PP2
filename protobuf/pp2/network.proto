@@ -2,10 +2,11 @@ syntax = "proto3";
 
 package network;
 
-message xHostQuery {
+message xHostQueryReq {
 	string hostname = 1;
 }
 
 message xHostQueryResp {
-	string ip_string = 1;
+	string in4_string = 1;
+	string in6_string = 2;
 }

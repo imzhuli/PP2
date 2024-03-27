@@ -49,7 +49,7 @@ public:
 	}
 
 	void OnHostQuery(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
-		auto R = network::xHostQuery();
+		auto R = network::xHostQueryReq();
 		if (!R.ParseFromArray(PayloadPtr, PayloadSize) || R.hostname().empty()) {
 			X_DEBUG_PRINTF("Invalid request format");
 			return;
@@ -57,9 +57,10 @@ public:
 		PostDnsRequest(R.hostname(), { .U64 = Header.RequestId });
 	}
 
-	void OnHostQueryResult(xVariable Context, const xNetAddress & Address) {
+	void OnHostQueryResult(xVariable Context, const xNetAddress & Address4, const xNetAddress & Address6) {
 		auto R = network::xHostQueryResp();
-		R.set_ip_string(Address.IpToString());
+		R.set_in4_string(Address4.IpToString());
+		R.set_in6_string(Address6.IpToString());
 		ubyte Buffer[MaxPacketSize];
 		auto  RSize = PbWritePacket(Cmd_HostQueryResp, Context.U64, Buffer, sizeof(Buffer), R);
 		PostData(Buffer, RSize);
@@ -76,17 +77,30 @@ void OnDnsWakeup(xVariable Ctx) {
 	PS->Wakeup();
 }
 
-void OnDnsResult(xVariable Ctx, const xNetAddress & A4) {
-	X_DEBUG_PRINTF("%" PRIx64 ":%s", Ctx.U64, A4.IpToString().c_str());
-	DnsService.OnHostQueryResult(Ctx, A4);
+void OnDnsResult(xVariable Ctx, const xNetAddress & A4, const xNetAddress & A6) {
+	X_DEBUG_PRINTF("%" PRIx64 ": ipv4=%s, ipv6=%s", Ctx.U64, A4.IpToString().c_str(), A6.IpToString().c_str());
+	DnsService.OnHostQueryResult(Ctx, A4, A6);
 }
 
 static xRunState RunState;
 
 int main(int argc, char ** argv) {
-	auto RunStateGuard   = xScopeGuard([] { RunState.Start(); }, [] { RunState.Finish(); });
-	auto DnsServiceGuard = xScopeGuard([] { DnsService.Init(xNetAddress::Parse("127.0.0.1:10001")); }, [] { DnsService.Clean(); });
-	auto CacheGuard      = xScopeGuard([] { InitDnsCache(OnDnsWakeup, { .P = &DnsService }); }, CleanDnsCache);
+	auto CL = xCommandLine(
+		argc, argv,
+		{
+			{ 'c', nullptr, "dispatcher_comsumer_address", true },
+		}
+	);
+
+	auto ConsumerAddressOpt = CL["dispatcher_comsumer_address"];
+	if (!ConsumerAddressOpt()) {
+		X_PERROR("missing option: -c dispatcher_comsumer_address");
+		return -1;
+	}
+
+	auto RunStateGuard   = xScopeGuard([&] { RunState.Start(); }, [] { RunState.Finish(); });
+	auto CacheGuard      = xScopeGuard([&] { InitDnsCache(OnDnsWakeup, { .P = &DnsService }); }, CleanDnsCache);
+	auto DnsServiceGuard = xScopeGuard([&] { DnsService.Init(xNetAddress::Parse(*ConsumerAddressOpt)); }, [] { DnsService.Clean(); });
 
 	auto Ticker = xTicker();
 	while (RunState) {

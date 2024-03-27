@@ -8,8 +8,10 @@
 class xTcpTester : public xClient {
 public:
 	void OnServerConnected() {
-		auto R = network::xHostQuery();
-		R.set_hostname("192.168.1.123");
+		auto R       = network::xHostQueryReq();
+		auto AddrStr = "www.baidu.com";
+
+		R.set_hostname(AddrStr);
 
 		ubyte  Buffer[MaxPacketSize];
 		size_t RSize = PbWritePacket(Cmd_HostQuery, 1, Buffer, sizeof(Buffer), R);

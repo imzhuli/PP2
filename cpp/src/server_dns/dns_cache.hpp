@@ -17,12 +17,13 @@ struct xDnsCacheNode : xListNode {
 	eState         State;
 	uint64_t       TimestampMS;
 	xNetAddress    A4;
+	xNetAddress    A6;
 	xList<xDnsReq> RequestList;
 };
 
-using xDnsResultCallback = void(xVariable Ctx, const xNetAddress & A4);
+using xDnsResultCallback = void(xVariable Ctx, const xNetAddress & A4, const xNetAddress & A6);
 
-extern void InitDnsCache(xNotifier Notifier, xVariable Ctx = {});
+extern void InitDnsCache(xNotifier Notifier, xVariable Ctx = {}, bool EnableLocal = false);
 extern void CleanDnsCache();
 
 extern bool PostDnsRequest(const std::string & Hostname, xVariable Ctx);

@@ -45,7 +45,7 @@ void DnsWorkerThread(xNotifier Notifier, xVariable Ctx) {
 		addrinfo * p     = {};
 
 		memset(&hints, 0, sizeof(hints));
-		hints.ai_family   = AF_INET;
+		hints.ai_family   = AF_UNSPEC;
 		hints.ai_socktype = SOCK_STREAM;
 
 		X_DEBUG_BREAKPOINT();
@@ -54,12 +54,16 @@ void DnsWorkerThread(xNotifier Notifier, xVariable Ctx) {
 		} else {
 			for (p = res; p != NULL; p = p->ai_next) {
 				if (p->ai_family == AF_INET) {  // IPv4
+					if (PJ->A4) {
+						continue;
+					}
 					PJ->A4 = xNetAddress::Parse((sockaddr_in *)p->ai_addr);
-					break;
+				} else if (p->ai_family == AF_INET6) {
+					if (PJ->A6) {
+						continue;
+					}
+					PJ->A6 = xNetAddress::Parse((sockaddr_in6 *)p->ai_addr);
 				}
-				// else if (p->ai_family == AF_INET) {
-				// 	PJ->A6 = xNetAddress::Parse((sockaddr_in6 *)p->ai_addr);
-				// }
 			}
 			freeaddrinfo(res);
 		}

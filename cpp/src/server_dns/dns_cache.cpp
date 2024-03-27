@@ -5,13 +5,15 @@
 #include <array>
 #include <unordered_map>
 
-static constexpr const uint64_t DnsReqTimeoutMS = 1'000;
+static constexpr const uint64_t    DnsReqTimeoutMS   = 1'000;
+static constexpr const xNetAddress InvalidNetAddress = {};
 
 static auto Threads      = std::array<std::thread, 50>();
 static auto RequestPool  = xIndexedStorage<xDnsReq>();
 static auto DnsReqTicker = xTicker();
 static auto DnsReqList   = xList<xDnsReq>();
 static auto DnsRunState  = xRunState();
+static auto EnableLocal  = false;
 
 static auto CacheMap = std::unordered_map<std::string, xDnsCacheNode *>();
 
@@ -30,6 +32,32 @@ static auto RPG = xResourceGuard(RequestPool, 10'000);
 // 	Output = PN->A4;
 // 	return true;
 // }
+
+bool IsLocal(const xNetAddress & Addr) {
+	if (Addr.IsV4()) {
+		ubyte B0 = Addr.SA4[0];
+		ubyte B1 = Addr.SA4[1];
+		if (B0 == 10) {
+			return true;
+		}
+		if (B0 == 192 && B1 == 168) {
+			return true;
+		}
+		if (B0 == 172 && (B1 >= 16 && B1 < 31)) {
+			return true;
+		}
+	} else if (Addr.IsV6()) {
+		ubyte B0 = Addr.SA6[0];
+		ubyte B1 = Addr.SA6[1];
+		if ((B0 & 0xFE) == 0xFC) {
+			return true;
+		}
+		if (B0 == 0xFE && (B1 & 0xC0 == 0x80)) {
+			return true;
+		}
+	}
+	return false;
+}
 
 bool PostDnsRequest(const std::string & Hostname, xVariable Ctx) {
 	auto ReqIndex = RequestPool.Acquire();
@@ -62,8 +90,19 @@ void DispatchResults(xDnsResultCallback Callback) {
 		auto & Job      = static_cast<xDnsJob &>(Node);
 		auto   ReqIndex = Job.JobCtx.U64;
 		auto   ReqPtr   = RequestPool.CheckAndGet(ReqIndex);
+		X_DEBUG_PRINTF("ReqPtr=%p, Id=%" PRIx64 "", ReqPtr, ReqIndex);
 		if (ReqPtr) {
-			Callback(ReqPtr->Context, Job.A4);
+			const xNetAddress * PA4 = &Job.A4;
+			const xNetAddress * PA6 = &Job.A6;
+			if (!EnableLocal) {
+				if (IsLocal(*PA4)) {
+					PA4 = &InvalidNetAddress;
+				}
+				if (IsLocal(*PA6)) {
+					PA6 = &InvalidNetAddress;
+				}
+			}
+			Callback(ReqPtr->Context, *PA4, *PA6);
 			RequestPool.Release(ReqIndex);
 		}
 		DeleteDnsJob(&Job);
@@ -77,7 +116,7 @@ void DispatchResults(xDnsResultCallback Callback) {
 			break;
 		}
 		assert(ReqPtr == RequestPool.CheckAndGet(N.Index));
-		Callback(ReqPtr->Context, {});
+		Callback(ReqPtr->Context, {}, {});
 		RequestPool.Release(N.Index);
 	}
 }
@@ -86,8 +125,9 @@ void ShrinkDnsCache() {
 	// TODO
 }
 
-void InitDnsCache(xNotifier Notifier, xVariable Ctx) {
+void InitDnsCache(xNotifier Notifier, xVariable Ctx, bool EnableLocal) {
 	RuntimeAssert(DnsRunState.Start());
+	::EnableLocal = EnableLocal;
 	for (auto & T : Threads) {
 		T = std::thread(DnsWorkerThread, Notifier, Ctx);
 	}
@@ -106,5 +146,6 @@ void CleanDnsCache() {
 			DeleteDnsJob(&J);
 		}
 	} while (false);
+	::EnableLocal = false;
 	DnsRunState.Finish();
 }

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package proxy;
+
+enum eConnectionState {
+    INIT = 0;
+    DNS_QUERY = 1;
+    CONNECTING = 2;
+    ESTABLISHED = 3;
+    CLOSED = 4;
+}
+
+message xNewConnection {
+    uint64 PA_ID = 1;
+}
