@@ -8,21 +8,25 @@
 class xPBinary : public xBinaryMessage {
 private:
 	void SerializeMembers() override {
-		auto S = std::string("Hello world!");
-		W1(0x01);
-		W2(0x0102);
-		W4(0x01020304);
-		W8(0x0102030405060708);
-		WB(S.data(), S.size());
-		WB(S.data(), S.size());
+
+		W(A);
+		W(B);
+		W(C);
+		W(D);
+
+		W(S1);
+		W(S2);
 	}
 	void DeserializeMembers() override {
-		auto A = R1();
-		auto B = R2();
-		auto C = R4();
-		auto D = R8();
-		auto E = RB();
-		auto F = RB();
+		R(A);
+		R(B);
+		R(C);
+		R(D);
+
+		std::string RS1;
+		std::string RS2;
+		R(RS1);
+		R(RS2);
 
 		std::ios saved_state(nullptr);
 		saved_state.copyfmt(std::cout);
@@ -31,21 +35,30 @@ private:
 		cout << std::hex;
 		cout << std::fixed;
 
-		cout << "A: " << std::setw(16) << std::setfill('0') << (unsigned int)A << endl;
+		cout << "A: " << std::setw(16) << std::setfill('0') << A << endl;
 		cout << "B: " << std::setw(16) << std::setfill('0') << B << endl;
 		cout << "C: " << std::setw(16) << std::setfill('0') << C << endl;
 		cout << "D: " << std::setw(16) << std::setfill('0') << D << endl;
-		cout << "E: [" << E << "]" << endl;
-		cout << "F: [" << F << "]" << endl;
+		cout << "RS1: [" << RS1 << "]" << endl;
+		cout << "RS2: [" << RS2 << "]" << endl;
 	}
+
+public:
+	int8_t      A  = -0x01;
+	int16_t     B  = -0x0102;
+	int32_t     C  = -0x01020304;
+	int64_t     D  = -0x0102030405060708;
+	std::string S1 = "Hello world! 1";
+	std::string S2 = "Hello world! 2";
 };
 
 int main(int argc, char ** argv) {
 
 	xPBinary T;
 
-	ubyte Buffer[64];
-	auto  RSize = T.Serialize(Buffer, sizeof(Buffer));
+	ubyte Buffer[64] = {};
+
+	auto RSize = T.Serialize(Buffer, sizeof(Buffer));
 
 	cout << "RSize: " << RSize << endl;
 	cout << HexShow(Buffer, RSize) << endl;
@@ -53,6 +66,5 @@ int main(int argc, char ** argv) {
 	auto DR = T.Deserialize(Buffer, std::min((size_t)sizeof(Buffer), RSize));
 	cout << "DR: " << DR << endl;
 
-	cout << 123 << endl;
 	return 0;
 }
