@@ -1,34 +1,55 @@
 #include "../common/base.hpp"
-#include "../common_protocol/protocol.hpp"
+#include "../common_protocol/protocol_binary.hpp"
 
 #include <core/core_min.hpp>
+#include <iomanip>
 #include <server_arch/client.hpp>
 
-class xTcpTester : public xClient {
-public:
-	void OnServerConnected() {
+class xPBinary : public xBinaryMessage {
+private:
+	void InternalSerialize() override {
+		auto S = std::string("Hello world!");
+		W1(0x01);
+		W2(0x0102);
+		W4(0x01020304);
+		W8(0x0102030405060708);
+		WB(S.data(), S.size());
 	}
+	void InternalDeserialize() override {
+		auto A = R1();
+		auto B = R2();
+		auto C = R4();
+		auto D = R8();
+		auto E = RB();
 
-	bool OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) override {
-		printf("OnPacket: Cmd=%" PRIx32 ", ReqId=%" PRIx64 "\n%s\n", Header.CommandId, Header.RequestId, HexShow(PayloadPtr, PayloadSize).c_str());
-		return true;
+		std::ios saved_state(nullptr);
+		saved_state.copyfmt(std::cout);
+		auto SG = xScopeGuard([&] { cout.copyfmt(saved_state); });
+
+		cout << std::hex;
+		cout << std::fixed;
+
+		cout << "A: " << std::setw(16) << std::setfill('0') << (unsigned int)A << endl;
+		cout << "B: " << std::setw(16) << std::setfill('0') << B << endl;
+		cout << "C: " << std::setw(16) << std::setfill('0') << C << endl;
+		cout << "D: " << std::setw(16) << std::setfill('0') << D << endl;
+		cout << "E: [" << E << "]" << endl;
 	}
 };
 
 int main(int argc, char ** argv) {
 
-	auto IoCtx = xIoContext();
-	auto ICG   = xResourceGuard(IoCtx);
+	xPBinary T;
 
-	auto Tester = xTcpTester();
-	auto TG     = xResourceGuard(Tester, &IoCtx, xNetAddress::Parse("127.0.0.1:10000"));
+	ubyte Buffer[64];
+	auto  RSize = T.Serialize(Buffer, 32);
 
-	auto T      = xTimer();
-	auto Ticker = xTicker();
-	while (!T.TestAndTag(std::chrono::seconds(2))) {
-		IoCtx.LoopOnce();
-		Tester.Tick(Ticker);
-	}
+	cout << "RSize: " << RSize << endl;
+	cout << HexShow(Buffer, RSize) << endl;
 
+	auto DR = T.Deserialize(Buffer, std::min((size_t)sizeof(Buffer), RSize));
+	cout << "DR: " << DR << endl;
+
+	cout << 123 << endl;
 	return 0;
 }

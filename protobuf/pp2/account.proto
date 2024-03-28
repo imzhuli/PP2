@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package account;
+
+message xValidateAccount
+{
+
+}
+
+message xValidateAccountResp
+{
+    uint64 AccountId  = 1;
+    bool   BanAccount = 2;
+}
+
+message xAuditAccountUsage
+{
+
+}

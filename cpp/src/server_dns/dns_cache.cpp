@@ -15,7 +15,7 @@ static auto DnsReqList   = xList<xDnsReq>();
 static auto DnsRunState  = xRunState();
 static auto EnableLocal  = false;
 
-static auto CacheMap = std::unordered_map<std::string, xDnsCacheNode *>();
+// static auto CacheMap = std::unordered_map<std::string, xDnsCacheNode *>();
 
 static auto RPG = xResourceGuard(RequestPool, 10'000);
 

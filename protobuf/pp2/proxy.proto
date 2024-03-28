@@ -2,12 +2,24 @@ syntax = "proto3";
 
 package proxy;
 
+message xChallenge {
+    string hw         = 1; // hello world!
+    uint32 country_id = 2;
+    uint32 city_id    = 3;
+}
+
+message xChallengeResp {
+    string server_address = 1;
+    string challenge_key = 2;
+    uint64 terminal_id = 3;
+}
+
 enum eConnectionState {
-    INIT = 0;
-    DNS_QUERY = 1;
-    CONNECTING = 2;
-    ESTABLISHED = 3;
-    CLOSED = 4;
+    INIT         = 0;
+    DNS_QUERY    = 1;
+    CONNECTING   = 2;
+    ESTABLISHED  = 3;
+    CLOSED       = 4;
 }
 
 message xNewConnection {
