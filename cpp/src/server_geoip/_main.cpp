@@ -1,6 +1,6 @@
 #include "../../pb/pp2/geo.pb.h"
 #include "../common/base.hpp"
-#include "../common_protocol/protocol.hpp"
+#include "../common_protocol/protocol_buffers.hpp"
 #include "../component/geo_ip.hpp"
 
 #include <core/core_min.hpp>

@@ -1,28 +1,40 @@
 #pragma once
-// #include "./protocol_binary.hpp"
+#include "./protocol_binary.hpp"
 
-// class xChallenge : public xBinaryMessage {
-// public:
-// public:
-// 	uint32_t country_id;
-// 	uint32_t city_id;
-// 	string   hw;  // hello world!
-// };
+class xChallenge : public xBinaryMessage {
+public:
+	void SerializeMembers() override {
+		W(CountryId);
+		W(CityId);
+		W(HW);
+	}
+	void DeserializeMembers() override {
+		R(CountryId);
+		R(CityId);
+		R(HW);
+	}
 
-// message xChallengeResp {
-//     string server_address = 1;
-//     string challenge_key = 2;
-//     uint64 terminal_id = 3;
-// }
+public:
+	uint32_t CountryId;
+	uint32_t CityId;
+	string   HW = "Hello World!";
+};
 
-// enum eConnectionState {
-//     INIT         = 0;
-//     DNS_QUERY    = 1;
-//     CONNECTING   = 2;
-//     ESTABLISHED  = 3;
-//     CLOSED       = 4;
-// }
+class xChallengeResp : public xBinaryMessage {
+public:
+	void SerializeMembers() override {
+		W(ServerAddress);
+		W(ChallengeKey);
+		W(TerminalId);
+	}
+	void DeserializeMembers() override {
+		R(ServerAddress);
+		R(ChallengeKey);
+		R(TerminalId);
+	}
 
-// message xNewConnection {
-//     uint64 PA_ID = 1;
-// }
+public:
+	std::string ServerAddress;
+	std::string ChallengeKey;
+	uint64_t    TerminalId;
+};

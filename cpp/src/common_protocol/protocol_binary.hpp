@@ -11,6 +11,8 @@ protected:
 	virtual void SerializeMembers();
 	virtual void DeserializeMembers();
 
+protected:
+	// W
 	template <typename T>
 	std::enable_if_t<std::is_integral_v<std::remove_reference_t<T &&>> && !std::is_rvalue_reference_v<T &&> && 1 == sizeof(T)> W(T && V) {
 		_W1(V);
@@ -31,7 +33,7 @@ protected:
 		_WB(V.data(), V.size());
 	}
 
-	//
+	// R
 	template <typename T>
 	std::enable_if_t<std::is_integral_v<T> && 1 == sizeof(T)> R(T & V) {
 		V = static_cast<T>(_R1());
@@ -155,6 +157,10 @@ private:
 		auto R = std::string();
 		R.resize(Size);
 		_ReadRawBlock(R.data(), Size);
+		if (_RemainSize < 0) {
+			_Reader.Skip(-4);
+			return {};
+		}
 		return R;
 	}
 
@@ -174,3 +180,5 @@ private:
 	xStreamReader _Reader;
 	ssize_t       _RemainSize = 0;
 };
+
+extern size_t WritePacket(xPacketCommandId CmdId, xPacketRequestId RequestId, void * Buffer, size_t BufferSize, xBinaryMessage & Message);

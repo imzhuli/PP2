@@ -1,7 +1,7 @@
 #include "../../pb/pp2/network.pb.h"
 #include "../common/base.hpp"
 #include "../common_job/job.hpp"
-#include "../common_protocol/protocol.hpp"
+#include "../common_protocol/protocol_buffers.hpp"
 #include "./audit.hpp"
 #include "./dns_cache.hpp"
 #include "./dns_job.hpp"

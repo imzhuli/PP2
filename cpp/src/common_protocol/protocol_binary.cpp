@@ -20,8 +20,7 @@ size_t xBinaryMessage::Deserialize(const void * Src, size_t Size) {
 	_Reader.Reset(Src);
 	_RemainSize = SSize;
 	DeserializeMembers();
-	Reset(_RemainSize);
-	return _Reader.Offset();
+	return Steal(_RemainSize) < 0 ? 0 : _Reader.Offset();
 }
 
 void xBinaryMessage::SerializeMembers() {
@@ -30,4 +29,22 @@ void xBinaryMessage::SerializeMembers() {
 
 void xBinaryMessage::DeserializeMembers() {
 	_RemainSize = -1;
+}
+
+/****************/
+size_t WritePacket(xPacketCommandId CmdId, xPacketRequestId RequestId, void * Buffer, size_t BufferSize, xBinaryMessage & Message) {
+	assert(BufferSize >= PacketHeaderSize);
+	auto PayloadPtr     = static_cast<ubyte *>(Buffer) + PacketHeaderSize;
+	auto MaxPayloadSize = BufferSize - PacketHeaderSize;
+	auto PayloadSize    = Message.Serialize(PayloadPtr, MaxPayloadSize);
+	if (!PayloadSize) {
+		return 0;
+	}
+
+	auto Header       = xPacketHeader();
+	Header.PacketSize = PacketHeaderSize + PayloadSize;
+	Header.CommandId  = CmdId;
+	Header.RequestId  = RequestId;
+	Header.Serialize(Buffer);
+	return Header.PacketSize;
 }
