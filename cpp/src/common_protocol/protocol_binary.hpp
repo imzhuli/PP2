@@ -13,7 +13,7 @@ public:
 
 		_Writer.Reset(Dst);
 		_RemainWriteSize = SSize;
-		InternalSerialize();
+		SerializeMembers();
 		if (Steal(_RemainWriteSize) < 0) {
 			return 0;
 		}
@@ -25,20 +25,21 @@ public:
 
 		_Reader.Reset(Src);
 		_RemainReadSize = SSize;
-		InternalDeserialize();
+		DeserializeMembers();
 		Reset(_RemainReadSize);
 		return _Reader.Offset();
 	}
 
 private:
-	virtual void InternalSerialize() {
+	virtual void SerializeMembers() {
 		_RemainWriteSize = -1;
 	}
-	virtual void InternalDeserialize() {
+	virtual void DeserializeMembers() {
 		_RemainReadSize = -1;
 	}
 
 protected:
+	/* write */
 	X_INLINE void W1(uint8_t V) {
 		auto RequiredSize = (ssize_t)sizeof(V);
 		if (_RemainWriteSize < RequiredSize) {
@@ -83,8 +84,7 @@ protected:
 		WriteRawBlock(Block, Size);
 	}
 
-	//
-
+	/* read */
 	X_INLINE uint8_t R1() {
 		auto RequiredSize = (ssize_t)sizeof(uint8_t);
 		if (_RemainReadSize < RequiredSize) {

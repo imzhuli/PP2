@@ -7,20 +7,22 @@
 
 class xPBinary : public xBinaryMessage {
 private:
-	void InternalSerialize() override {
+	void SerializeMembers() override {
 		auto S = std::string("Hello world!");
 		W1(0x01);
 		W2(0x0102);
 		W4(0x01020304);
 		W8(0x0102030405060708);
 		WB(S.data(), S.size());
+		WB(S.data(), S.size());
 	}
-	void InternalDeserialize() override {
+	void DeserializeMembers() override {
 		auto A = R1();
 		auto B = R2();
 		auto C = R4();
 		auto D = R8();
 		auto E = RB();
+		auto F = RB();
 
 		std::ios saved_state(nullptr);
 		saved_state.copyfmt(std::cout);
@@ -34,6 +36,7 @@ private:
 		cout << "C: " << std::setw(16) << std::setfill('0') << C << endl;
 		cout << "D: " << std::setw(16) << std::setfill('0') << D << endl;
 		cout << "E: [" << E << "]" << endl;
+		cout << "F: [" << F << "]" << endl;
 	}
 };
 
@@ -42,7 +45,7 @@ int main(int argc, char ** argv) {
 	xPBinary T;
 
 	ubyte Buffer[64];
-	auto  RSize = T.Serialize(Buffer, 32);
+	auto  RSize = T.Serialize(Buffer, sizeof(Buffer));
 
 	cout << "RSize: " << RSize << endl;
 	cout << HexShow(Buffer, RSize) << endl;
