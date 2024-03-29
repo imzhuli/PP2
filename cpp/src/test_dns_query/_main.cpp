@@ -7,7 +7,7 @@
 
 class xTcpTester : public xClient {
 public:
-	void OnServerConnected() {
+	void OnServerConnected() override {
 		auto R       = network::xHostQueryReq();
 		auto AddrStr = "www.baidu.com";
 

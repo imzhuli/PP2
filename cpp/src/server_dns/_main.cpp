@@ -36,7 +36,7 @@ public:
 		PostData(Buffer, RSize);
 	}
 
-	bool OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
+	bool OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) override {
 		X_DEBUG_PRINTF("");
 		switch (Header.CommandId) {
 			case Cmd_HostQuery:

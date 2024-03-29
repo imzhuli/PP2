@@ -25,7 +25,7 @@ public:
 		PostData(Buffer, RSize);
 	}
 
-	bool OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
+	bool OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) override {
 		switch (Header.CommandId) {
 			case Cmd_GeoQuery:
 				OnGeoQuery(Header, PayloadPtr, PayloadSize);
