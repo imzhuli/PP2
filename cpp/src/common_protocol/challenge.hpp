@@ -4,14 +4,10 @@
 class xChallenge : public xBinaryMessage {
 public:
 	void SerializeMembers() override {
-		W(CountryId);
-		W(CityId);
-		W(HW);
+		W(CountryId, CityId, HW);
 	}
 	void DeserializeMembers() override {
-		R(CountryId);
-		R(CityId);
-		R(HW);
+		R(CountryId, CityId, HW);
 	}
 
 public:
@@ -23,14 +19,10 @@ public:
 class xChallengeResp : public xBinaryMessage {
 public:
 	void SerializeMembers() override {
-		W(ServerAddress);
-		W(ChallengeKey);
-		W(TerminalId);
+		W(ServerAddress, ChallengeKey, TerminalId);
 	}
 	void DeserializeMembers() override {
-		R(ServerAddress);
-		R(ChallengeKey);
-		R(TerminalId);
+		R(ServerAddress, ChallengeKey, TerminalId);
 	}
 
 public:
