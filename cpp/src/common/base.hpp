@@ -16,6 +16,7 @@
 #include <network/tcp_server.hpp>
 #include <network/udp_channel.hpp>
 #include <server_arch/client.hpp>
+#include <server_arch/message.hpp>
 #include <server_arch/service.hpp>
 
 using namespace xel;

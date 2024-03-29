@@ -1,5 +1,5 @@
 #pragma once
-#include "./protocol_binary.hpp"
+#include "../common/base.hpp"
 
 class xChallenge : public xBinaryMessage {
 public:
