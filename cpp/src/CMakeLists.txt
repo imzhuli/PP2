@@ -68,6 +68,7 @@ build_app(server_dns)
 build_app(server_geoip)
 build_app(server_proxy_access)
 build_app(server_terminal)
+build_app(server_terminal_manager)
 
 build_app(test)
 build_app(test_consumer)
@@ -79,6 +80,7 @@ install(TARGETS
 	_server_geoip
 	_server_proxy_access
 	_server_terminal
+	_server_terminal_manager
 
 	_test
 	_test_consumer

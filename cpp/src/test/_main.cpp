@@ -1,24 +1,40 @@
 #include "../common/base.hpp"
-#include "../common_protocol/challenge.hpp"
+#include "../component/terminal_service.hpp"
 
-#include <core/core_min.hpp>
-#include <iomanip>
-#include <server_arch/client.hpp>
+static auto IoCtx    = xIoContext();
+static auto ICG      = xResourceGuard(IoCtx);
+static auto RunState = xRunState();
+static auto Ticker   = xTicker();
+
+class xRealTS : public xTerminalService {
+public:
+private:
+	void OnConnectionEstablished(uint64_t ConnectionId) {
+		X_DEBUG_PRINTF("");
+	}
+	void OnConnectionData(uint64_t ConnectionId, void * DataPtr, size_t DataSize) override {
+		X_DEBUG_PRINTF("DataFrom:%" PRIx64 ", \nData:%s", HexShow(DataPtr, DataSize).c_str());
+	}
+};
+
+static auto TS  = xRealTS();
+static auto TSG = xResourceGuard(TS, &IoCtx);
 
 int main(int argc, char ** argv) {
+	RunState.Start();
 
-	xChallenge C;
+	auto Op = xTerminalConnectionOptions{
+		xNetAddress::Parse("183.2.172.42"),
+		xNetAddress::Parse("192.168.5.105"),
+	};
+	auto CID = TS.CreateTerminalConnection(Op);
+	X_DEBUG_PRINTF("CID: %" PRIx64 "", CID);
 
-	ubyte Buffer[MaxPacketSize];
-	auto  RSize = WritePacket(0x01, 0x02, Buffer, sizeof(Buffer), C);
-
-	cout << "RSize: " << RSize << endl;
-	cout << HexShow(Buffer, RSize) << endl;
-
-	auto D = C.Deserialize(Buffer + PacketHeaderSize, RSize - PacketHeaderSize);
-	cout << D << endl;
-	cout << YN(D == RSize - PacketHeaderSize) << endl;
-	cout << C.HW << endl;
-
+	while (true) {
+		Ticker.Update();
+		IoCtx.LoopOnce();
+		TS.Tick(Ticker);
+	}
+	RunState.Finish();
 	return 0;
 }

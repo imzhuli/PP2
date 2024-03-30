@@ -1,8 +1,9 @@
 #include "../common/base.hpp"
-#include "./global.hpp"
+
+static auto IoCtx      = xIoContext();
+static auto IoCtxGuard = xResourceGuard(IoCtx);
 
 int main(int argc, char ** argv) {
-	auto GG = xScopeGuard(GlobalInit, GlobalClean);
 
 	return 0;
 }
