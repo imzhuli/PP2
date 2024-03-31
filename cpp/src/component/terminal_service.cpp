@@ -1,5 +1,7 @@
 #include "./terminal_service.hpp"
 
+static constexpr const uint64_t IdleConnectionTimeoutMS = 90'000;
+
 bool xTerminalService::Init(xIoContext * IoCtxPtr, size_t ConnectionPoolSize) {
 	if (!TerminalConnectionPool.Init(ConnectionPoolSize)) {
 		return false;
@@ -19,9 +21,14 @@ void xTerminalService::Clean() {
 void xTerminalService::Tick(uint64_t NowMS) {
 	Ticker.Update(NowMS);
 
-	// TODO: IdleConnectionList
-
-	//
+	auto KillTimepoint = NowMS - IdleConnectionTimeoutMS;
+	for (auto & N : IdleConnectionList) {
+		auto CP = UpCast(&N);
+		if (CP->LastTimestampMS > KillTimepoint) {
+			break;
+		}
+		KillConnection(CP);
+	}
 	KillConnections();
 }
 
@@ -34,6 +41,7 @@ uint64_t xTerminalService::CreateTerminalConnection(const xTerminalConnectionOpt
 	}
 	CP->ConnectionId    = Id;
 	CP->LastTimestampMS = Ticker;
+	IdleConnectionList.AddTail(*CP);
 	return Id;
 }
 
@@ -43,6 +51,14 @@ void xTerminalService::DestroyTerminalConnection(uint64_t ConnectionId) {
 		return;
 	}
 	KillConnectionList.GrabTail(*CP);
+}
+
+void xTerminalService::PostConnectionData(uint64_t ConnectionId, const void * DataPtr, size_t DataSize) {
+	auto CP = TerminalConnectionPool.CheckAndGet(ConnectionId);
+	if (!CP) {
+		return;
+	}
+	CP->PostData(DataPtr, DataSize);
 }
 
 void xTerminalService::KillConnections() {

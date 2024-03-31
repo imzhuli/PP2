@@ -29,12 +29,17 @@ public:
 	void     PostConnectionData(uint64_t ConnectionId, const void * DataPtr, size_t DataSize);
 	void     DestroyTerminalConnection(uint64_t ConnectionId);
 
+	xTerminalConnection * GetConnectionById(uint64_t ConnectionId) {
+		return TerminalConnectionPool.CheckAndGet(ConnectionId);
+	}
+
 protected:
 	virtual void OnConnectionEstablished(uint64_t ConnectionId){};
-	virtual void OnConnectionData(uint64_t ConnectionId, void * DataPtr, size_t DataSize){};
 	virtual void OnConnectionClosed(uint64_t ConnectionId){};
+	virtual bool OnConnectionData(uint64_t ConnectionId, void * DataPtr, size_t DataSize) {
+		return true;
+	};
 
-private:  // callbacks
 	X_INLINE xTerminalConnection * UpCast(xTcpConnection * TcpConnectionPtr) {
 		return static_cast<xTerminalConnection *>(TcpConnectionPtr);
 	}
@@ -42,6 +47,7 @@ private:  // callbacks
 		return static_cast<xTerminalConnection *>(NodePtr);
 	}
 
+private:  // callbacks
 	void OnConnected(xTcpConnection * TcpConnectionPtr) override {
 		X_DEBUG_PRINTF("");
 		auto CP = UpCast(TcpConnectionPtr);
@@ -50,16 +56,26 @@ private:  // callbacks
 	size_t OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, size_t DataSize) override {
 		X_DEBUG_PRINTF("");
 		auto CP = UpCast(TcpConnectionPtr);
-		OnConnectionData(CP->ConnectionId, DataPtr, DataSize);
-		return DataSize;
+		if (OnConnectionData(CP->ConnectionId, DataPtr, DataSize)) {
+			return DataSize;
+		}
+		return InvalidPacketSize;
 	}
 	void OnPeerClose(xTcpConnection * TcpConnectionPtr) override {
 		X_DEBUG_PRINTF("");
 		auto CP = UpCast(TcpConnectionPtr);
 		OnConnectionClosed(CP->ConnectionId);
+		KillConnection(CP);
 	}
 
 private:
+	void KeepAlive(xTerminalConnection * CP) {
+		CP->LastTimestampMS = Ticker;
+		IdleConnectionList.GrabTail(*CP);
+	}
+	void KillConnection(xTerminalConnection * CP) {
+		KillConnectionList.GrabTail(*CP);
+	}
 	void KillConnections();
 
 private:
