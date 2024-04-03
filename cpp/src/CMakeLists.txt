@@ -4,9 +4,11 @@ project (h4x_apps)
 message(STATUS ${X_INCLUDE_DIRS})
 message(STATUS ${X_LIBRARY_DIRS})
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/") 
+find_package(MySQL REQUIRED)
 
 include_directories(
+	${MYSQL_INCLUDE_DIR}
 	${LOCAL_3RD_INCLUDE_DIR}
 	${X_INCLUDE_DIRS}
 )
@@ -44,6 +46,7 @@ set(lib_dependency
 # local libs
 aux_source_directory("./common"                COMMON_SRC)
 aux_source_directory("./common_job"            COMMON_SRC)
+aux_source_directory("./common_mysql"          COMMON_SRC)
 aux_source_directory("./common_protocol"       COMMON_SRC)
 aux_source_directory("./common_web_service"    COMMON_SRC)
 aux_source_directory("./component"             COMMON_SRC)
