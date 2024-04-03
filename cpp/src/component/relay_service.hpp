@@ -29,6 +29,10 @@ public:
 	virtual void PostDataToTerminal(uint64_t TerminalId, uint64_t ConnectionId, const void * DataPtr, size_t DataSize);
 	virtual void PostDataToProxy(uint64_t SourceTerminalId, uint64_t ConnectionId, const void * DataPtr, size_t DataSize);
 
+	virtual void OnTerminalConnectionEstablished();
+	virtual void OnTerminalConnectionTimeout();  // local timeout
+	virtual void OnTerminalConnectionClosed();
+
 private:
 	xIndexedStorage<xProxyConnection> ProxyConnectionPool;
 };
