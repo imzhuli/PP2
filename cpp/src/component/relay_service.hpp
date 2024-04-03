@@ -2,6 +2,7 @@
 #include "../common/base.hpp"
 
 class xRelayConnection : xListNode {
+public:
 	uint64_t RelayConnectionId;
 	uint64_t TerminalId;
 	uint64_t TerminalConnectionId;
@@ -13,7 +14,7 @@ class xProxyConnection : xTcpConnection {};
 
 class xRelayService : private xService {
 public:
-	class xTerminalDecryptor {
+	struct xTerminalDecryptor {
 		uint64_t TerminalId;
 	};
 
