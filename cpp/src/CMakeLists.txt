@@ -24,7 +24,7 @@ link_directories(
 if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 	set(PLATFORM_LIBRARIES ws2_32 Mswsock)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
-	set(PLATFORM_LIBRARIES cap dl)
+	set(PLATFORM_LIBRARIES dl)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
 	find_library(COCOA_LIBRARY Cocoa REQUIRED)
 	find_library(IOKIT_LIBRARY IOKit REQUIRED)
