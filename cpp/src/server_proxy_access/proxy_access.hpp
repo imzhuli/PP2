@@ -1,5 +1,6 @@
 #pragma once
 #include "../common/base.hpp"
+#include "../common_protocol/client_auth.hpp"
 
 #include <unordered_map>
 
@@ -87,6 +88,10 @@ protected:
 class xProxyService
 	: public xTcpConnection::iListener
 	, public xTcpServer::iListener {
+private:
+	friend class xProxyRelayClient;
+	friend class xProxyDispatcherClient;
+
 public:
 	bool Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress, const xNetAddress & DispatcherAddress);
 	void Clean();
@@ -104,6 +109,9 @@ protected:
 	void   OnPeerClose(xTcpConnection * TcpConnectionPtr) override {
         KillClientConnection(UpCast(TcpConnectionPtr));
 	}
+
+	// from dispatch server
+	void OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp);
 
 protected:
 	void   OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) override;

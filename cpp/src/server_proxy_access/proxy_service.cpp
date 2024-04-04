@@ -3,7 +3,19 @@
 
 // xDispatcherClient
 bool xProxyDispatcherClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
-	X_DEBUG_PRINTF("Dispatcher client :\n%s", HexShow(PayloadPtr, PayloadSize).c_str());
+	X_DEBUG_PRINTF("Dispatcher client CmdId=%" PRIx64 ":\n%s", Header.CommandId, HexShow(PayloadPtr, PayloadSize).c_str());
+	switch (Header.CommandId) {
+		case Cmd_ProxyClientAuthResp: {
+			auto Resp = xProxyClientAuthResp();
+			if (!Resp.Deserialize(PayloadPtr, PayloadSize)) {
+				break;
+			}
+			ProxyServicePtr->OnAuthResponse(Header.RequestId, Resp);
+			break;
+		}
+		default:
+			break;
+	}
 	return true;
 }
 
@@ -147,6 +159,10 @@ void xProxyService::PostAuthRequest(xProxyClientConnection * CCP, const std::str
 		return;
 	}
 	DispatcherClient.PostData(Buffer, RSize);
+}
+
+void xProxyService::OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp) {
+	X_DEBUG_PRINTF("");
 }
 
 void xProxyService::ShrinkAuthTimeout() {
