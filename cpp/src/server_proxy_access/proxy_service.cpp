@@ -1,4 +1,5 @@
 #include "../common_protocol/client_auth.hpp"
+#include "../common_protocol/network.hpp"
 #include "./proxy_access.hpp"
 
 // xDispatcherClient
@@ -11,6 +12,14 @@ bool xProxyDispatcherClient::OnPacket(const xPacketHeader & Header, ubyte * Payl
 				break;
 			}
 			ProxyServicePtr->OnAuthResponse(Header.RequestId, Resp);
+			break;
+		}
+		case Cmd_HostQueryResp: {
+			auto Resp = xHostQueryResp();
+			if (!Resp.Deserialize(PayloadPtr, PayloadSize)) {
+				break;
+			}
+			ProxyServicePtr->OnDnsResponse(Header.RequestId, Resp);
 			break;
 		}
 		default:
@@ -152,6 +161,75 @@ size_t xProxyService::OnClientS5Auth(xProxyClientConnection * CCP, void * DataPt
 
 size_t xProxyService::OnClientS5Connect(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
 	X_DEBUG_PRINTF("Request data: \n%s", HexShow(DataPtr, DataSize).c_str());
+
+	if (DataSize < 10) {
+		return 0;
+	}
+	if (DataSize >= 6 + 256) {
+		X_DEBUG_PRINTF("Very big connection request, which is obviously wrong");
+		return InvalidDataSize;
+	}
+	xStreamReader R(DataPtr);
+	uint8_t       Version   = R.R();
+	uint8_t       Operation = R.R();
+	uint8_t       Reserved  = R.R();
+	uint8_t       AddrType  = R.R();
+	if (Version != 0x05 || Reserved != 0x00) {
+		X_DEBUG_PRINTF("Non Socks5 connection request");
+		return InvalidDataSize;
+	}
+	xNetAddress Address;
+	char        DomainName[256];
+	size_t      DomainNameLength = 0;
+	if (AddrType == 0x01) {  // ipv4
+		Address.Type = xNetAddress::IPV4;
+		R.R(Address.SA4, 4);
+		Address.Port = R.R2();
+	} else if (AddrType == 0x04) {  // ipv6
+		if (DataSize < 4 + 16 + 2) {
+			return 0;
+		}
+		Address.Type = xNetAddress::IPV6;
+		R.R(Address.SA6, 16);
+		Address.Port = R.R2();
+	} else if (AddrType == 0x03) {
+		DomainNameLength = R.R();
+		if (DataSize < 4 + 1 + DomainNameLength + 2) {
+			return 0;
+		}
+		R.R(DomainName, DomainNameLength);
+		DomainName[DomainNameLength] = '\0';
+		Address.Port                 = R.R2();
+	} else {
+		X_DEBUG_PRINTF("invalid connection request type");
+		return InvalidDataSize;
+	}
+	size_t AddressLength = R.Offset() - 3;
+	if (Operation != 0x01 || AddrType == 0x06) {
+		X_DEBUG_PRINTF("Operation other than tcp ipv4/domain connection");
+		ubyte         Buffer[512];
+		xStreamWriter W(Buffer);
+		W.W(0x05);
+		W.W(0x01);
+		W.W(0x00);
+		W.W((ubyte *)DataPtr + 3, AddressLength);
+		CCP->PostData(Buffer, W.Offset());
+		FlushAndKillClientConnection(CCP);
+		return DataSize;
+	}
+	CCP->TargetAddress = Address;
+
+	if (DomainNameLength) {  // dns query first
+		CCP->State = CLIENT_STATE_S5_WAIT_FOR_DNS_RESULT;
+		PostDnsRequest(CCP, { DomainName, DomainNameLength });
+		return DataSize;
+	}
+
+	X_DEBUG_PRINTF("DirectConnect: %s", Address.IpToString().c_str());
+	if (!MakeS5NewConnection(CCP, Address)) {
+		X_DEBUG_PRINTF("Failed to establish connection to relay server");
+		return InvalidDataSize;
+	}
 	return DataSize;
 }
 
@@ -167,6 +245,25 @@ void xProxyService::PostAuthRequest(xProxyClientConnection * CCP, const std::str
 		return;
 	}
 	DispatcherClient.PostData(Buffer, RSize);
+}
+
+void xProxyService::PostDnsRequest(xProxyClientConnection * CCP, const std::string & Hostname) {
+	auto Req     = xHostQueryReq();
+	Req.Hostname = Hostname;
+
+	ubyte Buffer[MaxPacketSize];
+	auto  RSize = WritePacket(Cmd_HostQuery, CCP->ClientConnectionId, Buffer, sizeof(Buffer), Req);
+	if (!RSize) {
+		return;
+	}
+	DispatcherClient.PostData(Buffer, RSize);
+}
+
+bool xProxyService::MakeS5NewConnection(xProxyClientConnection * CCP, const xNetAddress & Address) {
+	CCP->State         = CLIENT_STATE_S5_TCP_CONNECTING;
+	CCP->TargetAddress = Address;
+	X_DEBUG_PRINTF("TargetAddress: %s", Address.ToString().c_str());
+	return false;
 }
 
 void xProxyService::OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp) {
@@ -190,6 +287,32 @@ void xProxyService::OnAuthResponse(uint64_t ClientConnectionId, const xProxyClie
 			CCP->State                      = CLIENT_STATE_S5_AUTH_DONE;
 			CCP->PostData("\x01\x00", 2);
 			return;
+		}
+		default: {
+			X_DEBUG_PRINTF("invalid auth result");
+			KillClientConnection(CCP);
+			break;
+		}
+	}
+}
+
+void xProxyService::OnDnsResponse(uint64_t ClientConnectionId, const xHostQueryResp & DnsResp) {
+	auto CCP = ClientConnectionPool.CheckAndGet(ClientConnectionId);
+	if (!CCP) {
+		X_DEBUG_PRINTF("Connection not found, check request delay!");
+		return;
+	}
+	switch (CCP->State) {
+		case CLIENT_STATE_S5_WAIT_FOR_DNS_RESULT: {
+			X_DEBUG_PRINTF("DNS Result: Ipv4=%s", DnsResp.Addr4.IpToString().c_str());
+			auto TargetAddress = DnsResp.Addr4;
+			TargetAddress.Port = CCP->TargetAddress.Port;  // restore port
+			if (!DnsResp.Addr4 || !MakeS5NewConnection(CCP, TargetAddress)) {
+				X_DEBUG_PRINTF("Failed to establish connection to relay server");
+				KillClientConnection(CCP);
+				return;
+			}
+			break;
 		}
 		default: {
 			X_DEBUG_PRINTF("invalid auth result");

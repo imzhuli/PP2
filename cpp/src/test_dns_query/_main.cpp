@@ -1,6 +1,5 @@
-#include "../../pb/pp2/network.pb.h"
 #include "../common/base.hpp"
-#include "../common_protocol/protocol_buffers.hpp"
+#include "../common_protocol/network.hpp"
 
 #include <core/core_min.hpp>
 #include <server_arch/client.hpp>
@@ -8,13 +7,13 @@
 class xTcpTester : public xClient {
 public:
 	void OnServerConnected() override {
-		auto R       = network::xHostQueryReq();
+		auto R       = xHostQueryReq();
 		auto AddrStr = "www.baidu.com";
 
-		R.set_hostname(AddrStr);
+		R.Hostname = AddrStr;
 
 		ubyte  Buffer[MaxPacketSize];
-		size_t RSize = PbWritePacket(Cmd_HostQuery, 1, Buffer, sizeof(Buffer), R);
+		size_t RSize = WritePacket(Cmd_HostQuery, 1, Buffer, sizeof(Buffer), R);
 
 		cout << HexShow(Buffer, RSize) << endl;
 		PostData(Buffer, RSize);

@@ -1,7 +1,6 @@
-#include "../../pb/pp2/network.pb.h"
 #include "../common/base.hpp"
 #include "../common_job/job.hpp"
-#include "../common_protocol/protocol_buffers.hpp"
+#include "../common_protocol/network.hpp"
 #include "./audit.hpp"
 #include "./dns_cache.hpp"
 #include "./dns_job.hpp"
@@ -49,20 +48,20 @@ public:
 	}
 
 	void OnHostQuery(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
-		auto R = network::xHostQueryReq();
-		if (!R.ParseFromArray(PayloadPtr, PayloadSize) || R.hostname().empty()) {
+		auto R = xHostQueryReq();
+		if (!R.Deserialize(PayloadPtr, PayloadSize) || R.Hostname.empty()) {
 			X_DEBUG_PRINTF("Invalid request format");
 			return;
 		}
-		PostDnsRequest(R.hostname(), { .U64 = Header.RequestId });
+		PostDnsRequest(R.Hostname, { .U64 = Header.RequestId });
 	}
 
 	void OnHostQueryResult(xVariable Context, const xNetAddress & Address4, const xNetAddress & Address6) {
-		auto R = network::xHostQueryResp();
-		R.set_in4_string(Address4.IpToString());
-		R.set_in6_string(Address6.IpToString());
+		auto R  = xHostQueryResp();
+		R.Addr4 = Address4;
+		R.Addr6 = Address6;
 		ubyte Buffer[MaxPacketSize];
-		auto  RSize = PbWritePacket(Cmd_HostQueryResp, Context.U64, Buffer, sizeof(Buffer), R);
+		auto  RSize = WritePacket(Cmd_HostQueryResp, Context.U64, Buffer, sizeof(Buffer), R);
 		PostData(Buffer, RSize);
 	}
 

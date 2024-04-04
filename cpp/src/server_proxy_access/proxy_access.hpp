@@ -1,6 +1,7 @@
 #pragma once
 #include "../common/base.hpp"
 #include "../common_protocol/client_auth.hpp"
+#include "../common_protocol/network.hpp"
 
 #include <unordered_map>
 
@@ -29,7 +30,7 @@ enum eClientState {
 	CLIENT_STATE_S5_AUTH_DONE,
 	CLIENT_STATE_S5_AUTH_FAILED,
 
-	CLIENT_STATE_S5_TCP_QUERY_HOST,
+	CLIENT_STATE_S5_WAIT_FOR_DNS_RESULT,
 	CLIENT_STATE_S5_TCP_CONNECTING,
 	CLIENT_STATE_S5_TCP_ESTABLISHED,
 	CLIENT_STATE_S5_TCP_CLOSED,
@@ -65,6 +66,7 @@ public:
 	xIndexId     TerminalControllerIndex    = {};
 	xIndexId     TerminalControllerSubIndex = {};
 	xIndexId     TerminalConnectionId       = {};
+	xNetAddress  TargetAddress              = {};
 
 	void SetCloseOnFlush() {
 		CloseOnFlush = true;
@@ -127,6 +129,7 @@ protected:
 
 	// from dispatch server
 	void OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp);
+	void OnDnsResponse(uint64_t ClientConnectionId, const xHostQueryResp & DnsResp);
 
 protected:
 	void   OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) override;
@@ -135,6 +138,9 @@ protected:
 	size_t OnClientS5Connect(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 
 	void PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
+	void PostDnsRequest(xProxyClientConnection * CCP, const std::string & Hostname);
+	bool MakeS5NewConnection(xProxyClientConnection * CCP, const xNetAddress & Address);
+
 	void FlushAndKillClientConnection(xProxyClientIdleNode * NodePtr) {
 		auto CCP = static_cast<xProxyClientConnection *>(NodePtr);
 		if (CCP->HasPendingWrites()) {
