@@ -13,6 +13,7 @@ void OutputAudit(uint64_t NowMS) {
 
 	cout << "Audit DiffMS=" << (Diff / 1000) << endl;
 	cout << ": AuthCacheSize=" << ProxyAudit.AuthCacheSize;
+	cout << ", ClientConnectionCount=" << ProxyAudit.ClientConnectionCount;
 	//
 	cout << ", AuthCacheOverflow=" << Steal(ProxyAudit.AuthCacheOverflow);
 	cout << ", AuthCacheFailure=" << Steal(ProxyAudit.AuthCacheFailure);

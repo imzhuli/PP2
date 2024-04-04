@@ -4,7 +4,7 @@ project (h4x_apps)
 message(STATUS ${X_INCLUDE_DIRS})
 message(STATUS ${X_LIBRARY_DIRS})
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/") 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 find_package(MySQL REQUIRED)
 
 include_directories(
@@ -67,6 +67,7 @@ function(build_app sub_dir_name)
 	target_link_libraries(_${sub_dir_name} PRIVATE ${lib_dependency})
 endfunction()
 
+build_app(server_auth)
 build_app(server_dns)
 build_app(server_geoip)
 build_app(server_proxy_access)
@@ -79,6 +80,7 @@ build_app(test_dns_query)
 build_app(test_geoip)
 
 install(TARGETS
+	_server_auth
 	_server_dns
 	_server_geoip
 	_server_proxy_access

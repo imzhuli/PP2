@@ -59,7 +59,7 @@ private:  // callbacks
 		if (OnConnectionData(CP->ConnectionId, DataPtr, DataSize)) {
 			return DataSize;
 		}
-		return InvalidPacketSize;
+		return InvalidDataSize;
 	}
 	void OnPeerClose(xTcpConnection * TcpConnectionPtr) override {
 		X_DEBUG_PRINTF("");

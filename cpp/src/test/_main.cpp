@@ -6,7 +6,8 @@ static auto ICG      = xResourceGuard(IoCtx);
 static auto RunState = xRunState();
 static auto Ticker   = xTicker();
 
-static const char * GET = "GET / HTTP/1.1\r\nHost: www.baidu.com\r\n\r\n";
+static const char * GET      = "GET / HTTP/1.1\r\nHost: www.baidu.com\r\n\r\n";
+static auto         TouchAll = xInstantRun([] { Touch(GET); });
 
 class xRealTS : public xTerminalService {
 public:
@@ -20,22 +21,52 @@ private:
 static auto TS  = xRealTS();
 static auto TSG = xResourceGuard(TS, &IoCtx);
 
+struct xBM : xBinaryMessage {
+
+	void SerializeMembers() override {
+		W(EmptyString, I, Addr);
+	}
+	void DeserializeMembers() override {
+		R(EmptyString, I, Addr);
+	}
+
+	std::string EmptyString = "Something!!!";
+	int         I           = 12345;
+
+	xNetAddress Addr = xNetAddress::Parse("192.168.123.1:8080");
+};
+
 int main(int argc, char ** argv) {
 	RunState.Start();
 
-	auto Op = xTerminalConnectionOptions{
-		xNetAddress::Parse("183.2.172.42:80"),
-		xNetAddress::Parse("192.168.5.106"),
-	};
-	auto CID = TS.CreateTerminalConnection(Op);
-	X_DEBUG_PRINTF("CID: %" PRIx64 "", CID);
-	TS.PostConnectionData(CID, GET, strlen(GET));
+	ubyte Buffer[1024];
 
-	while (true) {
-		Ticker.Update();
-		IoCtx.LoopOnce();
-		TS.Tick(Ticker);
-	}
+	xBM BM;
+	cout << ", " << BM.EmptyString.length() << endl;
+	auto WS = BM.Serialize(Buffer, sizeof(Buffer));
+	cout << "B: " << HexShow(Buffer, WS) << endl;
+	BM.EmptyString = "Hello world!";
+	BM.I           = 0;
+	BM.Addr        = xNetAddress();
+	BM.Deserialize(Buffer, sizeof(Buffer));
+
+	cout << "BM.EmptyString: " << BM.EmptyString << ", " << BM.EmptyString.length() << endl;
+	cout << "BM.I: " << BM.I << endl;
+	cout << "BM.Addr: " << BM.Addr.ToString() << endl;
+
+	// auto Op = xTerminalConnectionOptions{
+	// 	xNetAddress::Parse("183.2.172.42:80"),
+	// 	xNetAddress::Parse("192.168.5.106"),
+	// };
+	// auto CID = TS.CreateTerminalConnection(Op);
+	// X_DEBUG_PRINTF("CID: %" PRIx64 "", CID);
+	// TS.PostConnectionData(CID, GET, strlen(GET));
+
+	// while (true) {
+	// 	Ticker.Update();
+	// 	IoCtx.LoopOnce();
+	// 	TS.Tick(Ticker);
+	// }
 	RunState.Finish();
 	return 0;
 }

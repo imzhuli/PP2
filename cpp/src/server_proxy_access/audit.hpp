@@ -7,6 +7,9 @@ struct xProxyAudit {
 	// cleared periodically
 	size_t AuthCacheOverflow = 0;
 	size_t AuthCacheFailure  = 0;  // 考虑到有攻击的可能性, 仅作为参考
+
+	// client
+	size_t ClientConnectionCount = 0;
 };
 
 extern xProxyAudit ProxyAudit;
