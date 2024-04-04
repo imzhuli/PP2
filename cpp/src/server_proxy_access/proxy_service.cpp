@@ -47,6 +47,7 @@ void xProxyService::Tick(uint64_t NowMS) {
 
 	ShrinkAuthTimeout();
 	ShrinkIdleTimeout();
+	ShrinkFlushTimeout();
 	ShrinkKillList();
 }
 
@@ -162,7 +163,28 @@ void xProxyService::PostAuthRequest(xProxyClientConnection * CCP, const std::str
 }
 
 void xProxyService::OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp) {
-	X_DEBUG_PRINTF("");
+	auto CCP = ClientConnectionPool.CheckAndGet(ClientConnectionId);
+	if (!CCP) {
+		X_DEBUG_PRINTF("Connection not found, check request delay!");
+		return;
+	}
+	switch (CCP->State) {
+		case CLIENT_STATE_S5_WAIT_FOR_AUTH_RESULT: {
+			X_DEBUG_PRINTF("S5 auth result");
+			if (!AuthResp.AuditKey) {
+				X_DEBUG_PRINTF("No audit id found, close connection");
+				CCP->State = CLIENT_STATE_S5_AUTH_FAILED;
+				CCP->PostData("\x01\x01", 2);
+				FlushAndKillClientConnection(CCP);
+			}
+			break;
+		}
+		default: {
+			X_DEBUG_PRINTF("invalid auth result");
+			KillClientConnection(CCP);
+			break;
+		}
+	}
 }
 
 void xProxyService::ShrinkAuthTimeout() {
@@ -178,6 +200,16 @@ void xProxyService::ShrinkAuthTimeout() {
 void xProxyService::ShrinkIdleTimeout() {
 	auto KillTimepoint = NowMS - TCP_CONNECTION_IDLE_TIMEOUT_MS;
 	for (auto & N : ClientIdleTimeoutList) {
+		if (N.TimestampMS > KillTimepoint) {
+			break;
+		}
+		KillClientConnection(&N);
+	}
+}
+
+void xProxyService::ShrinkFlushTimeout() {
+	auto KillTimepoint = NowMS - TCP_CONNECTION_FLUSH_TIMEOUT_MS;
+	for (auto & N : ClientFlushTimeoutList) {
 		if (N.TimestampMS > KillTimepoint) {
 			break;
 		}

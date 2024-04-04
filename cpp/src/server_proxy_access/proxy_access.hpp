@@ -4,10 +4,11 @@
 
 #include <unordered_map>
 
-static constexpr const uint64_t TCP_CONNECTION_AUTH_TIMEOUT_MS = 15'000;  // auth and connection
-static constexpr const uint64_t TCP_CONNECTION_IDLE_TIMEOUT_MS = 125'000;
-static constexpr const uint64_t MAX_PROXY_RELAY_CONNECTION     = 2'0000;
-static constexpr const uint64_t MAX_PROXY_CLIENT_CONNECTION    = 50'0000;
+static constexpr const uint64_t TCP_CONNECTION_AUTH_TIMEOUT_MS  = 15'000;  // auth and connection
+static constexpr const uint64_t TCP_CONNECTION_IDLE_TIMEOUT_MS  = 125'000;
+static constexpr const uint64_t TCP_CONNECTION_FLUSH_TIMEOUT_MS = 3'000;
+static constexpr const uint64_t MAX_PROXY_RELAY_CONNECTION      = 2'0000;
+static constexpr const uint64_t MAX_PROXY_CLIENT_CONNECTION     = 50'0000;
 
 class xProxyClientConnection;
 class xProxyRelayClient;
@@ -62,6 +63,11 @@ public:
 	xIndexId     ClientConnectionId   = {};
 	xIndexId     RelayConnectionId    = {};
 	xIndexId     TerminalConnectionId = {};
+
+	void SetCloseOnFlush() {
+		CloseOnFlush = true;
+	}
+	bool CloseOnFlush = false;
 };
 
 class xProxyRelayClient : public xClient {};
@@ -106,8 +112,15 @@ protected:
 		return static_cast<xProxyClientConnection *>(TcpConnectionPtr);
 	}
 	size_t OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, size_t DataSize) override;
-	void   OnPeerClose(xTcpConnection * TcpConnectionPtr) override {
-        KillClientConnection(UpCast(TcpConnectionPtr));
+	void   OnFlush(xTcpConnection * TcpConnectionPtr) override {
+        auto CCP = UpCast(TcpConnectionPtr);
+        X_DEBUG_PRINTF("OnFlushKill, CID=%" PRIx64 "", CCP->ClientConnectionId);
+        if (CCP->CloseOnFlush) {
+            KillClientConnection(CCP);
+        }
+	}
+	void OnPeerClose(xTcpConnection * TcpConnectionPtr) override {
+		KillClientConnection(UpCast(TcpConnectionPtr));
 	}
 
 	// from dispatch server
@@ -119,11 +132,21 @@ protected:
 	size_t OnClientS5Auth(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 	void   PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
 
+	void FlushAndKillClientConnection(xProxyClientIdleNode * NodePtr) {
+		auto CCP = static_cast<xProxyClientConnection *>(NodePtr);
+		if (CCP->HasPendingWrites()) {
+			CCP->SetCloseOnFlush();
+			ClientFlushTimeoutList.GrabTail(*CCP);
+			return;
+		}
+		ClientKillList.GrabTail(*NodePtr);
+	}
 	void KillClientConnection(xProxyClientIdleNode * NodePtr) {
 		ClientKillList.GrabTail(*NodePtr);
 	}
 	void ShrinkAuthTimeout();
 	void ShrinkIdleTimeout();
+	void ShrinkFlushTimeout();
 	void ShrinkKillList();
 
 protected:
@@ -136,6 +159,7 @@ protected:
 
 	xList<xProxyClientIdleNode> ClientAuthTimeoutList;
 	xList<xProxyClientIdleNode> ClientIdleTimeoutList;
+	xList<xProxyClientIdleNode> ClientFlushTimeoutList;
 	xList<xProxyClientIdleNode> ClientKillList;
 
 	size_t AuditClientConnectionCount = 0;
