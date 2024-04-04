@@ -47,7 +47,7 @@ protected:
 
 		auto Resp = xProxyClientAuthResp();
 		// TODO: use real data
-		Resp.AuditKey                   = 0;
+		Resp.AuditKey                   = 1;
 		Resp.CacheTimeout               = 300;
 		Resp.TerminalControllerAddress  = xNetAddress::Parse("192.168.123.45:6789");  // relay server, or terminal service address
 		Resp.TerminalControllerSubIndex = 1024;                                       // index in relay server

@@ -76,6 +76,8 @@ size_t xProxyService::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, 
 			return OnClientInit(CCP, DataPtr, DataSize);
 		case CLIENT_STATE_S5_WAIT_FOR_CLIENT_AUTH:
 			return OnClientS5Auth(CCP, DataPtr, DataSize);
+		case CLIENT_STATE_S5_AUTH_DONE:
+			return OnClientS5Connect(CCP, DataPtr, DataSize);
 		default:
 			X_DEBUG_PRINTF("Unprocessed data: \n%s", HexShow(DataPtr, DataSize).c_str());
 			break;
@@ -148,6 +150,11 @@ size_t xProxyService::OnClientS5Auth(xProxyClientConnection * CCP, void * DataPt
 	return R.Offset();
 }
 
+size_t xProxyService::OnClientS5Connect(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
+	X_DEBUG_PRINTF("Request data: \n%s", HexShow(DataPtr, DataSize).c_str());
+	return DataSize;
+}
+
 void xProxyService::PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView) {
 	auto Req          = xProxyClientAuth();
 	Req.AddressString = CCP->GetRemoteAddress().ToString();
@@ -176,8 +183,13 @@ void xProxyService::OnAuthResponse(uint64_t ClientConnectionId, const xProxyClie
 				CCP->State = CLIENT_STATE_S5_AUTH_FAILED;
 				CCP->PostData("\x01\x01", 2);
 				FlushAndKillClientConnection(CCP);
+				return;
 			}
-			break;
+			CCP->TerminalControllerAddress  = AuthResp.TerminalControllerAddress;
+			CCP->TerminalControllerSubIndex = AuthResp.TerminalControllerSubIndex;
+			CCP->State                      = CLIENT_STATE_S5_AUTH_DONE;
+			CCP->PostData("\x01\x00", 2);
+			return;
 		}
 		default: {
 			X_DEBUG_PRINTF("invalid auth result");

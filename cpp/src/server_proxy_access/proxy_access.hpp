@@ -58,11 +58,13 @@ class xProxyClientConnection
 	: public xTcpConnection
 	, public xProxyClientIdleNode {
 public:
-	eProxyType   Type                 = PROXY_TYPE_UNSPEC;
-	eClientState State                = CLIENT_STATE_INIT;
-	xIndexId     ClientConnectionId   = {};
-	xIndexId     RelayConnectionId    = {};
-	xIndexId     TerminalConnectionId = {};
+	eProxyType   Type                       = PROXY_TYPE_UNSPEC;
+	eClientState State                      = CLIENT_STATE_INIT;
+	xIndexId     ClientConnectionId         = {};
+	xNetAddress  TerminalControllerAddress  = {};
+	xIndexId     TerminalControllerIndex    = {};
+	xIndexId     TerminalControllerSubIndex = {};
+	xIndexId     TerminalConnectionId       = {};
 
 	void SetCloseOnFlush() {
 		CloseOnFlush = true;
@@ -130,8 +132,9 @@ protected:
 	void   OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) override;
 	size_t OnClientInit(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 	size_t OnClientS5Auth(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
-	void   PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
+	size_t OnClientS5Connect(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 
+	void PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
 	void FlushAndKillClientConnection(xProxyClientIdleNode * NodePtr) {
 		auto CCP = static_cast<xProxyClientConnection *>(NodePtr);
 		if (CCP->HasPendingWrites()) {
