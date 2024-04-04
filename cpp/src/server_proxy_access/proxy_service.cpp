@@ -1,10 +1,18 @@
 #include "../common_protocol/client_auth.hpp"
 #include "./proxy_access.hpp"
 
+// xDispatcherClient
+bool xProxyDispatcherClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
+	X_DEBUG_PRINTF("Dispatcher client :\n%s", HexShow(PayloadPtr, PayloadSize).c_str());
+	return true;
+}
+
+// xProxyService
+
 bool xProxyService::Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress, const xNetAddress & DispatcherAddress) {
 	assert(IoCtxPtr && BindAddress && DispatcherAddress);
 	RuntimeAssert(TcpServer.Init(IoCtxPtr, BindAddress, this, true));
-	RuntimeAssert(DispatcherClient.Init(IoCtxPtr, DispatcherAddress));
+	RuntimeAssert(DispatcherClient.Init(IoCtxPtr, DispatcherAddress, this));
 	RuntimeAssert(RelayClientPool.Init(MAX_PROXY_RELAY_CONNECTION));
 	RuntimeAssert(ClientConnectionPool.Init(MAX_PROXY_CLIENT_CONNECTION));
 
