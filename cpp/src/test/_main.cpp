@@ -24,16 +24,18 @@ static auto TSG = xResourceGuard(TS, &IoCtx);
 struct xBM : xBinaryMessage {
 
 	void SerializeMembers() override {
-		W(EmptyString, I, Addr);
+		W(EmptyString, I, Addr, J);
 	}
 	void DeserializeMembers() override {
-		R(EmptyString, I, Addr);
+		R(EmptyString, I, AddrView, J);
 	}
 
 	std::string EmptyString = "Something!!!";
 	int         I           = 12345;
+	xNetAddress Addr        = xNetAddress::Parse("192.168.123.1:8080");
+	int         J           = 7890;
 
-	xNetAddress Addr = xNetAddress::Parse("192.168.123.1:8080");
+	std::string_view AddrView;
 };
 
 int main(int argc, char ** argv) {
@@ -48,11 +50,13 @@ int main(int argc, char ** argv) {
 	BM.EmptyString = "Hello world!";
 	BM.I           = 0;
 	BM.Addr        = xNetAddress();
+	BM.J           = 0;
 	BM.Deserialize(Buffer, sizeof(Buffer));
 
 	cout << "BM.EmptyString: " << BM.EmptyString << ", " << BM.EmptyString.length() << endl;
 	cout << "BM.I: " << BM.I << endl;
-	cout << "BM.Addr: " << BM.Addr.ToString() << endl;
+	cout << "BM.AddrView: " << string(BM.AddrView) << endl;
+	cout << "BM.J: " << BM.J << endl;
 
 	// auto Op = xTerminalConnectionOptions{
 	// 	xNetAddress::Parse("183.2.172.42:80"),
