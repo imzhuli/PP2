@@ -2,6 +2,7 @@
 #include "../common/base.hpp"
 #include "../common_protocol/client_auth.hpp"
 #include "../common_protocol/network.hpp"
+#include "../common_protocol/terminal.hpp"
 
 #include <unordered_map>
 
@@ -62,8 +63,8 @@ public:
 	eProxyType   Type                       = PROXY_TYPE_UNSPEC;
 	eClientState State                      = CLIENT_STATE_INIT;
 	xIndexId     ClientConnectionId         = {};
-	xNetAddress  TerminalControllerAddress  = {};
 	xIndexId     TerminalControllerIndex    = {};
+	xNetAddress  TerminalControllerAddress  = {};
 	xIndexId     TerminalControllerSubIndex = {};
 	xIndexId     TerminalConnectionId       = {};
 	xNetAddress  TargetAddress              = {};
@@ -74,7 +75,27 @@ public:
 	bool CloseOnFlush = false;
 };
 
-class xProxyRelayClient : public xClient {};
+struct xProxyRelayClientNode : xListNode {
+	xIndexId ConnectionId;
+	uint64_t KeepAliveTimestampMS;
+	uint64_t LastDataTimestampMS;
+};
+
+class xProxyRelayClient
+	: public xProxyRelayClientNode
+	, public xTcpConnection
+	, public xTcpConnection::iListener {
+public:
+	bool Init(xProxyService * ProxyServicePtr, const xNetAddress & TargetAddress);
+	void Clean();
+
+protected:
+	size_t OnData(xTcpConnection * TcpConnectionPtr, void * DataPtrInput, size_t DataSize) override;
+	bool   OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
+
+protected:
+	xProxyService * ProxyServicePtr = nullptr;
+};
 
 class xProxyDispatcherClient : public xClient {
 public:
@@ -130,6 +151,7 @@ protected:
 	// from dispatch server
 	void OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp);
 	void OnDnsResponse(uint64_t ClientConnectionId, const xHostQueryResp & DnsResp);
+	void OnTerminalConnectionResult(const xCreateTerminalConnectionResp & Result);
 
 protected:
 	void   OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) override;
@@ -137,9 +159,15 @@ protected:
 	size_t OnClientS5Auth(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 	size_t OnClientS5Connect(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 
-	void PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
-	void PostDnsRequest(xProxyClientConnection * CCP, const std::string & Hostname);
-	bool MakeS5NewConnection(xProxyClientConnection * CCP, const xNetAddress & Address);
+	void                PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
+	void                PostDnsRequest(xProxyClientConnection * CCP, const std::string & Hostname);
+	xProxyRelayClient * MakeS5NewConnection(xProxyClientConnection * CCP);
+	void                KeepAlive(xProxyRelayClient * RCP) {
+        RCP->KeepAliveTimestampMS = NowMS;
+        RelayClientKeepAliveList.GrabTail(*RCP);
+	}
+	void CreateTargetConnection(xProxyRelayClient * RCP, xIndexId ClientConnectionId, const xNetAddress & Target);
+	void DestroyTargetConnection(xIndexId SourceConnectionId);
 
 	void FlushAndKillClientConnection(xProxyClientIdleNode * NodePtr) {
 		auto CCP = static_cast<xProxyClientConnection *>(NodePtr);
@@ -157,6 +185,7 @@ protected:
 	void ShrinkIdleTimeout();
 	void ShrinkFlushTimeout();
 	void ShrinkKillList();
+	void ShrinkRelayClient();
 
 protected:
 	xIoContext *                            IoCtxPtr = nullptr;
@@ -170,6 +199,9 @@ protected:
 	xList<xProxyClientIdleNode> ClientIdleTimeoutList;
 	xList<xProxyClientIdleNode> ClientFlushTimeoutList;
 	xList<xProxyClientIdleNode> ClientKillList;
+
+	std::unordered_map<std::string, uint64_t> RelayClientMap;
+	xList<xProxyRelayClientNode>              RelayClientKeepAliveList;
 
 	size_t AuditClientConnectionCount = 0;
 };

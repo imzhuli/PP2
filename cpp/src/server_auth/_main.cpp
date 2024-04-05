@@ -2,6 +2,7 @@
 #include "../common/config.hpp"
 #include "../common_protocol/client_auth.hpp"
 #include "../common_protocol/protocol.hpp"
+#include "./demo_user.hpp"
 
 #include <unordered_map>
 
@@ -44,13 +45,22 @@ protected:
 			return;
 		}
 		X_DEBUG_PRINTF("ClientAuth: [%s:%s@%s]", Req.AccountName.c_str(), Req.Password.c_str(), Req.AddressString.c_str());
-
 		auto Resp = xProxyClientAuthResp();
-		// TODO: use real data
-		Resp.AuditKey                   = 1;
-		Resp.CacheTimeout               = 300;
-		Resp.TerminalControllerAddress  = xNetAddress::Parse("192.168.123.45:6789");  // relay server, or terminal service address
-		Resp.TerminalControllerSubIndex = 1024;                                       // index in relay server
+
+		auto UserIter = DemoUsers.find(Req.AccountName);
+		if (UserIter == DemoUsers.end()) {
+			Resp.AuditKey                   = 0;
+			Resp.CacheTimeout               = 300;
+			Resp.TerminalControllerAddress  = xNetAddress::Parse("192.168.123.45:6789");  // relay server, or terminal service address
+			Resp.TerminalControllerSubIndex = 1024;                                       // index in relay server
+		} else {
+			auto & U                        = UserIter->second;
+			Resp.AuditKey                   = U.AuditId;
+			Resp.CacheTimeout               = 300;
+			Resp.TerminalControllerAddress  = U.ControllerAddress;  // relay server, or terminal service address
+			Resp.TerminalControllerSubIndex = U.ControllerIndexId;  // index in relay server
+		}
+
 		ubyte Buffer[MaxPacketSize];
 		auto  RSize = WritePacket(Cmd_ProxyClientAuthResp, Header.RequestId, Buffer, sizeof(Buffer), Resp);
 		if (!RSize) {

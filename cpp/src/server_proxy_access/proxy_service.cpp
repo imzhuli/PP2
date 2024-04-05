@@ -1,6 +1,68 @@
 #include "../common_protocol/client_auth.hpp"
 #include "../common_protocol/network.hpp"
+#include "../common_protocol/terminal.hpp"
 #include "./proxy_access.hpp"
+
+// xProxyRelayClient
+bool xProxyRelayClient::Init(xProxyService * ProxyServicePtr, const xNetAddress & TargetAddress) {
+	if (!xTcpConnection::Init(ProxyServicePtr->IoCtxPtr, TargetAddress, this)) {
+		return false;
+	}
+	this->ProxyServicePtr = ProxyServicePtr;
+	return true;
+}
+
+void xProxyRelayClient::Clean() {
+	xTcpConnection::Clean();
+}
+
+size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtrInput, size_t DataSize) {
+	assert(TcpConnectionPtr == this);
+	auto   DataPtr    = static_cast<ubyte *>(DataPtrInput);
+	size_t RemainSize = DataSize;
+	while (RemainSize >= PacketHeaderSize) {
+		auto Header = xPacketHeader::Parse(DataPtr);
+		if (!Header) { /* header error */
+			return InvalidDataSize;
+		}
+		auto PacketSize = Header.PacketSize;  // make a copy, so Header can be reused
+		if (RemainSize < PacketSize) {        // wait for data
+			break;
+		}
+		if (Header.IsKeepAlive()) {
+			X_DEBUG_PRINTF("KeepAlive");
+			ProxyServicePtr->KeepAlive(this);
+		} else {
+			auto PayloadPtr  = xPacket::GetPayloadPtr(DataPtr);
+			auto PayloadSize = Header.GetPayloadSize();
+			if (!OnPacket(Header, PayloadPtr, PayloadSize)) { /* packet error */
+				return InvalidDataSize;
+			}
+		}
+		DataPtr    += PacketSize;
+		RemainSize -= PacketSize;
+	}
+	return DataSize - RemainSize;
+}
+
+bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
+	X_DEBUG_PRINTF("CommandId: %" PRIu32 ", RequestId:%" PRIx64 ": \n%s", Header.CommandId, Header.RequestId, HexShow(PayloadPtr, PayloadSize).c_str());
+	switch (Header.CommandId) {
+		case Cmd_CreateConnectionResp: {
+			auto Resp = xCreateTerminalConnectionResp();
+			if (!Resp.Deserialize(PayloadPtr, PayloadSize)) {
+				X_DEBUG_PRINTF("Invalid protocol");
+				break;
+			}
+			ProxyServicePtr->OnTerminalConnectionResult(Resp);
+			break;
+		}
+		default: {
+			X_DEBUG_PRINTF("Unsupported packet");
+		}
+	}
+	return true;
+}
 
 // xDispatcherClient
 bool xProxyDispatcherClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
@@ -44,6 +106,7 @@ bool xProxyService::Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress,
 }
 
 void xProxyService::Clean() {
+	Renew(RelayClientMap);
 	ClientConnectionPool.Clean();
 	RelayClientPool.Clean();
 	TcpServer.Clean();
@@ -58,6 +121,7 @@ void xProxyService::Tick(uint64_t NowMS) {
 	ShrinkIdleTimeout();
 	ShrinkFlushTimeout();
 	ShrinkKillList();
+	ShrinkRelayClient();
 }
 
 void xProxyService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) {
@@ -71,7 +135,7 @@ void xProxyService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && Native
 		ClientConnectionPool.Release(NewConnectionId);
 		return;
 	}
-
+	X_DEBUG_PRINTF("NewClientConnectionId:%" PRIx64 "", NewConnectionId);
 	NewClientConnectionPtr->ClientConnectionId = NewConnectionId;
 	NewClientConnectionPtr->TimestampMS        = NowMS;
 	ClientAuthTimeoutList.AddTail(*NewClientConnectionPtr);
@@ -226,7 +290,7 @@ size_t xProxyService::OnClientS5Connect(xProxyClientConnection * CCP, void * Dat
 	}
 
 	X_DEBUG_PRINTF("DirectConnect: %s", Address.IpToString().c_str());
-	if (!MakeS5NewConnection(CCP, Address)) {
+	if (!MakeS5NewConnection(CCP)) {
 		X_DEBUG_PRINTF("Failed to establish connection to relay server");
 		return InvalidDataSize;
 	}
@@ -259,11 +323,51 @@ void xProxyService::PostDnsRequest(xProxyClientConnection * CCP, const std::stri
 	DispatcherClient.PostData(Buffer, RSize);
 }
 
-bool xProxyService::MakeS5NewConnection(xProxyClientConnection * CCP, const xNetAddress & Address) {
-	CCP->State         = CLIENT_STATE_S5_TCP_CONNECTING;
-	CCP->TargetAddress = Address;
-	X_DEBUG_PRINTF("TargetAddress: %s", Address.ToString().c_str());
-	return false;
+void xProxyService::CreateTargetConnection(xProxyRelayClient * RCP, xIndexId ClientConnectionId, const xNetAddress & Target) {
+	xCreateTerminalConnection Req = {};
+	Req.SourceConnectionId        = ClientConnectionId;
+	Req.TargetAddress             = Target;
+
+	ubyte Buffer[MaxPacketSize];
+	auto  RSize = WritePacket(Cmd_CreateConnection, 0, Buffer, sizeof(Buffer), Req);
+	RCP->PostData(Buffer, RSize);
+}
+
+void xProxyService::DestroyTargetConnection(xIndexId SourceConnectionId) {
+	auto CCP = ClientConnectionPool.CheckAndGet(SourceConnectionId);
+	if (!CCP) {
+		return;
+	}
+	FlushAndKillClientConnection(CCP);
+}
+
+xProxyRelayClient * xProxyService::MakeS5NewConnection(xProxyClientConnection * CCP) {
+	CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
+	assert(!CCP->TerminalControllerIndex);
+	auto Key = CCP->TerminalControllerAddress.ToString();
+
+	auto Iter = RelayClientMap.find(Key);
+	if (Iter != RelayClientMap.end()) {  // found connection
+		CCP->TerminalControllerIndex = Iter->second;
+		assert(RelayClientPool.Check(CCP->TerminalControllerIndex));
+		return &RelayClientPool[CCP->TerminalControllerIndex];
+	}
+	auto TerminalControllerIndex = RelayClientPool.Acquire();
+	if (!TerminalControllerIndex) {
+		X_DEBUG_PRINTF("Not relay client could be allocated");
+		return nullptr;
+	}
+	auto PC = &RelayClientPool[TerminalControllerIndex];
+	if (!PC->Init(this, CCP->TerminalControllerAddress)) {
+		RelayClientPool.Release(TerminalControllerIndex);
+		return nullptr;
+	}
+	//
+	PC->ConnectionId         = TerminalControllerIndex;
+	PC->KeepAliveTimestampMS = NowMS;
+	PC->LastDataTimestampMS  = NowMS;
+	RelayClientMap[Key]      = TerminalControllerIndex;
+	return PC;
 }
 
 void xProxyService::OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp) {
@@ -307,18 +411,60 @@ void xProxyService::OnDnsResponse(uint64_t ClientConnectionId, const xHostQueryR
 			X_DEBUG_PRINTF("DNS Result: Ipv4=%s", DnsResp.Addr4.IpToString().c_str());
 			auto TargetAddress = DnsResp.Addr4;
 			TargetAddress.Port = CCP->TargetAddress.Port;  // restore port
-			if (!DnsResp.Addr4 || !MakeS5NewConnection(CCP, TargetAddress)) {
+			if (!DnsResp.Addr4) {
+				X_DEBUG_PRINTF("invalid target address");
+				KillClientConnection(CCP);
+				return;
+			}
+			auto RelayClientConnectionPtr = MakeS5NewConnection(CCP);
+			if (!RelayClientConnectionPtr) {
 				X_DEBUG_PRINTF("Failed to establish connection to relay server");
 				KillClientConnection(CCP);
 				return;
 			}
-			break;
+			CreateTargetConnection(RelayClientConnectionPtr, CCP->ClientConnectionId, TargetAddress);
+			CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
+			return;
 		}
 		default: {
 			X_DEBUG_PRINTF("invalid auth result");
 			KillClientConnection(CCP);
 			break;
 		}
+	}
+}
+
+void xProxyService::OnTerminalConnectionResult(const xCreateTerminalConnectionResp & Result) {
+	auto CCP = ClientConnectionPool.CheckAndGet(Result.SourceConnectionId);
+	if (!CCP) {
+		X_DEBUG_PRINTF("Missing source connection");
+		return;
+	}
+	switch (CCP->State) {
+		case CLIENT_STATE_S5_TCP_CONNECTING: {
+			if (!Result.TerminalTargetConnectionId) {
+				static constexpr const ubyte S5Refused[] = {
+					'\x05', '\x05', '\x00',          // refused
+					'\x01',                          // ipv4
+					'\x00', '\x00', '\x00', '\x00',  // ip: 0.0.0.0
+					'\x00', '\x00',                  // port 0:
+				};
+				CCP->PostData(S5Refused, sizeof(S5Refused));
+				FlushAndKillClientConnection(CCP);
+			}
+			static constexpr const ubyte S5Established[] = {
+				'\x05', '\x00', '\x00',          // ok
+				'\x01',                          // ipv4
+				'\x00', '\x00', '\x00', '\x00',  // ip: 0.0.0.0
+				'\x00', '\x00',                  // port 0:
+			};
+			CCP->PostData(S5Established, sizeof(S5Established));
+			CCP->State = CLIENT_STATE_S5_TCP_ESTABLISHED;
+			break;
+		}
+		default:
+			X_DEBUG_PRINTF("Invalid client connection state, closing");
+			KillClientConnection(CCP);
 	}
 }
 
@@ -360,4 +506,9 @@ void xProxyService::ShrinkKillList() {
 		ClientConnectionPool.Release(ClientConnectionPtr->ClientConnectionId);
 		--AuditClientConnectionCount;
 	}
+}
+
+void xProxyService::ShrinkRelayClient() {
+	// TODO: KeepAlive
+	// TODO: Close idle
 }
