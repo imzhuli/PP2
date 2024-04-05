@@ -8,8 +8,8 @@
 static constexpr const uint64_t TCP_CONNECTION_AUTH_TIMEOUT_MS  = 15'000;  // auth and connection
 static constexpr const uint64_t TCP_CONNECTION_IDLE_TIMEOUT_MS  = 125'000;
 static constexpr const uint64_t TCP_CONNECTION_FLUSH_TIMEOUT_MS = 3'000;
-static constexpr const uint64_t MAX_PROXY_RELAY_CONNECTION      = 2'0000;
-static constexpr const uint64_t MAX_PROXY_CLIENT_CONNECTION     = 50'0000;
+static constexpr const uint64_t MAX_PROXY_RELAY_CONNECTION      = 10'000;
+static constexpr const uint64_t MAX_PROXY_CLIENT_CONNECTION     = 10'000;
 
 class xProxyClientConnection;
 class xProxyRelayClient;
