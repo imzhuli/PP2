@@ -323,9 +323,10 @@ void xProxyService::PostDnsRequest(xProxyClientConnection * CCP, const std::stri
 	DispatcherClient.PostData(Buffer, RSize);
 }
 
-void xProxyService::CreateTargetConnection(xProxyRelayClient * RCP, xIndexId ClientConnectionId, const xNetAddress & Target) {
+void xProxyService::CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP, const xNetAddress & Target) {
 	xCreateTerminalConnection Req = {};
-	Req.SourceConnectionId        = ClientConnectionId;
+	Req.SourceConnectionId        = CCP->ClientConnectionId;
+	Req.TermainlId                = CCP->TerminalId;
 	Req.TargetAddress             = Target;
 
 	ubyte Buffer[MaxPacketSize];
@@ -338,35 +339,61 @@ void xProxyService::DestroyTargetConnection(xIndexId SourceConnectionId) {
 	if (!CCP) {
 		return;
 	}
-	FlushAndKillClientConnection(CCP);
+	DestroyTargetConnection(CCP);
+}
+
+void xProxyService::DestroyTargetConnection(xProxyClientConnection * CCP) {
+	X_DEBUG_PRINTF("Searching for TerminalControllerId: %" PRIx64 "", CCP->TerminalControllerId);
+	auto RelayClientPtr = RelayClientPool.CheckAndGet(CCP->TerminalControllerId);
+	if (!RelayClientPtr) {
+		X_DEBUG_PRINTF("Relay server missing");
+		return;
+	}
+
+	auto Req                       = xCloseTerminalConnection();
+	Req.TerminalId                 = CCP->TerminalId;
+	Req.TerminalTargetConnectionId = CCP->TerminalTargetConnectionId;
+
+	ubyte Buffer[MaxPacketSize];
+	auto  RSize = WritePacket(Cmd_CloseConnection, CCP->TerminalTargetConnectionId, Buffer, sizeof(Buffer), Req);
+	RelayClientPtr->PostData(Buffer, RSize);
 }
 
 xProxyRelayClient * xProxyService::MakeS5NewConnection(xProxyClientConnection * CCP) {
 	CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
-	assert(!CCP->TerminalControllerIndex);
-	auto Key = CCP->TerminalControllerAddress.ToString();
-
-	auto Iter = RelayClientMap.find(Key);
-	if (Iter != RelayClientMap.end()) {  // found connection
-		CCP->TerminalControllerIndex = Iter->second;
-		assert(RelayClientPool.Check(CCP->TerminalControllerIndex));
-		return &RelayClientPool[CCP->TerminalControllerIndex];
+	assert(!CCP->TerminalControllerId);
+	auto PRC = GetTerminalController(CCP->TerminalControllerAddress);
+	if (!PRC) {
+		return nullptr;
 	}
-	auto TerminalControllerIndex = RelayClientPool.Acquire();
-	if (!TerminalControllerIndex) {
+	CCP->TerminalControllerId = PRC->ConnectionId;
+	return PRC;
+}
+
+xProxyRelayClient * xProxyService::GetTerminalController(const xNetAddress & Address) {
+	auto AddressKey = Address.ToString();
+	auto Iter       = RelayClientMap.find(AddressKey);
+	if (Iter != RelayClientMap.end()) {  // found connection
+		auto ConnectionId = Iter->second;
+		assert(RelayClientPool.Check(ConnectionId));
+		return &RelayClientPool[ConnectionId];
+	}
+	auto TerminalControllerId = RelayClientPool.Acquire();
+	if (!TerminalControllerId) {
 		X_DEBUG_PRINTF("Not relay client could be allocated");
 		return nullptr;
 	}
-	auto PC = &RelayClientPool[TerminalControllerIndex];
-	if (!PC->Init(this, CCP->TerminalControllerAddress)) {
-		RelayClientPool.Release(TerminalControllerIndex);
+	auto PC = &RelayClientPool[TerminalControllerId];
+	if (!PC->Init(this, Address)) {
+		X_DEBUG_PRINTF("Failed to create connection to target address: %s", Address.ToString().c_str());
+		RelayClientPool.Release(TerminalControllerId);
 		return nullptr;
 	}
 	//
-	PC->ConnectionId         = TerminalControllerIndex;
-	PC->KeepAliveTimestampMS = NowMS;
-	PC->LastDataTimestampMS  = NowMS;
-	RelayClientMap[Key]      = TerminalControllerIndex;
+	PC->ConnectionId           = TerminalControllerId;
+	PC->KeepAliveTimestampMS   = NowMS;
+	PC->LastDataTimestampMS    = NowMS;
+	RelayClientMap[AddressKey] = TerminalControllerId;
 	return PC;
 }
 
@@ -386,9 +413,9 @@ void xProxyService::OnAuthResponse(uint64_t ClientConnectionId, const xProxyClie
 				FlushAndKillClientConnection(CCP);
 				return;
 			}
-			CCP->TerminalControllerAddress  = AuthResp.TerminalControllerAddress;
-			CCP->TerminalControllerSubIndex = AuthResp.TerminalControllerSubIndex;
-			CCP->State                      = CLIENT_STATE_S5_AUTH_DONE;
+			CCP->TerminalControllerAddress = AuthResp.TerminalControllerAddress;
+			CCP->TerminalId                = AuthResp.TerminalId;
+			CCP->State                     = CLIENT_STATE_S5_AUTH_DONE;
 			CCP->PostData("\x01\x00", 2);
 			return;
 		}
@@ -422,7 +449,7 @@ void xProxyService::OnDnsResponse(uint64_t ClientConnectionId, const xHostQueryR
 				KillClientConnection(CCP);
 				return;
 			}
-			CreateTargetConnection(RelayClientConnectionPtr, CCP->ClientConnectionId, TargetAddress);
+			CreateTargetConnection(RelayClientConnectionPtr, CCP, TargetAddress);
 			CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
 			return;
 		}
@@ -459,12 +486,14 @@ void xProxyService::OnTerminalConnectionResult(const xCreateTerminalConnectionRe
 				'\x00', '\x00',                  // port 0:
 			};
 			CCP->PostData(S5Established, sizeof(S5Established));
-			CCP->State = CLIENT_STATE_S5_TCP_ESTABLISHED;
+			CCP->TerminalTargetConnectionId = Result.TerminalTargetConnectionId;
+			CCP->State                      = CLIENT_STATE_S5_TCP_ESTABLISHED;
 			break;
 		}
 		default:
 			X_DEBUG_PRINTF("Invalid client connection state, closing");
 			KillClientConnection(CCP);
+			break;
 	}
 }
 
@@ -500,10 +529,16 @@ void xProxyService::ShrinkFlushTimeout() {
 
 void xProxyService::ShrinkKillList() {
 	for (auto & N : ClientKillList) {
-		auto ClientConnectionPtr = static_cast<xProxyClientConnection *>(&N);
-		ClientConnectionPtr->Clean();
-		assert(ClientConnectionPtr == ClientConnectionPool.CheckAndGet(ClientConnectionPtr->ClientConnectionId));
-		ClientConnectionPool.Release(ClientConnectionPtr->ClientConnectionId);
+		auto CCP = static_cast<xProxyClientConnection *>(&N);
+		do {                                        // notify terminal to close connection
+			if (CCP->TerminalTargetConnectionId) {  // active close connection
+				X_DEBUG_PRINTF("TerminalTargetConnectionDetected: %" PRIx64 "", CCP->TerminalTargetConnectionId);
+				DestroyTargetConnection(CCP);
+			}
+		} while (false);
+		CCP->Clean();
+		assert(CCP == ClientConnectionPool.CheckAndGet(CCP->ClientConnectionId));
+		ClientConnectionPool.Release(CCP->ClientConnectionId);
 		--AuditClientConnectionCount;
 	}
 }

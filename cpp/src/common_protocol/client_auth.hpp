@@ -16,14 +16,14 @@ struct xProxyClientAuth : xBinaryMessage {
 struct xProxyClientAuthResp : xBinaryMessage {
 	void SerializeMembers() {
 		W(AuditKey, CacheTimeout);
-		W(TerminalControllerAddress, TerminalControllerSubIndex);
+		W(TerminalControllerAddress, TerminalId);
 	}
 	void DeserializeMembers() {
 		R(AuditKey, CacheTimeout);
-		R(TerminalControllerAddress, TerminalControllerSubIndex);
+		R(TerminalControllerAddress, TerminalId);
 	}
-	uint64_t    AuditKey;                    // 绑定的计量账号(不是计费)
-	uint64_t    CacheTimeout;                // 校验超时, 单位:毫秒, 一般用户采用默认值, 特别用户使用设置的较短值
-	xNetAddress TerminalControllerAddress;   // relay server, or terminal service address
-	uint64_t    TerminalControllerSubIndex;  // index in relay server
+	uint64_t    AuditKey;                   // 绑定的计量账号(不是计费)
+	uint64_t    CacheTimeout;               // 校验超时, 单位:毫秒, 一般用户采用默认值, 特别用户使用设置的较短值
+	xNetAddress TerminalControllerAddress;  // relay server, or terminal service address
+	uint64_t    TerminalId;                 // index in relay server
 };

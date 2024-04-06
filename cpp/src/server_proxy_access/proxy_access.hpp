@@ -63,10 +63,10 @@ public:
 	eProxyType   Type                       = PROXY_TYPE_UNSPEC;
 	eClientState State                      = CLIENT_STATE_INIT;
 	xIndexId     ClientConnectionId         = {};
-	xIndexId     TerminalControllerIndex    = {};
 	xNetAddress  TerminalControllerAddress  = {};
-	xIndexId     TerminalControllerSubIndex = {};
-	xIndexId     TerminalConnectionId       = {};
+	xIndexId     TerminalControllerId       = {};
+	xIndexId     TerminalId                 = {};
+	xIndexId     TerminalTargetConnectionId = {};
 	xNetAddress  TargetAddress              = {};
 
 	void SetCloseOnFlush() {
@@ -159,16 +159,19 @@ protected:
 	size_t OnClientS5Auth(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 	size_t OnClientS5Connect(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 
-	void                PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
-	void                PostDnsRequest(xProxyClientConnection * CCP, const std::string & Hostname);
 	xProxyRelayClient * MakeS5NewConnection(xProxyClientConnection * CCP);
-	void                KeepAlive(xProxyRelayClient * RCP) {
-        RCP->KeepAliveTimestampMS = NowMS;
-        RelayClientKeepAliveList.GrabTail(*RCP);
-	}
-	void CreateTargetConnection(xProxyRelayClient * RCP, xIndexId ClientConnectionId, const xNetAddress & Target);
-	void DestroyTargetConnection(xIndexId SourceConnectionId);
+	xProxyRelayClient * GetTerminalController(const xNetAddress & AddressKey);
 
+	void PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
+	void PostDnsRequest(xProxyClientConnection * CCP, const std::string & Hostname);
+	void CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP, const xNetAddress & Target);
+	void DestroyTargetConnection(xIndexId SourceConnectionId);
+	void DestroyTargetConnection(xProxyClientConnection * CCP);
+
+	void KeepAlive(xProxyRelayClient * RCP) {
+		RCP->KeepAliveTimestampMS = NowMS;
+		RelayClientKeepAliveList.GrabTail(*RCP);
+	}
 	void FlushAndKillClientConnection(xProxyClientIdleNode * NodePtr) {
 		auto CCP = static_cast<xProxyClientConnection *>(NodePtr);
 		if (CCP->HasPendingWrites()) {

@@ -6,44 +6,19 @@ std::unordered_map<std::string, xDemoUser> DemoUsers;
 
 auto Init = xInstantRun([] {
 	DemoUsers.insert(std::make_pair(
-		"test_10",
+		"test_5",
 		xDemoUser{
-			.AuditId           = 10,
+			.AuditId           = 5,
 			.ControllerAddress = xNetAddress::Parse("127.0.0.1:10020"),
-			.ControllerIndexId = 10,
+			.TerminalId        = 5,
 		}
 	));
 	DemoUsers.insert(std::make_pair(
-		"test_11",
+		"test_6",
 		xDemoUser{
-			.AuditId           = 11,
+			.AuditId           = 6,
 			.ControllerAddress = xNetAddress::Parse("127.0.0.1:10020"),
-			.ControllerIndexId = 11,
-		}
-	));
-
-	DemoUsers.insert(std::make_pair(
-		"test_12",
-		xDemoUser{
-			.AuditId           = 12,
-			.ControllerAddress = xNetAddress::Parse("127.0.0.1:10020"),
-			.ControllerIndexId = 12,
-		}
-	));
-	DemoUsers.insert(std::make_pair(
-		"test_13",
-		xDemoUser{
-			.AuditId           = 13,
-			.ControllerAddress = xNetAddress::Parse("127.0.0.1:10020"),
-			.ControllerIndexId = 13,
-		}
-	));
-	DemoUsers.insert(std::make_pair(
-		"test_14",
-		xDemoUser{
-			.AuditId           = 14,
-			.ControllerAddress = xNetAddress::Parse("127.0.0.1:10020"),
-			.ControllerIndexId = 14,
+			.TerminalId        = 6,
 		}
 	));
 });

@@ -2,6 +2,7 @@
 #include "../common/config.hpp"
 #include "../common_protocol/client_auth.hpp"
 #include "../common_protocol/protocol.hpp"
+#include "../component/static_ip_table.hpp"
 #include "./demo_user.hpp"
 
 #include <unordered_map>
@@ -13,6 +14,8 @@ struct xExtractedAuthInfo {
 	uint32_t    CityId;
 	xNetAddress StaticIp;
 };
+
+static xStaticIpTable IpTable;
 
 std::unordered_map<std::string, xExtractedAuthInfo> AuthMap;
 
@@ -49,16 +52,16 @@ protected:
 
 		auto UserIter = DemoUsers.find(Req.AccountName);
 		if (UserIter == DemoUsers.end()) {
-			Resp.AuditKey                   = 0;
-			Resp.CacheTimeout               = 300;
-			Resp.TerminalControllerAddress  = xNetAddress::Parse("192.168.123.45:6789");  // relay server, or terminal service address
-			Resp.TerminalControllerSubIndex = 1024;                                       // index in relay server
+			Resp.AuditKey                  = 0;
+			Resp.CacheTimeout              = 300;
+			Resp.TerminalControllerAddress = xNetAddress::Parse("192.168.123.45:6789");  // relay server, or terminal service address
+			Resp.TerminalId                = 1024;                                       // index in relay server
 		} else {
-			auto & U                        = UserIter->second;
-			Resp.AuditKey                   = U.AuditId;
-			Resp.CacheTimeout               = 300;
-			Resp.TerminalControllerAddress  = U.ControllerAddress;  // relay server, or terminal service address
-			Resp.TerminalControllerSubIndex = U.ControllerIndexId;  // index in relay server
+			auto & U                       = UserIter->second;
+			Resp.AuditKey                  = U.AuditId;
+			Resp.CacheTimeout              = 300;
+			Resp.TerminalControllerAddress = U.ControllerAddress;  // relay server, or terminal service address
+			Resp.TerminalId                = U.TerminalId;         // index in relay server
 		}
 
 		ubyte Buffer[MaxPacketSize];
@@ -93,6 +96,9 @@ int main(int argc, char ** argv) {
 	}
 	auto C = xConfig(ConfigOpt->c_str());
 	C.Require(AuthConsumerAddress, "auth_consumer_address");
+	auto IpTableFile = std::string();
+	C.Require(IpTableFile, "ip_table_file");
+	IpTable = LoadStaticIpTable(IpTableFile.c_str());
 
 	auto RSG = xScopeGuard([] { RunState.Start(); }, [] { RunState.Finish(); });
 	auto ICG = xResourceGuard(IoCtx);

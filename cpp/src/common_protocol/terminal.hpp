@@ -4,13 +4,14 @@
 struct xCreateTerminalConnection : xBinaryMessage {
 
 	void SerializeMembers() {
-		W(SourceConnectionId, TargetAddress);
+		W(SourceConnectionId, TermainlId, TargetAddress);
 	}
 	void DeserializeMembers() {
-		R(SourceConnectionId, TargetAddress);
+		R(SourceConnectionId, TermainlId, TargetAddress);
 	}
 
 	uint64_t    SourceConnectionId;
+	uint64_t    TermainlId;
 	xNetAddress TargetAddress;
 };
 
@@ -23,6 +24,19 @@ struct xCreateTerminalConnectionResp : xBinaryMessage {
 	}
 
 	uint64_t SourceConnectionId;
+	uint64_t TerminalTargetConnectionId;
+};
+
+struct xCloseTerminalConnection : xBinaryMessage {
+
+	void SerializeMembers() {
+		W(TerminalId, TerminalTargetConnectionId);
+	}
+	void DeserializeMembers() {
+		R(TerminalId, TerminalTargetConnectionId);
+	}
+
+	uint64_t TerminalId;
 	uint64_t TerminalTargetConnectionId;
 };
 
