@@ -1,8 +1,8 @@
 #pragma once
 #include "../common/base.hpp"
 #include "../common_protocol/client_auth.hpp"
+#include "../common_protocol/data_exchange.hpp"
 #include "../common_protocol/network.hpp"
-#include "../common_protocol/terminal.hpp"
 
 #include <unordered_map>
 
@@ -165,7 +165,7 @@ protected:
 	void PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
 	void PostDnsRequest(xProxyClientConnection * CCP, const std::string & Hostname);
 	void CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP, const xNetAddress & Target);
-	void DestroyTargetConnection(xIndexId SourceConnectionId);
+	void DestroyTargetConnection(xIndexId ClientConnectionId);
 	void DestroyTargetConnection(xProxyClientConnection * CCP);
 
 	void KeepAlive(xProxyRelayClient * RCP) {

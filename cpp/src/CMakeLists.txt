@@ -71,7 +71,7 @@ build_app(server_auth)
 build_app(server_dns)
 build_app(server_dummy_relay)
 build_app(server_geoip)
-build_app(server_proxy_access)
+build_app(server_proxy)
 build_app(server_terminal)
 build_app(server_terminal_manager)
 
@@ -85,7 +85,7 @@ install(TARGETS
 	_server_dns
 	_server_dummy_relay
 	_server_geoip
-	_server_proxy_access
+	_server_proxy
 	_server_terminal
 	_server_terminal_manager
 

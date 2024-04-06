@@ -1,6 +1,6 @@
 #include "../common/base.hpp"
+#include "../common_protocol/data_exchange.hpp"
 #include "../common_protocol/protocol.hpp"
-#include "../common_protocol/terminal.hpp"
 
 class xDummyRelay : public xService {
 public:
@@ -11,6 +11,8 @@ public:
 				return OnCreateConnection(Connection, Header, PayloadPtr, PayloadSize);
 			case Cmd_CloseConnection:
 				return OnCloseConnection(Connection, Header, PayloadPtr, PayloadSize);
+			case Cmd_PostProxyToTerminalData:
+				return OnDataToTerminal(Connection, Header, PayloadPtr, PayloadSize);
 			default:
 				break;
 		}
@@ -23,7 +25,7 @@ public:
 			return false;
 		}
 		auto Resp                       = xCreateTerminalConnectionResp();
-		Resp.SourceConnectionId         = Req.SourceConnectionId;
+		Resp.ClientConnectionId         = Req.ClientConnectionId;
 		Resp.TerminalTargetConnectionId = 0x12345;
 		ubyte Buffer[MaxPacketSize];
 		auto  RSize = WritePacket(Cmd_CreateConnectionResp, Header.RequestId, Buffer, sizeof(Buffer), Resp);
@@ -37,6 +39,10 @@ public:
 			return false;
 		}
 		X_DEBUG_PRINTF("OnCloseConnection: TerminalId=%" PRIx64 ", ConnectionId=%Id=%" PRIx64 "", Req.TerminalId, Req.TerminalTargetConnectionId);
+		return true;
+	}
+
+	bool OnDataToTerminal(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
 		return true;
 	}
 };

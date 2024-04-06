@@ -1,6 +1,6 @@
 #include "../common_protocol/client_auth.hpp"
+#include "../common_protocol/data_exchange.hpp"
 #include "../common_protocol/network.hpp"
-#include "../common_protocol/terminal.hpp"
 #include "./proxy_access.hpp"
 
 // xProxyRelayClient
@@ -325,7 +325,7 @@ void xProxyService::PostDnsRequest(xProxyClientConnection * CCP, const std::stri
 
 void xProxyService::CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP, const xNetAddress & Target) {
 	xCreateTerminalConnection Req = {};
-	Req.SourceConnectionId        = CCP->ClientConnectionId;
+	Req.ClientConnectionId        = CCP->ClientConnectionId;
 	Req.TermainlId                = CCP->TerminalId;
 	Req.TargetAddress             = Target;
 
@@ -334,8 +334,8 @@ void xProxyService::CreateTargetConnection(xProxyRelayClient * RCP, xProxyClient
 	RCP->PostData(Buffer, RSize);
 }
 
-void xProxyService::DestroyTargetConnection(xIndexId SourceConnectionId) {
-	auto CCP = ClientConnectionPool.CheckAndGet(SourceConnectionId);
+void xProxyService::DestroyTargetConnection(xIndexId ClientConnectionId) {
+	auto CCP = ClientConnectionPool.CheckAndGet(ClientConnectionId);
 	if (!CCP) {
 		return;
 	}
@@ -462,7 +462,7 @@ void xProxyService::OnDnsResponse(uint64_t ClientConnectionId, const xHostQueryR
 }
 
 void xProxyService::OnTerminalConnectionResult(const xCreateTerminalConnectionResp & Result) {
-	auto CCP = ClientConnectionPool.CheckAndGet(Result.SourceConnectionId);
+	auto CCP = ClientConnectionPool.CheckAndGet(Result.ClientConnectionId);
 	if (!CCP) {
 		X_DEBUG_PRINTF("Missing source connection");
 		return;
