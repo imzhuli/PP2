@@ -116,7 +116,7 @@ void xTerminalRelay::OnProxyCreateConnection(xServiceClientConnection & Connecti
 		Connection.PostData(Buffer, RSize);
 		return;
 	}
-	auto RTPG = xScopeGuard([&, this] {
+	auto RTPG = xScopeGuard([&] {
 		RTP->Clean();
 		delete RTP;
 	});

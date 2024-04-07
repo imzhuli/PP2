@@ -15,10 +15,6 @@ struct xRelayConnectionPair : xListNode {
 	xVariable UserCtx              = {};
 };
 
-class xTerminal_ProxyConnection : public xTcpConnection {
-	uint64_t ProxyConnectionId;
-};
-
 class xTerminalController : protected xService {
 public:
 	bool Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress, size_t MaxProxyConnection = DEFAULT_MAX_TERMINAL_PROXY_CONNECTION_COUNT);
@@ -37,7 +33,7 @@ protected:
 	bool OnPacket(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) override;
 
 protected:
-	virtual void OnDestroyTimeoutConnectionPair(xRelayConnectionPair * CP) {};
+	virtual void OnDestroyTimeoutConnectionPair(xRelayConnectionPair * CP){};
 
 protected:
 	xTicker                               Ticker;
