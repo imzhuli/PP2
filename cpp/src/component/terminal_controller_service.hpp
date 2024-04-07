@@ -4,8 +4,10 @@
 static constexpr const size_t DEFAULT_MAX_TERMINAL_PROXY_CONNECTION_COUNT = 10'000;
 
 struct xRelayConnectionPair : xListNode {
-	uint64_t TimestampMS          = {};
-	uint64_t ConnectionPairId     = {};
+	uint64_t ConnectionPairId = {};
+	uint64_t TimestampMS      = {};
+
+	// the following are not set by CreateConnectionPair
 	uint64_t TerminalConnectionId = {};
 	uint64_t TargetConnectionId   = {};
 	uint64_t ProxyConnectionId    = {};

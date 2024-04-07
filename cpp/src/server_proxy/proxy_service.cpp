@@ -64,6 +64,15 @@ bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPt
 			ProxyServicePtr->OnTerminalConnectionResult(Resp);
 			break;
 		}
+		case Cmd_PostRelayToProxyData: {
+			auto Post = xRelayToProxyData();
+			if (!Post.Deserialize(PayloadPtr, PayloadSize)) {
+				X_DEBUG_PRINTF("Invalid protocol");
+				break;
+			}
+			ProxyServicePtr->OnRelayData(Post);
+			break;
+		}
 		default: {
 			X_DEBUG_PRINTF("Unsupported packet");
 		}
@@ -527,6 +536,17 @@ void xProxyService::OnTerminalConnectionResult(const xCreateRelayConnectionPairR
 			KillClientConnection(CCP);
 			break;
 	}
+}
+
+void xProxyService::OnRelayData(const xRelayToProxyData & Post) {
+	X_DEBUG_PRINTF("RelayData: ClientConnectionId=%" PRIx64 "\n%s", Post.ClientConnectionId, HexShow(Post.DataView).c_str());
+	auto CCP = ClientConnectionPool.CheckAndGet(Post.ClientConnectionId);
+	if (!CCP) {
+		X_DEBUG_PRINTF("Connection lost");
+		return;
+	}
+	auto DataView = Post.DataView;
+	CCP->PostData(DataView.data(), DataView.size());
 }
 
 void xProxyService::ShrinkAuthTimeout() {

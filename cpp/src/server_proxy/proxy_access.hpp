@@ -166,6 +166,7 @@ protected:
 	void OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp);
 	void OnDnsResponse(uint64_t ClientConnectionId, const xHostQueryResp & DnsResp);
 	void OnTerminalConnectionResult(const xCreateRelayConnectionPairResp & Result);
+	void OnRelayData(const xRelayToProxyData & Post);
 
 protected:
 	void   OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) override;

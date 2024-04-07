@@ -50,30 +50,14 @@ struct xProxyToRelayData : xBinaryMessage {
 	std::string_view DataView;
 };
 
-// struct xTerminalToRelayData : xBinaryMessage {
-// 	static constexpr const size_t MaxPayloadSize = 3600;
+struct xRelayToProxyData : xBinaryMessage {
+	void SerializeMembers() {
+		W(ClientConnectionId, DataView);
+	}
+	void DeserializeMembers() {
+		R(ClientConnectionId, DataView);
+	}
 
-// 	void SerializeMembers() {
-// 		W(ConnectionPairId, DataView);
-// 	}
-// 	void DeserializeMembers() {
-// 		R(ConnectionPairId, DataView);
-// 	}
-
-// 	uint64_t         ConnectionPairId;
-// 	std::string_view DataView;
-// };
-
-// struct xProxyAccessToRelayData : xBinaryMessage {
-// 	static constexpr const size_t MaxPayloadSize = 3600;
-
-// 	void SerializeMembers() {
-// 		W(ClientConnectionId, DataView);
-// 	}
-// 	void DeserializeMembers() {
-// 		R(ClientConnectionId, DataView);
-// 	}
-
-// 	uint64_t         ClientConnectionId;
-// 	std::string_view DataView;
-// };
+	uint64_t         ClientConnectionId;
+	std::string_view DataView;
+};

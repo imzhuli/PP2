@@ -3,6 +3,8 @@
 #include "../common_protocol/protocol.hpp"
 #include "../component/terminal_controller_service.hpp"
 
+static constexpr const char HTTP_200[] = "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+
 class xDummyRelay : public xTerminalController {
 public:
 	bool OnPacket(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
@@ -30,7 +32,8 @@ public:
 
 		auto PP = CreateConnectionPair();
 		if (PP) {
-			Resp.ConnectionPairId = PP->ConnectionPairId;
+			PP->ClientConnectionId = Req.ClientConnectionId;
+			Resp.ConnectionPairId  = PP->ConnectionPairId;
 		}
 
 		ubyte Buffer[MaxPacketSize];
@@ -61,7 +64,22 @@ public:
 		if (!Req.Deserialize(PayloadPtr, PayloadSize)) {
 			return true;
 		}
+
+		auto PP = GetConnectionPairById(Req.ConnectionPairId);
+		if (!PP) {
+			X_DEBUG_PRINTF("Failed to find connection pair");
+			return true;
+		}
 		X_DEBUG_PRINTF("ProxyToRelay: \n%s", HexShow(Req.DataView.data(), Req.DataView.size()).c_str());
+
+		auto Resp               = xRelayToProxyData();
+		Resp.ClientConnectionId = PP->ClientConnectionId;
+		Resp.DataView           = HTTP_200;
+
+		ubyte Buffer[MaxPacketSize];
+		auto  RSize = WritePacket(Cmd_PostRelayToProxyData, 0, Buffer, sizeof(Buffer), Resp);
+		Connection.PostData(Buffer, RSize);
+
 		return true;
 	}
 };
