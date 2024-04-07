@@ -2,8 +2,8 @@
 #include "../common/base.hpp"
 
 struct xDemoUser {
-	int32_t     AuditId;
 	xNetAddress ControllerAddress;
+	int32_t     AuditId;
 	uint64_t    TerminalId;
 };
 
