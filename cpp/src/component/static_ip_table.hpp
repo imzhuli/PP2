@@ -5,7 +5,7 @@
 
 struct xStaticIpRecord {
 	xNetAddress TerminalIp;
-	xNetAddress TerminalControllerIp;
+	xNetAddress TerminalControllerAddress;
 	uint64_t    TerminalId;
 };
 

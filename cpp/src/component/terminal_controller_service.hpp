@@ -8,17 +8,18 @@ struct xRelayConnectionPair : xListNode {
 	uint64_t TimestampMS      = {};
 
 	// the following are not set by CreateConnectionPair
-	uint64_t TerminalConnectionId = {};
-	uint64_t TargetConnectionId   = {};
-	uint64_t ProxyConnectionId    = {};
-	uint64_t ClientConnectionId   = {};
+	uint64_t  TerminalConnectionId = {};
+	uint64_t  TargetConnectionId   = {};
+	uint64_t  ProxyConnectionId    = {};
+	uint64_t  ClientConnectionId   = {};
+	xVariable UserCtx              = {};
 };
 
 class xTerminal_ProxyConnection : public xTcpConnection {
 	uint64_t ProxyConnectionId;
 };
 
-class xTerminalController : private xService {
+class xTerminalController : protected xService {
 public:
 	bool Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress, size_t MaxProxyConnection = DEFAULT_MAX_TERMINAL_PROXY_CONNECTION_COUNT);
 	void Clean();
@@ -35,7 +36,10 @@ protected:
 protected:
 	bool OnPacket(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) override;
 
-private:
+protected:
+	virtual void OnDestroyTimeoutConnectionPair(xRelayConnectionPair * CP) {};
+
+protected:
 	xTicker                               Ticker;
 	xIndexedStorage<xRelayConnectionPair> ConnectionPairPool;
 	xList<xRelayConnectionPair>           ConnectionPairTimeoutList;

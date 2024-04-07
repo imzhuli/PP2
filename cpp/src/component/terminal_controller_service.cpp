@@ -59,10 +59,12 @@ void xTerminalController::KeepAlive(xRelayConnectionPair * PairPtr) {
 void xTerminalController::ClearTimeoutRelayConnectionPairs() {
 	auto KillTimepoint = Ticker() - DEFAULT_CONNECTION_PAIR_TIMEOUT_MS;
 	for (auto & N : ConnectionPairTimeoutList) {
-		if (N.TimestampMS > KillTimepoint) {
+		auto CP = static_cast<xRelayConnectionPair *>(&N);
+		if (CP->TimestampMS > KillTimepoint) {
 			break;
 		}
-		DestroyConnectionPair(&N);
+		OnDestroyTimeoutConnectionPair(CP);
+		DestroyConnectionPair(CP);
 	}
 }
 

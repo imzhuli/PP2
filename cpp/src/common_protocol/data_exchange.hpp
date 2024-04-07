@@ -61,3 +61,14 @@ struct xRelayToProxyData : xBinaryMessage {
 	uint64_t         ClientConnectionId;
 	std::string_view DataView;
 };
+
+struct xCloseClientConnection : xBinaryMessage {
+	void SerializeMembers() {
+		W(ClientConnectionId);
+	}
+	void DeserializeMembers() {
+		R(ClientConnectionId);
+	}
+
+	uint64_t ClientConnectionId;
+};

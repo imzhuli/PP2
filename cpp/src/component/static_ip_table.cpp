@@ -27,8 +27,8 @@ xStaticIpTable LoadStaticIpTable(const char * Filename) {
 		auto Record       = xStaticIpRecord();
 		Record.TerminalIp = xNetAddress::Parse(TerminalAddressString);
 		RuntimeAssert(Record.TerminalIp && !Record.TerminalIp.Port);
-		Record.TerminalControllerIp = xNetAddress::Parse(TerminalControllerAddressString);
-		RuntimeAssert(Record.TerminalControllerIp && Record.TerminalControllerIp.Port);
+		Record.TerminalControllerAddress = xNetAddress::Parse(TerminalControllerAddressString);
+		RuntimeAssert(Record.TerminalControllerAddress && Record.TerminalControllerAddress.Port);
 		Record.TerminalId = TerminalId;
 		RuntimeAssert(Record.TerminalId);
 
@@ -36,7 +36,8 @@ xStaticIpTable LoadStaticIpTable(const char * Filename) {
 	}
 
 	for (auto & P : Table) {
-		cout << P.first << ": " << P.second.TerminalControllerIp.ToString() << ", " << P.second.TerminalId << endl;
+		Touch(P);
+		X_DEBUG_PRINTF("%s, %s, %" PRIx64 "", P.first.c_str(), P.second.TerminalControllerAddress.ToString().c_str(), P.second.TerminalId);
 	}
 	return Table;
 }
