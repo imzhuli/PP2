@@ -9,11 +9,18 @@ bool xProxyRelayClient::Init(xProxyService * ProxyServicePtr, const xNetAddress 
 		return false;
 	}
 	this->ProxyServicePtr = ProxyServicePtr;
+	this->TargetAddress   = TargetAddress;
 	return true;
 }
 
 void xProxyRelayClient::Clean() {
 	xTcpConnection::Clean();
+	Reset(ProxyServicePtr);
+	Reset(TargetAddress);
+}
+
+void xProxyRelayClient::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
+	ProxyServicePtr->RemoveRelayClient(this);
 }
 
 size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtrInput, size_t DataSize) {
@@ -49,7 +56,7 @@ bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPt
 	X_DEBUG_PRINTF("CommandId: %" PRIu32 ", RequestId:%" PRIx64 ": \n%s", Header.CommandId, Header.RequestId, HexShow(PayloadPtr, PayloadSize).c_str());
 	switch (Header.CommandId) {
 		case Cmd_CreateConnectionResp: {
-			auto Resp = xCreateTerminalConnectionResp();
+			auto Resp = xCreateRelayConnectionPairResp();
 			if (!Resp.Deserialize(PayloadPtr, PayloadSize)) {
 				X_DEBUG_PRINTF("Invalid protocol");
 				break;
@@ -136,8 +143,8 @@ void xProxyService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && Native
 		return;
 	}
 	X_DEBUG_PRINTF("NewClientConnectionId:%" PRIx64 "", NewConnectionId);
-	NewClientConnectionPtr->ClientConnectionId = NewConnectionId;
-	NewClientConnectionPtr->TimestampMS        = NowMS;
+	NewClientConnectionPtr->ClientConnectionId   = NewConnectionId;
+	NewClientConnectionPtr->KeepAliveTimestampMS = NowMS;
 	ClientAuthTimeoutList.AddTail(*NewClientConnectionPtr);
 	++AuditClientConnectionCount;
 }
@@ -150,7 +157,9 @@ size_t xProxyService::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, 
 		case CLIENT_STATE_S5_WAIT_FOR_CLIENT_AUTH:
 			return OnClientS5Auth(CCP, DataPtr, DataSize);
 		case CLIENT_STATE_S5_AUTH_DONE:
-			return OnClientS5Connect(CCP, DataPtr, DataSize);
+			return OnClientS5ConnectResult(CCP, DataPtr, DataSize);
+		case CLIENT_STATE_S5_TCP_ESTABLISHED:
+			return OnClientS5Data(CCP, (ubyte *)DataPtr, DataSize);
 		default:
 			X_DEBUG_PRINTF("Unprocessed data: \n%s", HexShow(DataPtr, DataSize).c_str());
 			break;
@@ -223,7 +232,7 @@ size_t xProxyService::OnClientS5Auth(xProxyClientConnection * CCP, void * DataPt
 	return R.Offset();
 }
 
-size_t xProxyService::OnClientS5Connect(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
+size_t xProxyService::OnClientS5ConnectResult(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
 	X_DEBUG_PRINTF("Request data: \n%s", HexShow(DataPtr, DataSize).c_str());
 
 	if (DataSize < 10) {
@@ -297,6 +306,30 @@ size_t xProxyService::OnClientS5Connect(xProxyClientConnection * CCP, void * Dat
 	return DataSize;
 }
 
+size_t xProxyService::OnClientS5Data(xProxyClientConnection * CCP, ubyte * DataPtr, size_t DataSize) {
+	auto PRC = RelayClientPool.CheckAndGet(CCP->TerminalControllerId);
+	if (!PRC) {
+		X_DEBUG_PRINTF("Relay server disconnected");
+		KillClientConnection(CCP);
+		return InvalidDataSize;
+	}
+	assert(CCP->ConnectionPairId);
+	ubyte Buffer[MaxPacketSize];
+	while (DataSize) {
+		auto Req             = xProxyToRelayData();
+		auto PostSize        = std::min(DataSize, MaxRelayPayloadSize);
+		Req.ConnectionPairId = CCP->ConnectionPairId;
+		Req.DataView         = { (const char *)DataPtr, PostSize };
+		auto RSize           = WritePacket(Cmd_PostProxyToRelayData, 0, Buffer, sizeof(Buffer), Req);
+		PRC->PostData(Buffer, RSize);
+
+		DataPtr  += PostSize;
+		DataSize -= PostSize;
+	}
+	KeepAlive(CCP);
+	return DataSize;
+}
+
 void xProxyService::PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView) {
 	auto Req          = xProxyClientAuth();
 	Req.AddressString = CCP->GetRemoteAddress().ToString();
@@ -324,10 +357,10 @@ void xProxyService::PostDnsRequest(xProxyClientConnection * CCP, const std::stri
 }
 
 void xProxyService::CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP, const xNetAddress & Target) {
-	xCreateTerminalConnection Req = {};
-	Req.ClientConnectionId        = CCP->ClientConnectionId;
-	Req.TermainlId                = CCP->TerminalId;
-	Req.TargetAddress             = Target;
+	xCreateRelayConnectionPair Req = {};
+	Req.ClientConnectionId         = CCP->ClientConnectionId;
+	Req.TerminalId                 = CCP->TerminalId;
+	Req.TargetAddress              = Target;
 
 	ubyte Buffer[MaxPacketSize];
 	auto  RSize = WritePacket(Cmd_CreateConnection, 0, Buffer, sizeof(Buffer), Req);
@@ -350,12 +383,11 @@ void xProxyService::DestroyTargetConnection(xProxyClientConnection * CCP) {
 		return;
 	}
 
-	auto Req                       = xCloseTerminalConnection();
-	Req.TerminalId                 = CCP->TerminalId;
-	Req.TerminalTargetConnectionId = CCP->TerminalTargetConnectionId;
+	auto Req             = xCloseRelayConnectionPair();
+	Req.ConnectionPairId = CCP->ConnectionPairId;
 
 	ubyte Buffer[MaxPacketSize];
-	auto  RSize = WritePacket(Cmd_CloseConnection, CCP->TerminalTargetConnectionId, Buffer, sizeof(Buffer), Req);
+	auto  RSize = WritePacket(Cmd_CloseConnection, CCP->ClientConnectionId, Buffer, sizeof(Buffer), Req);
 	RelayClientPtr->PostData(Buffer, RSize);
 }
 
@@ -461,7 +493,7 @@ void xProxyService::OnDnsResponse(uint64_t ClientConnectionId, const xHostQueryR
 	}
 }
 
-void xProxyService::OnTerminalConnectionResult(const xCreateTerminalConnectionResp & Result) {
+void xProxyService::OnTerminalConnectionResult(const xCreateRelayConnectionPairResp & Result) {
 	auto CCP = ClientConnectionPool.CheckAndGet(Result.ClientConnectionId);
 	if (!CCP) {
 		X_DEBUG_PRINTF("Missing source connection");
@@ -469,7 +501,7 @@ void xProxyService::OnTerminalConnectionResult(const xCreateTerminalConnectionRe
 	}
 	switch (CCP->State) {
 		case CLIENT_STATE_S5_TCP_CONNECTING: {
-			if (!Result.TerminalTargetConnectionId) {
+			if (!Result.ConnectionPairId) {
 				static constexpr const ubyte S5Refused[] = {
 					'\x05', '\x05', '\x00',          // refused
 					'\x01',                          // ipv4
@@ -486,8 +518,8 @@ void xProxyService::OnTerminalConnectionResult(const xCreateTerminalConnectionRe
 				'\x00', '\x00',                  // port 0:
 			};
 			CCP->PostData(S5Established, sizeof(S5Established));
-			CCP->TerminalTargetConnectionId = Result.TerminalTargetConnectionId;
-			CCP->State                      = CLIENT_STATE_S5_TCP_ESTABLISHED;
+			CCP->ConnectionPairId = Result.ConnectionPairId;
+			CCP->State            = CLIENT_STATE_S5_TCP_ESTABLISHED;
 			break;
 		}
 		default:
@@ -500,7 +532,7 @@ void xProxyService::OnTerminalConnectionResult(const xCreateTerminalConnectionRe
 void xProxyService::ShrinkAuthTimeout() {
 	auto KillTimepoint = NowMS - TCP_CONNECTION_AUTH_TIMEOUT_MS;
 	for (auto & N : ClientAuthTimeoutList) {
-		if (N.TimestampMS > KillTimepoint) {
+		if (N.KeepAliveTimestampMS > KillTimepoint) {
 			break;
 		}
 		KillClientConnection(&N);
@@ -510,7 +542,7 @@ void xProxyService::ShrinkAuthTimeout() {
 void xProxyService::ShrinkIdleTimeout() {
 	auto KillTimepoint = NowMS - TCP_CONNECTION_IDLE_TIMEOUT_MS;
 	for (auto & N : ClientIdleTimeoutList) {
-		if (N.TimestampMS > KillTimepoint) {
+		if (N.KeepAliveTimestampMS > KillTimepoint) {
 			break;
 		}
 		KillClientConnection(&N);
@@ -520,7 +552,7 @@ void xProxyService::ShrinkIdleTimeout() {
 void xProxyService::ShrinkFlushTimeout() {
 	auto KillTimepoint = NowMS - TCP_CONNECTION_FLUSH_TIMEOUT_MS;
 	for (auto & N : ClientFlushTimeoutList) {
-		if (N.TimestampMS > KillTimepoint) {
+		if (N.KeepAliveTimestampMS > KillTimepoint) {
 			break;
 		}
 		KillClientConnection(&N);
@@ -530,9 +562,9 @@ void xProxyService::ShrinkFlushTimeout() {
 void xProxyService::ShrinkKillList() {
 	for (auto & N : ClientKillList) {
 		auto CCP = static_cast<xProxyClientConnection *>(&N);
-		do {                                        // notify terminal to close connection
-			if (CCP->TerminalTargetConnectionId) {  // active close connection
-				X_DEBUG_PRINTF("TerminalTargetConnectionDetected: %" PRIx64 "", CCP->TerminalTargetConnectionId);
+		do {                              // notify terminal to close connection
+			if (CCP->ConnectionPairId) {  // active close connection
+				X_DEBUG_PRINTF("ConnectionPairId: %" PRIx64 "", CCP->ConnectionPairId);
 				DestroyTargetConnection(CCP);
 			}
 		} while (false);
@@ -546,4 +578,11 @@ void xProxyService::ShrinkKillList() {
 void xProxyService::ShrinkRelayClient() {
 	// TODO: KeepAlive
 	// TODO: Close idle
+
+	// Disconnected:
+	for (auto & N : RelayClientKillList) {
+		auto RPC = static_cast<xProxyRelayClient *>(&N);
+		RPC->Clean();
+		RelayClientPool.Release(N.ConnectionId);
+	}
 }

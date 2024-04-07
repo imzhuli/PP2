@@ -1,81 +1,79 @@
 #pragma once
 #include "./protocol.hpp"
 
-struct xCreateTerminalConnection : xBinaryMessage {
+static constexpr const size_t MaxRelayPayloadSize = 3600;
+
+struct xCreateRelayConnectionPair : xBinaryMessage {
 	void SerializeMembers() {
-		W(ClientConnectionId, TermainlId, TargetAddress);
+		W(ClientConnectionId, TerminalId, TargetAddress);
 	}
 	void DeserializeMembers() {
-		R(ClientConnectionId, TermainlId, TargetAddress);
+		R(ClientConnectionId, TerminalId, TargetAddress);
 	}
 
 	uint64_t    ClientConnectionId;
-	uint64_t    TermainlId;
+	uint64_t    TerminalId;
 	xNetAddress TargetAddress;
 };
 
-struct xCreateTerminalConnectionResp : xBinaryMessage {
+struct xCreateRelayConnectionPairResp : xBinaryMessage {
 	void SerializeMembers() {
-		W(ClientConnectionId, TerminalTargetConnectionId);
+		W(ClientConnectionId, ConnectionPairId);
 	}
 	void DeserializeMembers() {
-		R(ClientConnectionId, TerminalTargetConnectionId);
+		R(ClientConnectionId, ConnectionPairId);
 	}
 
 	uint64_t ClientConnectionId;
-	uint64_t TerminalTargetConnectionId;
+	uint64_t ConnectionPairId;
 };
 
-struct xCloseTerminalConnection : xBinaryMessage {
+struct xCloseRelayConnectionPair : xBinaryMessage {
 	void SerializeMembers() {
-		W(TerminalId, TerminalTargetConnectionId);
+		W(ConnectionPairId);
 	}
 	void DeserializeMembers() {
-		R(TerminalId, TerminalTargetConnectionId);
+		R(ConnectionPairId);
 	}
-
-	uint64_t TerminalId;
-	uint64_t TerminalTargetConnectionId;
+	uint64_t ConnectionPairId;
 };
 
-struct xRelayToTerminalData : xBinaryMessage {
-	static constexpr const size_t MaxPayloadSize = 3600;
-
+struct xProxyToRelayData : xBinaryMessage {
 	void SerializeMembers() {
-		W(TerminalTargetConnectionId, TerminalTargetConnectionId, DataView);
+		W(ConnectionPairId, DataView);
 	}
 	void DeserializeMembers() {
-		R(TerminalTargetConnectionId, TerminalTargetConnectionId, DataView);
+		R(ConnectionPairId, DataView);
 	}
 
-	uint64_t         TerminalTargetConnectionId;
+	uint64_t         ConnectionPairId;
 	std::string_view DataView;
 };
 
-struct xTerminalToRelayData : xBinaryMessage {
-	static constexpr const size_t MaxPayloadSize = 3600;
+// struct xTerminalToRelayData : xBinaryMessage {
+// 	static constexpr const size_t MaxPayloadSize = 3600;
 
-	void SerializeMembers() {
-		W(RelayConnectionPairId, DataView);
-	}
-	void DeserializeMembers() {
-		R(RelayConnectionPairId, DataView);
-	}
+// 	void SerializeMembers() {
+// 		W(ConnectionPairId, DataView);
+// 	}
+// 	void DeserializeMembers() {
+// 		R(ConnectionPairId, DataView);
+// 	}
 
-	uint64_t         RelayConnectionPairId;
-	std::string_view DataView;
-};
+// 	uint64_t         ConnectionPairId;
+// 	std::string_view DataView;
+// };
 
-struct xProxyAccessToRelayData : xBinaryMessage {
-	static constexpr const size_t MaxPayloadSize = 3600;
+// struct xProxyAccessToRelayData : xBinaryMessage {
+// 	static constexpr const size_t MaxPayloadSize = 3600;
 
-	void SerializeMembers() {
-		W(ClientConnectionId, DataView);
-	}
-	void DeserializeMembers() {
-		R(ClientConnectionId, DataView);
-	}
+// 	void SerializeMembers() {
+// 		W(ClientConnectionId, DataView);
+// 	}
+// 	void DeserializeMembers() {
+// 		R(ClientConnectionId, DataView);
+// 	}
 
-	uint64_t         ClientConnectionId;
-	std::string_view DataView;
-};
+// 	uint64_t         ClientConnectionId;
+// 	std::string_view DataView;
+// };

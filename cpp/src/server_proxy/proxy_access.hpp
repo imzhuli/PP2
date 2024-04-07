@@ -53,26 +53,26 @@ enum eClientState {
 enum eHttpState {};
 
 struct xProxyClientIdleNode : xListNode {
-	uint64_t TimestampMS;
+	uint64_t KeepAliveTimestampMS;
+	bool     CloseFlag = false;
+
+	void SetCloseFlag() {
+		CloseFlag = true;
+	}
 };
 
 class xProxyClientConnection
 	: public xTcpConnection
 	, public xProxyClientIdleNode {
 public:
-	eProxyType   Type                       = PROXY_TYPE_UNSPEC;
-	eClientState State                      = CLIENT_STATE_INIT;
-	xIndexId     ClientConnectionId         = {};
-	xNetAddress  TerminalControllerAddress  = {};
-	xIndexId     TerminalControllerId       = {};
-	xIndexId     TerminalId                 = {};
-	xIndexId     TerminalTargetConnectionId = {};
-	xNetAddress  TargetAddress              = {};
-
-	void SetCloseOnFlush() {
-		CloseOnFlush = true;
-	}
-	bool CloseOnFlush = false;
+	eProxyType   Type                      = PROXY_TYPE_UNSPEC;
+	eClientState State                     = CLIENT_STATE_INIT;
+	xIndexId     ClientConnectionId        = {};
+	xNetAddress  TerminalControllerAddress = {};
+	xIndexId     TerminalControllerId      = {};
+	xIndexId     TerminalId                = {};
+	xIndexId     ConnectionPairId          = {};
+	xNetAddress  TargetAddress             = {};
 };
 
 struct xProxyRelayClientNode : xListNode {
@@ -89,12 +89,18 @@ public:
 	bool Init(xProxyService * ProxyServicePtr, const xNetAddress & TargetAddress);
 	void Clean();
 
+	const xNetAddress & GetTargetAddress() const {
+		return TargetAddress;
+	}
+
 protected:
+	void   OnPeerClose(xTcpConnection * TcpConnectionPtr) override;
 	size_t OnData(xTcpConnection * TcpConnectionPtr, void * DataPtrInput, size_t DataSize) override;
 	bool   OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
 
 protected:
 	xProxyService * ProxyServicePtr = nullptr;
+	xNetAddress     TargetAddress   = {};
 };
 
 class xProxyDispatcherClient : public xClient {
@@ -132,6 +138,14 @@ public:
 		return AuditClientConnectionCount;
 	}
 
+	void RemoveRelayClient(xProxyRelayClient * PRC) {
+		X_DEBUG_PRINTF("ProxyClientRelayClient: Id=%" PRIx64 "", PRC->ConnectionId);
+		auto Iter = RelayClientMap.find(PRC->GetTargetAddress().ToString());
+		RuntimeAssert(Iter != RelayClientMap.end());
+		RelayClientMap.erase(Iter);
+		RelayClientKillList.GrabTail(*PRC);
+	}
+
 protected:
 	xProxyClientConnection * UpCast(xTcpConnection * TcpConnectionPtr) {
 		return static_cast<xProxyClientConnection *>(TcpConnectionPtr);
@@ -140,7 +154,7 @@ protected:
 	void   OnFlush(xTcpConnection * TcpConnectionPtr) override {
         auto CCP = UpCast(TcpConnectionPtr);
         X_DEBUG_PRINTF("OnFlushKill, CID=%" PRIx64 "", CCP->ClientConnectionId);
-        if (CCP->CloseOnFlush) {
+        if (CCP->CloseFlag) {
             KillClientConnection(CCP);
         }
 	}
@@ -151,13 +165,14 @@ protected:
 	// from dispatch server
 	void OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp);
 	void OnDnsResponse(uint64_t ClientConnectionId, const xHostQueryResp & DnsResp);
-	void OnTerminalConnectionResult(const xCreateTerminalConnectionResp & Result);
+	void OnTerminalConnectionResult(const xCreateRelayConnectionPairResp & Result);
 
 protected:
 	void   OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) override;
 	size_t OnClientInit(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 	size_t OnClientS5Auth(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
-	size_t OnClientS5Connect(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
+	size_t OnClientS5ConnectResult(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
+	size_t OnClientS5Data(xProxyClientConnection * CCP, ubyte * DataPtr, size_t DataSize);
 
 	xProxyRelayClient * MakeS5NewConnection(xProxyClientConnection * CCP);
 	xProxyRelayClient * GetTerminalController(const xNetAddress & AddressKey);
@@ -172,16 +187,24 @@ protected:
 		RCP->KeepAliveTimestampMS = NowMS;
 		RelayClientKeepAliveList.GrabTail(*RCP);
 	}
+	void KeepAlive(xProxyClientConnection * CCP) {
+		if (CCP->CloseFlag) {  // already in kill list or kill-on-flush list
+			return;
+		}
+		CCP->KeepAliveTimestampMS = NowMS;
+		ClientIdleTimeoutList.GrabTail(*CCP);
+	}
 	void FlushAndKillClientConnection(xProxyClientIdleNode * NodePtr) {
 		auto CCP = static_cast<xProxyClientConnection *>(NodePtr);
+		CCP->SetCloseFlag();
 		if (CCP->HasPendingWrites()) {
-			CCP->SetCloseOnFlush();
 			ClientFlushTimeoutList.GrabTail(*CCP);
 			return;
 		}
 		ClientKillList.GrabTail(*NodePtr);
 	}
 	void KillClientConnection(xProxyClientIdleNode * NodePtr) {
+		NodePtr->SetCloseFlag();
 		ClientKillList.GrabTail(*NodePtr);
 	}
 	void ShrinkAuthTimeout();
@@ -205,6 +228,7 @@ protected:
 
 	std::unordered_map<std::string, uint64_t> RelayClientMap;
 	xList<xProxyRelayClientNode>              RelayClientKeepAliveList;
+	xList<xProxyRelayClientNode>              RelayClientKillList;
 
 	size_t AuditClientConnectionCount = 0;
 };
