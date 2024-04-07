@@ -5,6 +5,10 @@
 bool xRelayTerminalConnection::Init(
 	xTerminalRelay * RelayPtr, const xNetAddress & TargetAddress, const xNetAddress & BindAddress, uint64_t RelayConnectionPairId
 ) {
+	if (TargetAddress.Type != BindAddress.Type) {
+		return false;
+	}
+
 	auto IoCtxPtr = RelayPtr->GetIoCtxPtr();
 	if (!Connection.Init(IoCtxPtr, TargetAddress, BindAddress, this)) {
 		return false;
