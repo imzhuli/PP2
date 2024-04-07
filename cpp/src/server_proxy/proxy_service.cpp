@@ -316,12 +316,16 @@ size_t xProxyService::OnClientS5ConnectResult(xProxyClientConnection * CCP, void
 		return DataSize;
 	}
 
-	CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
-	X_DEBUG_PRINTF("DirectConnect: %s", Address.IpToString().c_str());
-	if (!MakeS5NewConnection(CCP)) {
+	X_DEBUG_PRINTF("DirectConnect: %s", Address.ToString().c_str());
+
+	auto RelayClientConnectionPtr = MakeS5NewConnection(CCP);
+	if (!RelayClientConnectionPtr) {
 		X_DEBUG_PRINTF("Failed to establish connection to relay server");
+		KillClientConnection(CCP);
 		return InvalidDataSize;
 	}
+	CreateTargetConnection(RelayClientConnectionPtr, CCP);
+	CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
 	return DataSize;
 }
 
@@ -375,11 +379,11 @@ void xProxyService::PostDnsRequest(xProxyClientConnection * CCP, const std::stri
 	DispatcherClient.PostData(Buffer, RSize);
 }
 
-void xProxyService::CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP, const xNetAddress & Target) {
+void xProxyService::CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP) {
 	xCreateRelayConnectionPair Req = {};
 	Req.ClientConnectionId         = CCP->ClientConnectionId;
 	Req.TerminalId                 = CCP->TerminalId;
-	Req.TargetAddress              = Target;
+	Req.TargetAddress              = CCP->TargetAddress;
 
 	ubyte Buffer[MaxPacketSize];
 	auto  RSize = WritePacket(Cmd_CreateConnection, 0, Buffer, sizeof(Buffer), Req);
@@ -411,7 +415,6 @@ void xProxyService::DestroyTargetConnection(xProxyClientConnection * CCP) {
 }
 
 xProxyRelayClient * xProxyService::MakeS5NewConnection(xProxyClientConnection * CCP) {
-	CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
 	assert(!CCP->TerminalControllerId);
 	auto PRC = GetTerminalController(CCP->TerminalControllerAddress);
 	if (!PRC) {
@@ -494,13 +497,14 @@ void xProxyService::OnDnsResponse(uint64_t ClientConnectionId, const xHostQueryR
 				KillClientConnection(CCP);
 				return;
 			}
+			CCP->TargetAddress            = TargetAddress;
 			auto RelayClientConnectionPtr = MakeS5NewConnection(CCP);
 			if (!RelayClientConnectionPtr) {
 				X_DEBUG_PRINTF("Failed to establish connection to relay server");
 				KillClientConnection(CCP);
 				return;
 			}
-			CreateTargetConnection(RelayClientConnectionPtr, CCP, TargetAddress);
+			CreateTargetConnection(RelayClientConnectionPtr, CCP);
 			CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
 			return;
 		}

@@ -181,7 +181,7 @@ protected:
 
 	void PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
 	void PostDnsRequest(xProxyClientConnection * CCP, const std::string & Hostname);
-	void CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP, const xNetAddress & Target);
+	void CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP);
 	void DestroyTargetConnection(xIndexId ClientConnectionId);
 	void DestroyTargetConnection(xProxyClientConnection * CCP);
 
