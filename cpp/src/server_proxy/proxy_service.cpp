@@ -316,6 +316,7 @@ size_t xProxyService::OnClientS5ConnectResult(xProxyClientConnection * CCP, void
 		return DataSize;
 	}
 
+	CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
 	X_DEBUG_PRINTF("DirectConnect: %s", Address.IpToString().c_str());
 	if (!MakeS5NewConnection(CCP)) {
 		X_DEBUG_PRINTF("Failed to establish connection to relay server");
