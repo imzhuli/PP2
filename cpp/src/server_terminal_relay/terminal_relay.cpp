@@ -89,7 +89,7 @@ bool xTerminalRelay::OnPacket(xServiceClientConnection & Connection, const xPack
 			OnProxyToRelay(Connection, Header, PayloadPtr, PayloadSize);
 			break;
 		default:
-			X_DEBUG_PRINTF("OnPacket: %" PRIx32 ", rid=%" PRIx64 "\n%s", Header.CommandId, Header.RequestId, HexShow(PayloadPtr, PayloadSize).c_str());
+			X_DEBUG_PRINTF("OnPacket: %" PRIx32 ", rid=%" PRIx64 "\n%s", Header.CommandId, Header.RequestId, DebugSign(PayloadPtr, PayloadSize).c_str());
 			return false;
 	}
 	return true;
@@ -163,7 +163,7 @@ void xTerminalRelay::OnProxyToRelay(xServiceClientConnection & Connection, const
 		X_DEBUG_PRINTF("Failed to find connection pair");
 		return;
 	}
-	X_DEBUG_PRINTF("ProxyToRelay: \n%s", HexShow(Req.DataView.data(), Req.DataView.size()).c_str());
+	X_DEBUG_PRINTF("ProxyToRelay: %zi\n%s", Req.DataView.size(), DebugSign(Req.DataView.data(), Req.DataView.size()).c_str());
 
 	auto RTP = GetTargetConnection(PP);
 	if (!RTP) {
@@ -200,7 +200,7 @@ void xTerminalRelay::OnTargetConnectionEstablished(xRelayTerminalConnection * RT
 }
 
 void xTerminalRelay::OnTargetConnectionData(xRelayTerminalConnection * RTP, ubyte * DataPtr, size_t DataSize) {
-	X_DEBUG_PRINTF("Data=\n%s", HexShow(DataPtr, DataSize).c_str());
+	X_DEBUG_PRINTF("Data=%zi\n%s", DataSize, HexShow(DataPtr, DataSize).c_str());
 
 	assert(RTP->RelayConnectionPairId);
 	auto PP = GetConnectionPairById(RTP->RelayConnectionPairId);
@@ -234,21 +234,21 @@ void xTerminalRelay::OnTargetConnectionClosed(xRelayTerminalConnection * RTP) {
 	}
 	assert(PP->ProxyConnectionId);
 
-	if (!RTP->Established) {
+	X_DEBUG_PRINTF("IsEstablished=%s", YN(RTP->Established));
+	if (RTP->Established) {
+		auto Resp               = xCloseClientConnection();
+		Resp.ClientConnectionId = PP->ClientConnectionId;
+		ubyte Buffer[MaxPacketSize];
+		auto  RSize = WritePacket(Cmd_CloseConnection, 0, Buffer, sizeof(Buffer), Resp);
+		PostData(PP->ProxyConnectionId, Buffer, RSize);
+	} else {
 		auto Resp               = xCreateRelayConnectionPairResp();
 		Resp.ClientConnectionId = PP->ClientConnectionId;
 		Resp.ConnectionPairId   = 0;
 		ubyte Buffer[MaxPacketSize];
 		auto  RSize = WritePacket(Cmd_CreateConnectionResp, 0, Buffer, sizeof(Buffer), Resp);
 		PostData(PP->ProxyConnectionId, Buffer, RSize);
-	} else {
-		auto Resp               = xCloseClientConnection();
-		Resp.ClientConnectionId = PP->ClientConnectionId;
-		ubyte Buffer[MaxPacketSize];
-		auto  RSize = WritePacket(Cmd_CloseConnection, 0, Buffer, sizeof(Buffer), Resp);
-		PostData(PP->ProxyConnectionId, Buffer, RSize);
 	}
-
 	KillConnection(RTP);
 }
 

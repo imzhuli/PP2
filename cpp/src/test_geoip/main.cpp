@@ -1,6 +1,5 @@
-#include "../../pb/pp2/geo.pb.h"
 #include "../common/base.hpp"
-#include "../common_protocol/protocol_buffers.hpp"
+#include "../common_protocol/geo_info.hpp"
 
 #include <core/core_min.hpp>
 #include <server_arch/client.hpp>
@@ -40,12 +39,12 @@ public:
 		Ticker.Update();
 		IoCtx.LoopOnce();
 		if (!Steal(Sent, true)) {
-			auto R = geo::xGeoInfoReq();
-			R.set_ip("14.153.209.68");
-			R.set_hello_world("Hello world!");
+			auto R       = xGeoInfoReq();
+			R.IP         = "14.153.209.68";
+			R.HelloWorld = "Hello world!";
 
 			ubyte  Buffer[MaxPacketSize];
-			size_t RSize = PbWritePacket(Cmd_GeoQuery, 1, Buffer, sizeof(Buffer), R);
+			size_t RSize = WritePacket(Cmd_GeoQuery, 1, Buffer, sizeof(Buffer), R);
 
 			cout << "Post: " << TargetAddress.ToString() << endl;
 			cout << HexShow(Buffer, RSize) << endl;
@@ -73,12 +72,12 @@ private:
 class xTcpTester : public xClient {
 public:
 	void OnServerConnected() {
-		auto R = geo::xGeoInfoReq();
-		R.set_ip("14.153.209.68");
-		R.set_hello_world("Hello world!");
+		auto R       = xGeoInfoReq();
+		R.IP         = "14.153.209.68";
+		R.HelloWorld = "Hello world!";
 
 		ubyte  Buffer[MaxPacketSize];
-		size_t RSize = PbWritePacket(Cmd_GeoQuery, 1, Buffer, sizeof(Buffer), R);
+		size_t RSize = WritePacket(Cmd_GeoQuery, 1, Buffer, sizeof(Buffer), R);
 
 		cout << HexShow(Buffer, RSize) << endl;
 		PostData(Buffer, RSize);

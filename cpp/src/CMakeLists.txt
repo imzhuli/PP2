@@ -53,9 +53,9 @@ aux_source_directory("./component"             COMMON_SRC)
 add_library(app_common ${COMMON_SRC})
 
 
-aux_source_directory("../pb/pp2"               PB_SRC)
-add_library(app_pb ${PB_SRC})
-
+# aux_source_directory("../pb/pp2"               PB_SRC)
+# add_library(app_pb ${PB_SRC})
+# set(lib_dependency PRIVATE ${app_pb} ${lib_dependency})
 
 # applications
 function(build_app sub_dir_name)
@@ -63,36 +63,35 @@ function(build_app sub_dir_name)
 	add_executable(_${sub_dir_name} ${LOCAL_SOURCE_CODE})
 	target_compile_definitions(_${sub_dir_name} PRIVATE X_OPTION_STATIC)
 	target_link_libraries(_${sub_dir_name} PRIVATE app_common)
-	target_link_libraries(_${sub_dir_name} PRIVATE app_pb)
 	target_link_libraries(_${sub_dir_name} PRIVATE ${lib_dependency})
 endfunction()
 
 build_app(server_auth)
 build_app(server_dns)
-build_app(server_dummy_relay)
 build_app(server_geoip)
 build_app(server_proxy)
-build_app(server_terminal)
 build_app(server_terminal_relay)
 
 build_app(test)
 build_app(test_consumer)
 build_app(test_dns_query)
 build_app(test_geoip)
+build_app(test_tcp_show)
+build_app(test_tel_s5)
 
 install(TARGETS
 	_server_auth
 	_server_dns
-	_server_dummy_relay
 	_server_geoip
 	_server_proxy
-	_server_terminal
 	_server_terminal_relay
 
 	_test
 	_test_consumer
 	_test_dns_query
 	_test_geoip
+	_test_tcp_show
+	_test_tel_s5
 
 	RUNTIME DESTINATION bin
 	ARCHIVE DESTINATION lib

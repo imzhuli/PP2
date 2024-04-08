@@ -53,7 +53,6 @@ size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataP
 }
 
 bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
-	X_DEBUG_PRINTF("CommandId: %" PRIu32 ", RequestId:%" PRIx64 ": \n%s", Header.CommandId, Header.RequestId, HexShow(PayloadPtr, PayloadSize).c_str());
 	switch (Header.CommandId) {
 		case Cmd_CreateConnectionResp: {
 			auto Resp = xCreateRelayConnectionPairResp();
@@ -83,6 +82,9 @@ bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPt
 			break;
 		}
 		default: {
+			X_DEBUG_PRINTF(
+				"CommandId: %" PRIu32 ", RequestId:%" PRIx64 ": \n%s", Header.CommandId, Header.RequestId, DebugSign(PayloadPtr, PayloadSize).c_str()
+			);
 			X_DEBUG_PRINTF("Unsupported packet");
 		}
 	}
@@ -91,7 +93,6 @@ bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPt
 
 // xDispatcherClient
 bool xProxyDispatcherClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
-	X_DEBUG_PRINTF("Dispatcher client CmdId=%" PRIx64 ":\n%s", Header.CommandId, HexShow(PayloadPtr, PayloadSize).c_str());
 	switch (Header.CommandId) {
 		case Cmd_ProxyClientAuthResp: {
 			auto Resp = xProxyClientAuthResp();
@@ -109,8 +110,10 @@ bool xProxyDispatcherClient::OnPacket(const xPacketHeader & Header, ubyte * Payl
 			ProxyServicePtr->OnDnsResponse(Header.RequestId, Resp);
 			break;
 		}
-		default:
+		default: {
+			X_DEBUG_PRINTF("CmdId=%" PRIx64 ":\n%s", Header.CommandId, DebugSign(PayloadPtr, PayloadSize).c_str());
 			break;
+		}
 	}
 	return true;
 }
@@ -179,7 +182,7 @@ size_t xProxyService::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, 
 		case CLIENT_STATE_S5_TCP_ESTABLISHED:
 			return OnClientS5Data(CCP, (ubyte *)DataPtr, DataSize);
 		default:
-			X_DEBUG_PRINTF("Unprocessed data: \n%s", HexShow(DataPtr, DataSize).c_str());
+			X_DEBUG_PRINTF("Unprocessed data: \n%s", DebugSign(DataPtr, DataSize).c_str());
 			break;
 	}
 	return DataSize;
@@ -190,7 +193,7 @@ size_t xProxyService::OnClientInit(xProxyClientConnection * CCP, void * DataPtr,
 		return 0;  // not determinate
 	}
 	if (((const ubyte *)DataPtr)[0] == 0x05) {  // version : S5
-		X_DEBUG_PRINTF("S5 data: \n%s", HexShow(DataPtr, DataSize).c_str());
+		X_DEBUG_PRINTF("New s5 connection");
 
 		xStreamReader R(DataPtr);
 		R.Skip(1);                   // skip type check bytes
@@ -251,8 +254,6 @@ size_t xProxyService::OnClientS5Auth(xProxyClientConnection * CCP, void * DataPt
 }
 
 size_t xProxyService::OnClientS5ConnectResult(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
-	X_DEBUG_PRINTF("Request data: \n%s", HexShow(DataPtr, DataSize).c_str());
-
 	if (DataSize < 10) {
 		return 0;
 	}
@@ -311,13 +312,13 @@ size_t xProxyService::OnClientS5ConnectResult(xProxyClientConnection * CCP, void
 	CCP->TargetAddress = Address;
 
 	if (DomainNameLength) {  // dns query first
+		X_DEBUG_PRINTF("Client s5 wait for dns result");
 		CCP->State = CLIENT_STATE_S5_WAIT_FOR_DNS_RESULT;
 		PostDnsRequest(CCP, { DomainName, DomainNameLength });
 		return DataSize;
 	}
 
 	X_DEBUG_PRINTF("DirectConnect: %s", Address.ToString().c_str());
-
 	auto RelayClientConnectionPtr = MakeS5NewConnection(CCP);
 	if (!RelayClientConnectionPtr) {
 		X_DEBUG_PRINTF("Failed to establish connection to relay server");
@@ -345,6 +346,7 @@ size_t xProxyService::OnClientS5Data(xProxyClientConnection * CCP, ubyte * DataP
 		Req.DataView         = { (const char *)DataPtr, PostSize };
 		auto RSize           = WritePacket(Cmd_PostProxyToRelayData, 0, Buffer, sizeof(Buffer), Req);
 		PRC->PostData(Buffer, RSize);
+		X_DEBUG_PRINTF("UP: %zi, %s", PostSize, DebugSign(DataPtr, PostSize).c_str());
 
 		DataPtr  += PostSize;
 		DataSize -= PostSize;
@@ -553,7 +555,7 @@ void xProxyService::OnTerminalConnectionResult(const xCreateRelayConnectionPairR
 }
 
 void xProxyService::OnRelayData(const xRelayToProxyData & Post) {
-	X_DEBUG_PRINTF("RelayData: ClientConnectionId=%" PRIx64 "\n%s", Post.ClientConnectionId, HexShow(Post.DataView).c_str());
+	X_DEBUG_PRINTF("RelayData: ClientConnectionId=%" PRIx64 ", Size=%zi\n%s", Post.ClientConnectionId, Post.DataView.size(), DebugSign(Post.DataView).c_str());
 	auto CCP = ClientConnectionPool.CheckAndGet(Post.ClientConnectionId);
 	if (!CCP) {
 		X_DEBUG_PRINTF("Connection lost");
@@ -564,6 +566,7 @@ void xProxyService::OnRelayData(const xRelayToProxyData & Post) {
 }
 
 void xProxyService::OnCloseConnection(const xCloseClientConnection & Post) {
+	X_DEBUG_PRINTF("RelayClose");
 	auto CCP = ClientConnectionPool.CheckAndGet(Post.ClientConnectionId);
 	if (!CCP) {
 		X_DEBUG_PRINTF("Connection lost");

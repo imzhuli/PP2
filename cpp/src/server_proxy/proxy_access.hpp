@@ -159,6 +159,7 @@ protected:
         }
 	}
 	void OnPeerClose(xTcpConnection * TcpConnectionPtr) override {
+		X_DEBUG_PRINTF("ClientClose");
 		KillClientConnection(UpCast(TcpConnectionPtr));
 	}
 
