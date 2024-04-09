@@ -226,7 +226,6 @@ void xTerminalRelay::OnTargetConnectionData(xRelayTerminalConnection * RTP, ubyt
 }
 
 void xTerminalRelay::OnTargetConnectionClosed(xRelayTerminalConnection * RTP) {
-	assert(RTP->RelayConnectionPairId);
 	auto PP = GetConnectionPairById(RTP->RelayConnectionPairId);
 	if (!PP) {
 		X_DEBUG_PRINTF("Connection lost");
