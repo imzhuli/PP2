@@ -82,9 +82,7 @@ bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPt
 			break;
 		}
 		default: {
-			X_DEBUG_PRINTF(
-				"CommandId: %" PRIu32 ", RequestId:%" PRIx64 ": \n%s", Header.CommandId, Header.RequestId, DebugSign(PayloadPtr, PayloadSize).c_str()
-			);
+			X_DEBUG_PRINTF("CommandId: %" PRIu32 ", RequestId:%" PRIx64 "", Header.CommandId, Header.RequestId);
 			X_DEBUG_PRINTF("Unsupported packet");
 		}
 	}
@@ -111,7 +109,7 @@ bool xProxyDispatcherClient::OnPacket(const xPacketHeader & Header, ubyte * Payl
 			break;
 		}
 		default: {
-			X_DEBUG_PRINTF("CmdId=%" PRIx64 ":\n%s", Header.CommandId, DebugSign(PayloadPtr, PayloadSize).c_str());
+			X_DEBUG_PRINTF("CmdId=%" PRIx64 "", Header.CommandId);
 			break;
 		}
 	}
@@ -182,7 +180,7 @@ size_t xProxyService::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, 
 		case CLIENT_STATE_S5_TCP_ESTABLISHED:
 			return OnClientS5Data(CCP, (ubyte *)DataPtr, DataSize);
 		default:
-			X_DEBUG_PRINTF("Unprocessed data: \n%s", DebugSign(DataPtr, DataSize).c_str());
+			X_DEBUG_PRINTF("Unprocessed data: \n%s", HexShow(DataPtr, DataSize).c_str());
 			break;
 	}
 	return DataSize;
@@ -347,7 +345,6 @@ size_t xProxyService::OnClientS5Data(xProxyClientConnection * CCP, ubyte * DataP
 		Req.DataView         = { (const char *)DataPtr, PostSize };
 		auto RSize           = WritePacket(Cmd_PostProxyToRelayData, 0, Buffer, sizeof(Buffer), Req);
 		PRC->PostData(Buffer, RSize);
-		X_DEBUG_PRINTF("UP: %zi, %s", PostSize, DebugSign(DataPtr, PostSize).c_str());
 
 		DataPtr    += PostSize;
 		RemainSize -= PostSize;
@@ -556,7 +553,7 @@ void xProxyService::OnTerminalConnectionResult(const xCreateRelayConnectionPairR
 }
 
 void xProxyService::OnRelayData(const xRelayToProxyData & Post) {
-	X_DEBUG_PRINTF("RelayData: ClientConnectionId=%" PRIx64 ", Size=%zi\n%s", Post.ClientConnectionId, Post.DataView.size(), DebugSign(Post.DataView).c_str());
+	X_DEBUG_PRINTF("RelayData: ClientConnectionId=%" PRIx64 ", Size=%zi", Post.ClientConnectionId, Post.DataView.size());
 	auto CCP = ClientConnectionPool.CheckAndGet(Post.ClientConnectionId);
 	if (!CCP) {
 		X_DEBUG_PRINTF("Connection lost");

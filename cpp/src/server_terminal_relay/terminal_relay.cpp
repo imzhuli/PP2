@@ -89,7 +89,7 @@ bool xTerminalRelay::OnPacket(xServiceClientConnection & Connection, const xPack
 			OnProxyToRelay(Connection, Header, PayloadPtr, PayloadSize);
 			break;
 		default:
-			X_DEBUG_PRINTF("OnPacket: %" PRIx32 ", rid=%" PRIx64 "\n%s", Header.CommandId, Header.RequestId, DebugSign(PayloadPtr, PayloadSize).c_str());
+			X_DEBUG_PRINTF("OnPacket: %" PRIx32 ", rid=%" PRIx64 "", Header.CommandId, Header.RequestId);
 			return false;
 	}
 	return true;
@@ -163,7 +163,7 @@ void xTerminalRelay::OnProxyToRelay(xServiceClientConnection & Connection, const
 		X_DEBUG_PRINTF("Failed to find connection pair");
 		return;
 	}
-	X_DEBUG_PRINTF("ProxyToRelay: %zi\n%s", Req.DataView.size(), DebugSign(Req.DataView.data(), Req.DataView.size()).c_str());
+	X_DEBUG_PRINTF("ProxyToRelay: %zi", Req.DataView.size());
 
 	auto RTP = GetTargetConnection(PP);
 	if (!RTP) {
@@ -181,7 +181,6 @@ void xTerminalRelay::OnDestroyTimeoutConnectionPair(xRelayConnectionPair * CP) {
 }
 
 void xTerminalRelay::OnTargetConnectionEstablished(xRelayTerminalConnection * RTP) {
-	assert(RTP->RelayConnectionPairId);
 	auto PP = GetConnectionPairById(RTP->RelayConnectionPairId);
 	if (!PP) {
 		X_DEBUG_PRINTF("Connection lost");
@@ -200,9 +199,6 @@ void xTerminalRelay::OnTargetConnectionEstablished(xRelayTerminalConnection * RT
 }
 
 void xTerminalRelay::OnTargetConnectionData(xRelayTerminalConnection * RTP, ubyte * DataPtr, size_t DataSize) {
-	X_DEBUG_PRINTF("Data=%zi\n%s", DataSize, HexShow(DataPtr, DataSize).c_str());
-
-	assert(RTP->RelayConnectionPairId);
 	auto PP = GetConnectionPairById(RTP->RelayConnectionPairId);
 	if (!PP) {
 		X_DEBUG_PRINTF("Connection lost");
