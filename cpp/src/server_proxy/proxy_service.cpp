@@ -338,21 +338,22 @@ size_t xProxyService::OnClientS5Data(xProxyClientConnection * CCP, ubyte * DataP
 		return InvalidDataSize;
 	}
 	assert(CCP->ConnectionPairId);
-	ubyte Buffer[MaxPacketSize];
-	while (DataSize) {
+	ubyte  Buffer[MaxPacketSize];
+	size_t RemainSize = DataSize;
+	while (RemainSize) {
 		auto Req             = xProxyToRelayData();
-		auto PostSize        = std::min(DataSize, MaxRelayPayloadSize);
+		auto PostSize        = std::min(RemainSize, MaxRelayPayloadSize);
 		Req.ConnectionPairId = CCP->ConnectionPairId;
 		Req.DataView         = { (const char *)DataPtr, PostSize };
 		auto RSize           = WritePacket(Cmd_PostProxyToRelayData, 0, Buffer, sizeof(Buffer), Req);
 		PRC->PostData(Buffer, RSize);
 		X_DEBUG_PRINTF("UP: %zi, %s", PostSize, DebugSign(DataPtr, PostSize).c_str());
 
-		DataPtr  += PostSize;
-		DataSize -= PostSize;
+		DataPtr    += PostSize;
+		RemainSize -= PostSize;
 	}
 	KeepAlive(CCP);
-	return DataSize;
+	return DataSize - RemainSize;
 }
 
 void xProxyService::PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView) {

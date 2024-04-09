@@ -31,6 +31,7 @@ using namespace xel;
 using std::cerr;
 using std::cout;
 using std::endl;
+using std::flush;
 using std::string;
 
 static constexpr const auto NoReturn = std::tie();
