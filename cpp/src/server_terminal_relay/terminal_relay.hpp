@@ -7,6 +7,17 @@
 
 class xTerminalRelay;
 
+struct xRelayUdpChannelNode : xListNode {
+	uint64_t RelayConnectionPairId = {};
+};
+class xRelayUdpChannel final
+	: public xUdpChannel::iListener
+	, public xRelayUdpChannelNode {
+public:
+	bool Init(xTerminalRelay * RelayPtr, const xNetAddress & BindAddress);
+	void Clean();
+};
+
 struct xRelayTerminalConnectionNode : xListNode {
 	xTerminalRelay * RelayPtr              = {};
 	xTcpConnection   Connection            = {};
@@ -46,6 +57,7 @@ protected:
 	void OnProxyCreateConnection(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
 	void OnProxyCloseConnection(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
 	void OnProxyToRelay(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
+	void OnProxyCreateUdpAssociation(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
 
 	xRelayTerminalConnection * GetTargetConnection(xRelayConnectionPair * CP);
 	void                       SetTargetConnection(xRelayConnectionPair * CP, xRelayTerminalConnection * RTP);
@@ -63,4 +75,5 @@ private:
 
 	xList<xRelayTerminalConnectionNode> IdleConnectionList;
 	xList<xRelayTerminalConnectionNode> KillConnectionList;
+	xList<xRelayUdpChannelNode>         IdleUdpAssociationList;
 };

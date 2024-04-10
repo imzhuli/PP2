@@ -88,6 +88,8 @@ bool xTerminalRelay::OnPacket(xServiceClientConnection & Connection, const xPack
 		case Cmd_PostProxyToRelayData:
 			OnProxyToRelay(Connection, Header, PayloadPtr, PayloadSize);
 			break;
+		case Cmd_CreateUdpAssociation:
+			OnProxyCreateUdpAssociation(Connection, Header, PayloadPtr, PayloadSize);
 		default:
 			X_DEBUG_PRINTF("OnPacket: %" PRIx32 ", rid=%" PRIx64 "", Header.CommandId, Header.RequestId);
 			return false;
@@ -173,6 +175,16 @@ void xTerminalRelay::OnProxyToRelay(xServiceClientConnection & Connection, const
 	RTP->Connection.PostData(Req.DataView.data(), Req.DataView.size());
 	return;
 }
+
+void xTerminalRelay::OnProxyCreateUdpAssociation(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
+	auto Req = xCreateUdpAssociation();
+	if (!Req.Deserialize(PayloadPtr, PayloadSize)) {
+		X_PERROR("Invalid protocol");
+		return;
+	}
+}
+
+/**************/
 
 void xTerminalRelay::OnDestroyTimeoutConnectionPair(xRelayConnectionPair * CP) {
 	auto RTP = static_cast<xRelayTerminalConnection *>(CP->UserCtx.P);

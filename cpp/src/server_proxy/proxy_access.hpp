@@ -72,7 +72,7 @@ public:
 	xIndexId     TerminalControllerId      = {};
 	xIndexId     TerminalId                = {};
 	xIndexId     ConnectionPairId          = {};
-	xNetAddress  TargetAddress             = {};
+	xNetAddress  TargetAddress             = {};  // also used as UdpBindAddress
 };
 
 struct xProxyRelayClientNode : xListNode {

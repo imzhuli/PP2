@@ -72,3 +72,28 @@ struct xCloseClientConnection : xBinaryMessage {
 
 	uint64_t ClientConnectionId;
 };
+
+struct xCreateUdpAssociation : xBinaryMessage {
+	void SerializeMembers() {
+		W(ClientConnectionId, TerminalId);
+	}
+	void DeserializeMembers() {
+		R(ClientConnectionId, TerminalId);
+	}
+
+	uint64_t ClientConnectionId;
+	uint64_t TerminalId;
+};
+
+struct xCreateUdpAssociationResp : xBinaryMessage {
+	void SerializeMembers() {
+		W(ClientConnectionId, ConnectionPairId, BindAddress);
+	}
+	void DeserializeMembers() {
+		R(ClientConnectionId, ConnectionPairId, BindAddress);
+	}
+
+	uint64_t    ClientConnectionId;
+	uint64_t    ConnectionPairId;
+	xNetAddress BindAddress;
+};
