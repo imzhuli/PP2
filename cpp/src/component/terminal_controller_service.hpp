@@ -12,6 +12,7 @@ struct xRelayConnectionPair : xListNode {
 	uint64_t  TargetConnectionId   = {};
 	uint64_t  ProxyConnectionId    = {};
 	uint64_t  ClientConnectionId   = {};
+	uint64_t  UserFlags            = {};
 	xVariable UserCtx              = {};
 };
 

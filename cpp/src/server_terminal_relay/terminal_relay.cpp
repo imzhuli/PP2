@@ -2,6 +2,14 @@
 
 ///////////////
 
+bool xRelayUdpChannel::Init(xTerminalRelay * RelayPtr, const xNetAddress & BindAddress) {
+	return UdpChannel.Init(RelayPtr->GetIoCtxPtr(), BindAddress, this);
+}
+
+void xRelayUdpChannel::Clean() {
+	UdpChannel.Clean();
+}
+
 bool xRelayTerminalConnection::Init(
 	xTerminalRelay * RelayPtr, const xNetAddress & TargetAddress, const xNetAddress & BindAddress, uint64_t RelayConnectionPairId
 ) {
@@ -55,6 +63,11 @@ void xTerminalRelay::Tick(uint64_t NowMS) {
 		RTP->Clean();
 		delete RTP;
 	}
+	for (auto & N : KillUdpAssociationList) {
+		auto RUC = static_cast<xRelayUdpChannel *>(&N);
+		RUC->Clean();
+		delete RUC;
+	}
 }
 
 bool xTerminalRelay::LoadTerminalBindings(const char * TerminalBindingFile) {
@@ -90,6 +103,10 @@ bool xTerminalRelay::OnPacket(xServiceClientConnection & Connection, const xPack
 			break;
 		case Cmd_CreateUdpAssociation:
 			OnProxyCreateUdpAssociation(Connection, Header, PayloadPtr, PayloadSize);
+			break;
+		case Cmd_CloseUdpAssociation:
+			OnProxyCloseUdpAssociation(Connection, Header, PayloadPtr, PayloadSize);
+			break;
 		default:
 			X_DEBUG_PRINTF("OnPacket: %" PRIx32 ", rid=%" PRIx64 "", Header.CommandId, Header.RequestId);
 			return false;
@@ -115,11 +132,12 @@ void xTerminalRelay::OnProxyCreateConnection(xServiceClientConnection & Connecti
 	}
 	auto PPG = xScopeGuard([&, this] { DestroyConnectionPair(PP); });
 
-	auto RTP         = new (std::nothrow) xRelayTerminalConnection();
+	auto RTP         = new xRelayTerminalConnection();
 	auto BindAddress = GetBindAddress(Req.TerminalId);
-	if (!BindAddress || !Req.TargetAddress || !RTP || !RTP->Init(this, Req.TargetAddress, BindAddress, PP->ConnectionPairId)) {
+	if (!BindAddress || !Req.TargetAddress || !RTP->Init(this, Req.TargetAddress, BindAddress, PP->ConnectionPairId)) {
 		auto RSize = WritePacket(Cmd_CreateConnectionResp, Header.RequestId, Buffer, sizeof(Buffer), Resp);
 		Connection.PostData(Buffer, RSize);
+		delete RTP;
 		return;
 	}
 	auto RTPG = xScopeGuard([&] {
@@ -182,14 +200,69 @@ void xTerminalRelay::OnProxyCreateUdpAssociation(xServiceClientConnection & Conn
 		X_PERROR("Invalid protocol");
 		return;
 	}
+
+	auto Resp               = xCreateUdpAssociationResp();
+	Resp.ClientConnectionId = Req.ClientConnectionId;
+	X_DEBUG_PRINTF("Udp association: ClientConnectionId=%" PRIx64 "", Resp.ClientConnectionId);
+
+	ubyte Buffer[MaxPacketSize];
+	auto  PP = CreateConnectionPair();
+	if (!PP) {
+		auto RSize = WritePacket(Cmd_CreateUdpAssociationResp, Header.RequestId, Buffer, sizeof(Buffer), Resp);
+		Connection.PostData(Buffer, RSize);
+		return;
+	}
+	auto PPG = xScopeGuard([&, this] { DestroyConnectionPair(PP); });
+
+	// real connection object:
+	auto RUC         = new xRelayUdpChannel();
+	auto BindAddress = Req.BindAddressHint.IsV6() ? xNetAddress::Make6() : xNetAddress::Make4();
+	if (!RUC->Init(this, BindAddress)) {
+		auto RSize = WritePacket(Cmd_CreateUdpAssociationResp, Header.RequestId, Buffer, sizeof(Buffer), Resp);
+		Connection.PostData(Buffer, RSize);
+		delete RUC;
+		return;
+	}
+	auto RUCG = xScopeGuard([&] {
+		RUC->Clean();
+		delete RUC;
+	});
+
+	PP->ProxyConnectionId  = Connection.GetConnectionId();
+	PP->ClientConnectionId = Req.ClientConnectionId;
+	SetUdpAssociation(PP, RUC);
+
+	// post success:
+	Resp.ConnectionPairId = PP->ConnectionPairId;
+	auto RSize            = WritePacket(Cmd_CreateUdpAssociationResp, Header.RequestId, Buffer, sizeof(Buffer), Resp);
+	Connection.PostData(Buffer, RSize);
+
+	PPG.Dismiss();
+	RUCG.Dismiss();
+	return;
+}
+
+void xTerminalRelay::OnProxyCloseUdpAssociation(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
+	auto Req = xCloseUdpAssociation();
+	if (!Req.Deserialize(PayloadPtr, PayloadSize)) {
+		X_PERROR("Invalid protocol");
+		return;
+	}
 }
 
 /**************/
 
 void xTerminalRelay::OnDestroyTimeoutConnectionPair(xRelayConnectionPair * CP) {
-	auto RTP = static_cast<xRelayTerminalConnection *>(CP->UserCtx.P);
-	RTP->Clean();
-	delete RTP;
+	if (IsTcp(CP)) {
+		auto RTP = static_cast<xRelayTerminalConnection *>(CP->UserCtx.P);
+		RTP->Clean();
+		delete RTP;
+	}
+	if (IsUdp(CP)) {
+		auto RUCP = static_cast<xRelayUdpChannel *>(CP->UserCtx.P);
+		RUCP->Clean();
+		delete RUCP;
+	}
 }
 
 void xTerminalRelay::OnTargetConnectionEstablished(xRelayTerminalConnection * RTP) {
@@ -233,16 +306,16 @@ void xTerminalRelay::OnTargetConnectionData(xRelayTerminalConnection * RTP, ubyt
 	}
 }
 
-void xTerminalRelay::OnTargetConnectionClosed(xRelayTerminalConnection * RTP) {
-	auto PP = GetConnectionPairById(RTP->RelayConnectionPairId);
+void xTerminalRelay::OnTargetConnectionClosed(xRelayTerminalConnection * RTC) {
+	auto PP = GetConnectionPairById(RTC->RelayConnectionPairId);
 	if (!PP) {
 		X_DEBUG_PRINTF("Connection lost");
 		return;
 	}
 	assert(PP->ProxyConnectionId);
 
-	X_DEBUG_PRINTF("IsEstablished=%s", YN(RTP->Established));
-	if (RTP->Established) {
+	X_DEBUG_PRINTF("IsEstablished=%s", YN(RTC->Established));
+	if (RTC->Established) {
 		auto Resp               = xCloseClientConnection();
 		Resp.ClientConnectionId = PP->ClientConnectionId;
 		ubyte Buffer[MaxPacketSize];
@@ -256,15 +329,26 @@ void xTerminalRelay::OnTargetConnectionClosed(xRelayTerminalConnection * RTP) {
 		auto  RSize = WritePacket(Cmd_CreateConnectionResp, 0, Buffer, sizeof(Buffer), Resp);
 		PostData(PP->ProxyConnectionId, Buffer, RSize);
 	}
-	KillConnection(RTP);
+	KillConnection(RTC);
 }
 
-xRelayTerminalConnection * xTerminalRelay::GetTargetConnection(xRelayConnectionPair * RTP) {
-	return static_cast<xRelayTerminalConnection *>(RTP->UserCtx.P);
+xRelayTerminalConnection * xTerminalRelay::GetTargetConnection(xRelayConnectionPair * RCP) {
+	assert(IsTcp(RCP));
+	return static_cast<xRelayTerminalConnection *>(RCP->UserCtx.P);
 }
 
-void xTerminalRelay::SetTargetConnection(xRelayConnectionPair * PP, xRelayTerminalConnection * RTP) {
-	PP->UserCtx.P = RTP;
+xRelayUdpChannel * xTerminalRelay::GetUdpAssociation(xRelayConnectionPair * RCP) {
+	IsUdp(RCP);
+	return static_cast<xRelayUdpChannel *>(RCP->UserCtx.P);
+}
+
+void xTerminalRelay::SetTargetConnection(xRelayConnectionPair * RCP, xRelayTerminalConnection * RTC) {
+	RCP->UserCtx.P = RTC;
+}
+
+void xTerminalRelay::SetUdpAssociation(xRelayConnectionPair * RCP, xRelayUdpChannel * RUC) {
+	SetUdp(RCP);
+	RCP->UserCtx.P = RUC;
 }
 
 void xTerminalRelay::KillConnection(xRelayTerminalConnectionNode * NodePtr) {
@@ -273,4 +357,12 @@ void xTerminalRelay::KillConnection(xRelayTerminalConnectionNode * NodePtr) {
 	}
 	DestroyConnectionPair(Steal(NodePtr->RelayConnectionPairId));
 	KillConnectionList.GrabTail(*NodePtr);
+}
+
+void xTerminalRelay::KillUdpChannel(xRelayUdpChannelNode * NodePtr) {
+	if (!NodePtr->RelayConnectionPairId) {  // already killed
+		return;
+	}
+	DestroyConnectionPair(Steal(NodePtr->RelayConnectionPairId));
+	KillUdpAssociationList.GrabTail(*NodePtr);
 }

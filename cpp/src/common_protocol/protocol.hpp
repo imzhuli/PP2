@@ -24,6 +24,7 @@ static constexpr const xPacketCommandId Cmd_PostProxyToRelayData     = CmdNDBase
 static constexpr const xPacketCommandId Cmd_PostRelayToProxyData     = CmdNDBase + 0x05;
 static constexpr const xPacketCommandId Cmd_CreateUdpAssociation     = CmdNDBase + 0x06;
 static constexpr const xPacketCommandId Cmd_CreateUdpAssociationResp = CmdNDBase + 0x07;
+static constexpr const xPacketCommandId Cmd_CloseUdpAssociation      = CmdNDBase + 0x08;
 
 std::vector<ubyte> Encrypt(const void * Data, size_t DataSize, const std::string & AesKey);
 std::vector<ubyte> Decrypt(const void * Data, size_t DataSize, const std::string & AesKey);

@@ -38,7 +38,7 @@ enum eClientState {
 
 	CLIENT_STATE_S5_UDP_BINDING,
 	CLIENT_STATE_S5_UDP_READY,
-	CLIENT_STATE_S5_UDP_EXPIRED,
+	CLIENT_STATE_S5_UDP_CLOSED,
 
 	CLIENT_STATE_HTTP_WAIT_FOR_AUTH_RESULT,
 	CLIENT_STATE_HTTP_AUTH_DONE,
@@ -169,13 +169,15 @@ protected:
 	void OnTerminalConnectionResult(const xCreateRelayConnectionPairResp & Result);
 	void OnRelayData(const xRelayToProxyData & Post);
 	void OnCloseConnection(const xCloseClientConnection & Post);
+	void OnTerminalUdpAssociationResult(const xCreateUdpAssociationResp & Result);
 
 protected:
 	void   OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) override;
 	size_t OnClientInit(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 	size_t OnClientS5Auth(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
-	size_t OnClientS5ConnectResult(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
+	size_t OnClientS5Connect(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize);
 	size_t OnClientS5Data(xProxyClientConnection * CCP, ubyte * DataPtr, size_t DataSize);
+	size_t OnClientS5UdpData(xProxyClientConnection * CCP, ubyte * DataPtr, size_t DataSize);
 
 	xProxyRelayClient * MakeS5NewConnection(xProxyClientConnection * CCP);
 	xProxyRelayClient * GetTerminalController(const xNetAddress & AddressKey);
@@ -185,6 +187,8 @@ protected:
 	void CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP);
 	void DestroyTargetConnection(xIndexId ClientConnectionId);
 	void DestroyTargetConnection(xProxyClientConnection * CCP);
+	void RequestUdpBinding(xProxyRelayClient * RCP, xProxyClientConnection * CCP);
+	void DestroyUdpBinding(xProxyClientConnection * CCP);
 
 	void KeepAlive(xProxyRelayClient * RCP) {
 		RCP->KeepAliveTimestampMS = NowMS;

@@ -5,17 +5,38 @@
 #include "../component/static_ip_table.hpp"
 #include "../component/terminal_controller_service.hpp"
 
+namespace {
+	[[maybe_unused]] constexpr const uint64_t CONNECTION_PAIR_FLAG_UDP = 0x01;
+
+	[[maybe_unused]] inline bool IsTcp(xRelayConnectionPair * RTP) {
+		return !(RTP->UserFlags & CONNECTION_PAIR_FLAG_UDP);
+	}
+	[[maybe_unused]] inline bool IsUdp(xRelayConnectionPair * RTP) {
+		return (RTP->UserFlags & CONNECTION_PAIR_FLAG_UDP);
+	}
+	[[maybe_unused]] inline bool SetUdp(xRelayConnectionPair * RTP) {
+		return RTP->UserFlags |= CONNECTION_PAIR_FLAG_UDP;
+	}
+
+}  // namespace
+
 class xTerminalRelay;
 
 struct xRelayUdpChannelNode : xListNode {
-	uint64_t RelayConnectionPairId = {};
+	xTerminalRelay * RelayPtr              = {};
+	xUdpChannel      UdpChannel            = {};
+	uint64_t         RelayConnectionPairId = {};
 };
+
 class xRelayUdpChannel final
 	: public xUdpChannel::iListener
 	, public xRelayUdpChannelNode {
 public:
 	bool Init(xTerminalRelay * RelayPtr, const xNetAddress & BindAddress);
 	void Clean();
+
+	void OnData(xUdpChannel * ChannelPtr, void * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress){};
+	void OnError(xUdpChannel * ChannelPtr) override{};
 };
 
 struct xRelayTerminalConnectionNode : xListNode {
@@ -58,10 +79,14 @@ protected:
 	void OnProxyCloseConnection(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
 	void OnProxyToRelay(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
 	void OnProxyCreateUdpAssociation(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
+	void OnProxyCloseUdpAssociation(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
 
 	xRelayTerminalConnection * GetTargetConnection(xRelayConnectionPair * CP);
-	void                       SetTargetConnection(xRelayConnectionPair * CP, xRelayTerminalConnection * RTP);
+	xRelayUdpChannel *         GetUdpAssociation(xRelayConnectionPair * RCP);
+	void                       SetTargetConnection(xRelayConnectionPair * RCP, xRelayTerminalConnection * RTC);
+	void                       SetUdpAssociation(xRelayConnectionPair * RCP, xRelayUdpChannel * RUC);
 	void                       KillConnection(xRelayTerminalConnectionNode * NodePtr);
+	void                       KillUdpChannel(xRelayUdpChannelNode * NodePtr);
 
 public:
 	void OnDestroyTimeoutConnectionPair(xRelayConnectionPair * CP) override;
@@ -73,7 +98,6 @@ private:
 	xIoContext *                              IoCtxPtr = {};
 	std::unordered_map<uint64_t, xNetAddress> BindIpTable;
 
-	xList<xRelayTerminalConnectionNode> IdleConnectionList;
 	xList<xRelayTerminalConnectionNode> KillConnectionList;
-	xList<xRelayUdpChannelNode>         IdleUdpAssociationList;
+	xList<xRelayUdpChannelNode>         KillUdpAssociationList;
 };

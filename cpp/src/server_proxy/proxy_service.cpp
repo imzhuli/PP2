@@ -63,6 +63,15 @@ bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPt
 			ProxyServicePtr->OnTerminalConnectionResult(Resp);
 			break;
 		}
+		case Cmd_CreateUdpAssociationResp: {
+			auto Resp = xCreateUdpAssociationResp();
+			if (!Resp.Deserialize(PayloadPtr, PayloadSize)) {
+				X_DEBUG_PRINTF("Invalid protocol");
+				break;
+			}
+			ProxyServicePtr->OnTerminalUdpAssociationResult(Resp);
+			break;
+		}
 		case Cmd_PostRelayToProxyData: {
 			auto Post = xRelayToProxyData();
 			if (!Post.Deserialize(PayloadPtr, PayloadSize)) {
@@ -170,15 +179,19 @@ void xProxyService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && Native
 
 size_t xProxyService::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, size_t DataSize) {
 	auto CCP = UpCast(TcpConnectionPtr);
+	X_DEBUG_PRINTF("CCP ID=%" PRIx64 ", STATE=%i\n %s", CCP->ClientConnectionId, (int)CCP->State, HexShow(DataPtr, DataSize).c_str());
+
 	switch (CCP->State) {
 		case CLIENT_STATE_INIT:
 			return OnClientInit(CCP, DataPtr, DataSize);
 		case CLIENT_STATE_S5_WAIT_FOR_CLIENT_AUTH:
 			return OnClientS5Auth(CCP, DataPtr, DataSize);
 		case CLIENT_STATE_S5_AUTH_DONE:
-			return OnClientS5ConnectResult(CCP, DataPtr, DataSize);
+			return OnClientS5Connect(CCP, DataPtr, DataSize);
 		case CLIENT_STATE_S5_TCP_ESTABLISHED:
 			return OnClientS5Data(CCP, (ubyte *)DataPtr, DataSize);
+		case CLIENT_STATE_S5_UDP_READY:
+			return OnClientS5UdpData(CCP, (ubyte *)DataPtr, DataSize);
 		default:
 			X_DEBUG_PRINTF("Unprocessed data: \n%s", HexShow(DataPtr, DataSize).c_str());
 			break;
@@ -251,7 +264,9 @@ size_t xProxyService::OnClientS5Auth(xProxyClientConnection * CCP, void * DataPt
 	return R.Offset();
 }
 
-size_t xProxyService::OnClientS5ConnectResult(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
+size_t xProxyService::OnClientS5Connect(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
+	X_DEBUG_PRINTF("Request: \n%s", HexShow(DataPtr, DataSize).c_str());
+
 	if (DataSize < 10) {
 		return 0;
 	}
@@ -295,36 +310,51 @@ size_t xProxyService::OnClientS5ConnectResult(xProxyClientConnection * CCP, void
 		return InvalidDataSize;
 	}
 	size_t AddressLength = R.Offset() - 3;
-	if (Operation != 0x01 || AddrType == 0x06) {
-		X_DEBUG_PRINTF("Operation other than tcp ipv4/domain connection");
-		ubyte         Buffer[512];
-		xStreamWriter W(Buffer);
-		W.W(0x05);
-		W.W(0x01);
-		W.W(0x00);
-		W.W((ubyte *)DataPtr + 3, AddressLength);
-		CCP->PostData(Buffer, W.Offset());
-		FlushAndKillClientConnection(CCP);
-		return DataSize;
+	if (AddrType == 0x06) {
+		goto UNSUPPORTED;
 	}
 	CCP->TargetAddress = Address;
 
-	if (DomainNameLength) {  // dns query first
-		X_DEBUG_PRINTF("Client s5 wait for dns result");
-		CCP->State = CLIENT_STATE_S5_WAIT_FOR_DNS_RESULT;
-		PostDnsRequest(CCP, { DomainName, DomainNameLength });
+	if (Operation == 0x01) {     // tcp connection:
+		if (DomainNameLength) {  // dns query first
+			X_DEBUG_PRINTF("Client s5 wait for dns result");
+			CCP->State = CLIENT_STATE_S5_WAIT_FOR_DNS_RESULT;
+			PostDnsRequest(CCP, { DomainName, DomainNameLength });
+			return DataSize;
+		}
+
+		X_DEBUG_PRINTF("DirectConnect: %s", Address.ToString().c_str());
+		auto RelayClientConnectionPtr = MakeS5NewConnection(CCP);
+		if (!RelayClientConnectionPtr) {
+			X_DEBUG_PRINTF("Failed to establish connection to relay server");
+			KillClientConnection(CCP);
+			return InvalidDataSize;
+		}
+		CreateTargetConnection(RelayClientConnectionPtr, CCP);
+		CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
 		return DataSize;
 	}
 
-	X_DEBUG_PRINTF("DirectConnect: %s", Address.ToString().c_str());
-	auto RelayClientConnectionPtr = MakeS5NewConnection(CCP);
-	if (!RelayClientConnectionPtr) {
-		X_DEBUG_PRINTF("Failed to establish connection to relay server");
-		KillClientConnection(CCP);
-		return InvalidDataSize;
+	if (Operation == 0x03) {     // udp bind address
+		if (DomainNameLength) {  // udp bind refuse domain name
+			goto UNSUPPORTED;
+		}
+		auto RelayClientConnectionPtr = MakeS5NewConnection(CCP);
+		RequestUdpBinding(RelayClientConnectionPtr, CCP);
+		CCP->State = CLIENT_STATE_S5_UDP_BINDING;
+		return DataSize;
 	}
-	CreateTargetConnection(RelayClientConnectionPtr, CCP);
-	CCP->State = CLIENT_STATE_S5_TCP_CONNECTING;
+
+UNSUPPORTED:
+	X_DEBUG_PRINTF("address type ipv6 is not supported");
+	ubyte         Buffer[512];
+	xStreamWriter W(Buffer);
+	W.W(0x05);
+	W.W(0x01);
+	W.W(0x00);
+	W.W((ubyte *)DataPtr + 3, AddressLength);
+	CCP->PostData(Buffer, W.Offset());
+	FlushAndKillClientConnection(CCP);
 	return DataSize;
 }
 
@@ -351,6 +381,11 @@ size_t xProxyService::OnClientS5Data(xProxyClientConnection * CCP, ubyte * DataP
 	}
 	KeepAlive(CCP);
 	return DataSize - RemainSize;
+}
+
+size_t xProxyService::OnClientS5UdpData(xProxyClientConnection * CCP, ubyte * DataPtr, size_t DataSize) {
+	X_DEBUG_PRINTF("UdpData: \n%s", HexShow(DataPtr, DataSize).c_str());
+	return DataSize;
 }
 
 void xProxyService::PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView) {
@@ -399,7 +434,6 @@ void xProxyService::DestroyTargetConnection(xIndexId ClientConnectionId) {
 }
 
 void xProxyService::DestroyTargetConnection(xProxyClientConnection * CCP) {
-	X_DEBUG_PRINTF("Searching for TerminalControllerId: %" PRIx64 "", CCP->TerminalControllerId);
 	auto RelayClientPtr = RelayClientPool.CheckAndGet(CCP->TerminalControllerId);
 	if (!RelayClientPtr) {
 		X_DEBUG_PRINTF("Relay server missing");
@@ -411,6 +445,32 @@ void xProxyService::DestroyTargetConnection(xProxyClientConnection * CCP) {
 
 	ubyte Buffer[MaxPacketSize];
 	auto  RSize = WritePacket(Cmd_CloseConnection, CCP->ClientConnectionId, Buffer, sizeof(Buffer), Req);
+	RelayClientPtr->PostData(Buffer, RSize);
+}
+
+void xProxyService::RequestUdpBinding(xProxyRelayClient * RCP, xProxyClientConnection * CCP) {
+	auto Req               = xCreateUdpAssociation{};
+	Req.ClientConnectionId = CCP->ClientConnectionId;
+	Req.TerminalId         = CCP->TerminalId;
+	Req.BindAddressHint    = CCP->TargetAddress;
+
+	ubyte Buffer[MaxPacketSize];
+	auto  RSize = WritePacket(Cmd_CreateUdpAssociation, 0, Buffer, sizeof(Buffer), Req);
+	RCP->PostData(Buffer, RSize);
+}
+
+void xProxyService::DestroyUdpBinding(xProxyClientConnection * CCP) {
+	auto RelayClientPtr = RelayClientPool.CheckAndGet(CCP->TerminalControllerId);
+	if (!RelayClientPtr) {
+		X_DEBUG_PRINTF("Relay server missing");
+		return;
+	}
+
+	auto Req             = xCloseUdpAssociation();
+	Req.ConnectionPairId = CCP->ConnectionPairId;
+
+	ubyte Buffer[MaxPacketSize];
+	auto  RSize = WritePacket(Cmd_CloseUdpAssociation, CCP->ClientConnectionId, Buffer, sizeof(Buffer), Req);
 	RelayClientPtr->PostData(Buffer, RSize);
 }
 
@@ -533,6 +593,7 @@ void xProxyService::OnTerminalConnectionResult(const xCreateRelayConnectionPairR
 				};
 				CCP->PostData(S5Refused, sizeof(S5Refused));
 				FlushAndKillClientConnection(CCP);
+				return;
 			}
 			static constexpr const ubyte S5Established[] = {
 				'\x05', '\x00', '\x00',          // ok
@@ -543,7 +604,46 @@ void xProxyService::OnTerminalConnectionResult(const xCreateRelayConnectionPairR
 			CCP->PostData(S5Established, sizeof(S5Established));
 			CCP->ConnectionPairId = Result.ConnectionPairId;
 			CCP->State            = CLIENT_STATE_S5_TCP_ESTABLISHED;
+			return;
+		}
+		default:
+			X_DEBUG_PRINTF("Invalid client connection state, closing");
+			KillClientConnection(CCP);
 			break;
+	}
+}
+
+void xProxyService::OnTerminalUdpAssociationResult(const xCreateUdpAssociationResp & Result) {
+	auto CCP = ClientConnectionPool.CheckAndGet(Result.ClientConnectionId);
+	if (!CCP) {
+		X_DEBUG_PRINTF("Missing source connection");
+		return;
+	}
+	Breakpoint();
+	X_DEBUG_PRINTF("PairId: %" PRIx64 "", Result.ConnectionPairId);
+	switch (CCP->State) {
+		case CLIENT_STATE_S5_UDP_BINDING: {
+			if (!Result.ConnectionPairId) {
+				static constexpr const ubyte S5Refused[] = {
+					'\x05', '\x05', '\x00',          // refused
+					'\x01',                          // ipv4
+					'\x00', '\x00', '\x00', '\x00',  // ip: 0.0.0.0
+					'\x00', '\x00',                  // port 0:
+				};
+				CCP->PostData(S5Refused, sizeof(S5Refused));
+				FlushAndKillClientConnection(CCP);
+				return;
+			}
+			static constexpr const ubyte S5Established[] = {
+				'\x05', '\x00', '\x00',          // ok
+				'\x01',                          // ipv4
+				'\x00', '\x00', '\x00', '\x00',  // ip: 0.0.0.0
+				'\x00', '\x00',                  // port 0:
+			};
+			CCP->PostData(S5Established, sizeof(S5Established));
+			CCP->ConnectionPairId = Result.ConnectionPairId;
+			CCP->State            = CLIENT_STATE_S5_UDP_READY;
+			return;
 		}
 		default:
 			X_DEBUG_PRINTF("Invalid client connection state, closing");
@@ -609,7 +709,11 @@ void xProxyService::ShrinkKillList() {
 		do {                              // notify terminal to close connection
 			if (CCP->ConnectionPairId) {  // active close connection
 				X_DEBUG_PRINTF("ConnectionPairId: %" PRIx64 "", CCP->ConnectionPairId);
-				DestroyTargetConnection(CCP);
+				if (CCP->State == CLIENT_STATE_S5_TCP_ESTABLISHED) {
+					DestroyTargetConnection(CCP);
+				} else if (CCP->State == CLIENT_STATE_S5_UDP_READY) {
+					DestroyUdpBinding(CCP);
+				}
 			}
 		} while (false);
 		CCP->Clean();
