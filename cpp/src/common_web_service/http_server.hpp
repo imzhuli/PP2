@@ -71,7 +71,7 @@ protected:  // callbacks
 		Pass();
 	}
 
-	virtual xArrayView<std::string> GetInterestedHeaders() {
+	virtual xView<const std::string> GetInterestedHeaders() const {
 		return {};
 	}
 

@@ -129,7 +129,7 @@ bool xProxyDispatcherClient::OnPacket(const xPacketHeader & Header, ubyte * Payl
 
 bool xProxyService::Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress, const xNetAddress & DispatcherAddress) {
 	assert(IoCtxPtr && BindAddress && DispatcherAddress);
-	RuntimeAssert(TcpServer.Init(IoCtxPtr, BindAddress, this, true));
+	RuntimeAssert(TcpServer.Init(IoCtxPtr, BindAddress, this));
 	RuntimeAssert(DispatcherClient.Init(IoCtxPtr, DispatcherAddress, this));
 	RuntimeAssert(RelayClientPool.Init(MAX_PROXY_RELAY_CONNECTION));
 	RuntimeAssert(ClientConnectionPool.Init(MAX_PROXY_CLIENT_CONNECTION));

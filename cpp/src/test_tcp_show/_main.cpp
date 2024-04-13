@@ -49,7 +49,7 @@ int main(int argc, char ** argv) {
 		return -1;
 	}
 	auto ICG = xResourceGuard(IC);
-	auto TSG = xResourceGuard(TS, &IC, xNetAddress::Parse(*BO), &HSS, true);
+	auto TSG = xResourceGuard(TS, &IC, xNetAddress::Parse(*BO), &HSS);
 	RuntimeAssert(ICG);
 	RuntimeAssert(TSG);
 	while (true) {

@@ -15,7 +15,7 @@ public:
 		}
 		auto IOC = MakeResourceCleaner(IoCtx);
 
-		if (!Channel.Init(&IoCtx, AF_INET, this)) {
+		if (!Channel.Init(&IoCtx, xNetAddress::Make4(), this)) {
 			return false;
 		}
 		auto CC = MakeResourceCleaner(Channel);
