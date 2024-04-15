@@ -29,6 +29,7 @@ size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataP
 	while (RemainSize >= PacketHeaderSize) {
 		auto Header = xPacketHeader::Parse(DataPtr);
 		if (!Header) { /* header error */
+			X_PERROR("HeaderError: \n%s", HexShow(DataPtr, DataSize).c_str());
 			return InvalidDataSize;
 		}
 		auto PacketSize = Header.PacketSize;  // make a copy, so Header can be reused

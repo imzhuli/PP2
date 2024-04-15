@@ -57,7 +57,6 @@ void xProxyService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && Native
 
 size_t xProxyService::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, size_t DataSize) {
 	auto CCP = UpCast(TcpConnectionPtr);
-	X_DEBUG_PRINTF("CCP ID=%" PRIx64 ", STATE=%i\n%s", CCP->ClientConnectionId, (int)CCP->State, HexShow(DataPtr, DataSize).c_str());
 
 	switch (CCP->State) {
 		case CLIENT_STATE_INIT:
@@ -82,6 +81,7 @@ size_t xProxyService::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, 
 			return OnClientHttpStream(CCP, DataPtr, DataSize);
 
 		default:
+			// X_DEBUG_PRINTF("CCP ID=%" PRIx64 ", STATE=%i\n%s", CCP->ClientConnectionId, (int)CCP->State, HexShow(DataPtr, DataSize).c_str());
 			X_DEBUG_PRINTF("Ignored data: State:%i\n DataSize=%zi", (int)CCP->State, DataSize);
 			break;
 	}
@@ -222,6 +222,10 @@ xProxyRelayClient * xProxyService::GetTerminalController(const xNetAddress & Add
 }
 
 void xProxyService::PostDataToTerminalController(xProxyClientConnection * CCP, const void * _, size_t DataSize) {
+	if (!DataSize) {  // life saver
+		return;
+	}
+
 	auto DataPtr = (const ubyte *)_;
 	auto PRC     = RelayClientPool.CheckAndGet(CCP->TerminalControllerId);
 	if (!PRC) {

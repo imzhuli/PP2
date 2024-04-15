@@ -43,6 +43,38 @@ void xProxyService::ProcessHttpHeaderLine(xProxyClientConnection * CCP, const st
 	cout << "Line: " << std::string(Line) << endl;
 	const char * CL = Line.c_str();
 
+	if (CCP->Http.Mode == eHttpMode::UNSPEC) {  // reqeust line
+		if (CL == strcasestr(CL, "CONNECT ")) {
+			CCP->Http.Mode = eHttpMode::RAW;
+			// header will be ignored later
+			return;
+		}
+		CCP->Http.Mode = eHttpMode::NORMAL;
+		// remove schema tags:
+		auto Segs = Split(Line, " ");
+		if (Segs.size() < 1) {
+			return;
+		}
+		auto & Schema   = Segs[1];
+		auto   TagIndex = Schema.find("://");
+		if (TagIndex == Schema.npos) {
+			CCP->Http.Header.append(Line);
+			CCP->Http.Header.append("\r\n", 2);
+			return;
+		}
+		auto UriIndex = Schema.find("/", TagIndex + 3);
+		if (UriIndex == Schema.npos) {
+			Schema = "/";
+		} else {
+			Schema = Schema.substr(UriIndex);
+		}
+		auto SchemaLine = JoinStr(Segs, ' ');
+		X_DEBUG_PRINTF("Update uri schema: [%s]", SchemaLine.c_str());
+		CCP->Http.Header.append(Line);
+		CCP->Http.Header.append("\r\n", 2);
+		return;
+	}
+
 	if (CL == strcasestr(CL, "Host:")) {
 		auto Host = Trim(CL + 5);
 		X_DEBUG_PRINTF("Request host: %s", Host.c_str());
@@ -89,7 +121,13 @@ void xProxyService::ProcessHttpHeaderLine(xProxyClientConnection * CCP, const st
 bool xProxyService::OnHttpHeaderDone(xProxyClientConnection * CCP) {
 	X_DEBUG_PRINTF("Header: \n%s", CCP->Http.Header.c_str());
 	X_DEBUG_PRINTF("Overhead Header: (body):\n%s", HexShow(CCP->Http.Body).c_str());
-	CCP->Http.Header.append("Connection: close\r\n\r\n", 21);
+
+	if (CCP->Http.Mode == eHttpMode::NORMAL) {
+		CCP->Http.Header.append("Connection: close\r\n\r\n", 21);
+	} else {
+		assert(CCP->Http.Mode == eHttpMode::RAW);
+		Reset(CCP->Http.Header);
+	}
 
 	if (CCP->Http.TargetHost.empty()) {
 		X_DEBUG_PRINTF("Missing target host");
@@ -194,10 +232,14 @@ void xProxyService::OnHttpConnected(xProxyClientConnection * CCP, uint64_t NewCo
 	PostDataToTerminalController(CCP, CCP->Http.Body.data(), CCP->Http.Body.size());
 	Reset(CCP->Http.Body);
 	KeepAlive(CCP);
+
+	if (CCP->Http.Mode == eHttpMode::RAW) {  // notify
+		CCP->PostData("HTTP/1.1 200 Connection established\r\nProxy-agent: proxy / 1.0\r\n\r\n", 65);
+	}
 }
 
 size_t xProxyService::OnClientHttpStream(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
-	X_DEBUG_PRINTF("HttpStream:\n%s", HexShow(DataPtr, DataSize).c_str());
+	X_DEBUG_PRINTF("HttpStream: size=%zi", DataSize);
 	PostDataToTerminalController(CCP, DataPtr, DataSize);
 	return DataSize;
 }

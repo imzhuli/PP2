@@ -47,6 +47,12 @@ enum eClientState {
 	CLIENT_STATE_CLOSED,
 };
 
+enum struct eHttpMode : uint_fast8_t {
+	UNSPEC = 0,
+	NORMAL,
+	RAW,
+};
+
 struct xProxyClientIdleNode : xListNode {
 	uint64_t KeepAliveTimestampMS;
 	bool     CloseFlag = false;
@@ -75,6 +81,7 @@ public:
 		std::string Header          = {};
 		std::string Unprocessed     = {};
 		std::string Body            = {};
+		eHttpMode   Mode            = eHttpMode::UNSPEC;
 	} Http;
 };
 
