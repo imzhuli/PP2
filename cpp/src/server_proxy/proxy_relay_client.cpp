@@ -1,0 +1,98 @@
+#include "./proxy_relay_client.hpp"
+
+#include "./proxy_access.hpp"
+
+// xProxyRelayClient
+bool xProxyRelayClient::Init(xProxyService * ProxyServicePtr, const xNetAddress & TargetAddress) {
+	if (!xTcpConnection::Init(ProxyServicePtr->IoCtxPtr, TargetAddress, this)) {
+		return false;
+	}
+	this->ProxyServicePtr = ProxyServicePtr;
+	this->TargetAddress   = TargetAddress;
+	return true;
+}
+
+void xProxyRelayClient::Clean() {
+	xTcpConnection::Clean();
+	Reset(ProxyServicePtr);
+	Reset(TargetAddress);
+}
+
+void xProxyRelayClient::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
+	ProxyServicePtr->RemoveRelayClient(this);
+}
+
+size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtrInput, size_t DataSize) {
+	assert(TcpConnectionPtr == this);
+	auto   DataPtr    = static_cast<ubyte *>(DataPtrInput);
+	size_t RemainSize = DataSize;
+	while (RemainSize >= PacketHeaderSize) {
+		auto Header = xPacketHeader::Parse(DataPtr);
+		if (!Header) { /* header error */
+			return InvalidDataSize;
+		}
+		auto PacketSize = Header.PacketSize;  // make a copy, so Header can be reused
+		if (RemainSize < PacketSize) {        // wait for data
+			break;
+		}
+		if (Header.IsKeepAlive()) {
+			X_DEBUG_PRINTF("KeepAlive");
+			ProxyServicePtr->KeepAlive(this);
+		} else {
+			auto PayloadPtr  = xPacket::GetPayloadPtr(DataPtr);
+			auto PayloadSize = Header.GetPayloadSize();
+			if (!OnPacket(Header, PayloadPtr, PayloadSize)) { /* packet error */
+				return InvalidDataSize;
+			}
+		}
+		DataPtr    += PacketSize;
+		RemainSize -= PacketSize;
+	}
+	return DataSize - RemainSize;
+}
+
+bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
+	switch (Header.CommandId) {
+		case Cmd_CreateConnectionResp: {
+			auto Resp = xCreateRelayConnectionPairResp();
+			if (!Resp.Deserialize(PayloadPtr, PayloadSize)) {
+				X_DEBUG_PRINTF("Invalid protocol");
+				break;
+			}
+			ProxyServicePtr->OnTerminalConnectionResult(Resp);
+			break;
+		}
+		case Cmd_CreateUdpAssociationResp: {
+			auto Resp = xCreateUdpAssociationResp();
+			if (!Resp.Deserialize(PayloadPtr, PayloadSize)) {
+				X_DEBUG_PRINTF("Invalid protocol");
+				break;
+			}
+			ProxyServicePtr->OnTerminalUdpAssociationResult(Resp);
+			break;
+		}
+		case Cmd_PostRelayToProxyData: {
+			auto Post = xRelayToProxyData();
+			if (!Post.Deserialize(PayloadPtr, PayloadSize)) {
+				X_DEBUG_PRINTF("Invalid protocol");
+				break;
+			}
+			ProxyServicePtr->OnRelayData(Post);
+			break;
+		}
+		case Cmd_CloseConnection: {
+			auto Post = xCloseClientConnection();
+			if (!Post.Deserialize(PayloadPtr, PayloadSize)) {
+				X_DEBUG_PRINTF("Invalid protocol");
+				break;
+			}
+			ProxyServicePtr->OnCloseConnection(Post);
+			break;
+		}
+		default: {
+			X_DEBUG_PRINTF("CommandId: %" PRIu32 ", RequestId:%" PRIx64 "", Header.CommandId, Header.RequestId);
+			X_DEBUG_PRINTF("Unsupported packet");
+		}
+	}
+	return true;
+}
