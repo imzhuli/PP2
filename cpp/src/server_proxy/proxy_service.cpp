@@ -356,45 +356,6 @@ void xProxyService::OnTerminalConnectionResult(const xCreateRelayConnectionPairR
 	}
 }
 
-void xProxyService::OnTerminalUdpAssociationResult(const xCreateUdpAssociationResp & Result) {
-	auto CCP = ClientConnectionPool.CheckAndGet(Result.ClientConnectionId);
-	if (!CCP) {
-		X_DEBUG_PRINTF("Missing source connection");
-		return;
-	}
-	Breakpoint();
-	X_DEBUG_PRINTF("PairId: %" PRIx64 "", Result.ConnectionPairId);
-	switch (CCP->State) {
-		case CLIENT_STATE_S5_UDP_BINDING: {
-			if (!Result.ConnectionPairId) {
-				static constexpr const ubyte S5Refused[] = {
-					'\x05', '\x05', '\x00',          // refused
-					'\x01',                          // ipv4
-					'\x00', '\x00', '\x00', '\x00',  // ip: 0.0.0.0
-					'\x00', '\x00',                  // port 0:
-				};
-				CCP->PostData(S5Refused, sizeof(S5Refused));
-				FlushAndKillClientConnection(CCP);
-				return;
-			}
-			static constexpr const ubyte S5Established[] = {
-				'\x05', '\x00', '\x00',          // ok
-				'\x01',                          // ipv4
-				'\x00', '\x00', '\x00', '\x00',  // ip: 0.0.0.0
-				'\x00', '\x00',                  // port 0:
-			};
-			CCP->PostData(S5Established, sizeof(S5Established));
-			CCP->ConnectionPairId = Result.ConnectionPairId;
-			CCP->State            = CLIENT_STATE_S5_UDP_READY;
-			return;
-		}
-		default:
-			X_DEBUG_PRINTF("Invalid client connection state, closing");
-			KillClientConnection(CCP);
-			break;
-	}
-}
-
 void xProxyService::OnRelayData(const xRelayToProxyData & Post) {
 	X_DEBUG_PRINTF("RelayData: ClientConnectionId=%" PRIx64 ", Size=%zi", Post.ClientConnectionId, Post.DataView.size());
 	auto CCP = ClientConnectionPool.CheckAndGet(Post.ClientConnectionId);

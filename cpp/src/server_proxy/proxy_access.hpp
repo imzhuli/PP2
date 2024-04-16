@@ -73,6 +73,7 @@ public:
 	xIndexId     TerminalId                = {};
 	xIndexId     ConnectionPairId          = {};
 	xNetAddress  TargetAddress             = {};  // also used as UdpBindAddress
+	xIndexId     LocalUdpChannelId         = {};
 
 	struct {
 		std::string TargetHost      = {};
@@ -85,9 +86,18 @@ public:
 	} Http;
 };
 
+class xProxyUdpReceiver
+	: public xUdpChannel
+	, public xListNode {
+public:
+	uint64_t KeepAliveTimestampMS = {};
+	uint64_t ClientConnectionId   = {};
+};
+
 class xProxyService
 	: public xTcpConnection::iListener
-	, public xTcpServer::iListener {
+	, public xTcpServer::iListener
+	, public xUdpChannel::iListener {
 private:
 	friend class xProxyRelayClient;
 	friend class xProxyDispatcherClient;
@@ -125,6 +135,7 @@ protected:
 		X_DEBUG_PRINTF("ClientClose");
 		KillClientConnection(UpCast(TcpConnectionPtr));
 	}
+	void OnData(xUdpChannel * ChannelPtr, void * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress);
 
 	// from dispatch server
 	void OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp);
@@ -166,6 +177,7 @@ protected:
 	void CreateTargetConnection(xProxyRelayClient * RCP, xProxyClientConnection * CCP);
 	void DestroyTargetConnection(xIndexId ClientConnectionId);
 	void DestroyTargetConnection(xProxyClientConnection * CCP);
+	bool CreateLocalUdpChannel(xProxyClientConnection * CCP);
 	void RequestUdpBinding(xProxyRelayClient * RCP, xProxyClientConnection * CCP);
 	void DestroyUdpBinding(xProxyClientConnection * CCP);
 
@@ -179,6 +191,10 @@ protected:
 		}
 		CCP->KeepAliveTimestampMS = NowMS;
 		ClientIdleTimeoutList.GrabTail(*CCP);
+	}
+	void KeepAlive(xProxyUdpReceiver * URP) {
+		URP->KeepAliveTimestampMS = NowMS;
+		UdpReceiverIdleList.GrabTail(*URP);
 	}
 	void FlushAndKillClientConnection(xProxyClientIdleNode * NodePtr) {
 		auto CCP = static_cast<xProxyClientConnection *>(NodePtr);
@@ -215,6 +231,9 @@ protected:
 	std::unordered_map<std::string, uint64_t> RelayClientMap;
 	xList<xProxyRelayClientNode>              RelayClientKeepAliveList;
 	xList<xProxyRelayClientNode>              RelayClientKillList;
+
+	xIndexedStorage<xProxyUdpReceiver *> ClientUdpChannelPool;
+	xList<xProxyUdpReceiver>             UdpReceiverIdleList;
 
 	size_t AuditClientConnectionCount = 0;
 };

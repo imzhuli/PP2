@@ -133,14 +133,17 @@ size_t xProxyService::OnClientS5Connect(xProxyClientConnection * CCP, void * Dat
 		if (DomainNameLength) {  // udp bind refuse domain name
 			goto UNSUPPORTED;
 		}
+		if (!CreateLocalUdpChannel(CCP)) {
+			goto LOCAL_UDP_FAILED;
+		}
 		auto RelayClientConnectionPtr = GetTerminalController(CCP);
 		RequestUdpBinding(RelayClientConnectionPtr, CCP);
 		CCP->State = CLIENT_STATE_S5_UDP_BINDING;
 		return DataSize;
 	}
 
+LOCAL_UDP_FAILED:
 UNSUPPORTED:
-	X_DEBUG_PRINTF("address type ipv6 is not supported");
 	ubyte         Buffer[512];
 	xStreamWriter W(Buffer);
 	W.W(0x05);
@@ -148,6 +151,7 @@ UNSUPPORTED:
 	W.W(0x00);
 	W.W((ubyte *)DataPtr + 3, AddressLength);
 	CCP->PostData(Buffer, W.Offset());
+	CCP->State = CLIENT_STATE_CLOSED;
 	FlushAndKillClientConnection(CCP);
 	return DataSize;
 }
@@ -174,6 +178,81 @@ void xProxyService::OnS5AuthResult(xProxyClientConnection * CCP, const xProxyCli
 }
 
 size_t xProxyService::OnClientS5UdpData(xProxyClientConnection * CCP, ubyte * DataPtr, size_t DataSize) {
-	X_DEBUG_PRINTF("UdpData: \n%s", HexShow(DataPtr, DataSize).c_str());
+	X_DEBUG_PRINTF("Ignored UdpData: \n%s", HexShow(DataPtr, DataSize).c_str());
 	return DataSize;
+}
+
+bool xProxyService::CreateLocalUdpChannel(xProxyClientConnection * CCP) {
+	assert(!CCP->LocalUdpChannelId);
+	auto P = new (std::nothrow) xProxyUdpReceiver();
+	if (!P) {
+		return false;
+	}
+	auto Id = ClientUdpChannelPool.Acquire(P);
+	if (!Id) {
+		delete P;
+		return false;
+	}
+	auto BindAddress = CCP->GetLocalAddress().Decay();
+	if (!P->Init(this->IoCtxPtr, BindAddress, this)) {
+		ClientUdpChannelPool.Release(Id);
+		delete P;
+		return false;
+	}
+	P->ClientConnectionId  = CCP->ClientConnectionId;
+	CCP->LocalUdpChannelId = Id;
+	return true;
+}
+
+void xProxyService::OnTerminalUdpAssociationResult(const xCreateUdpAssociationResp & Result) {
+	auto CCP = ClientConnectionPool.CheckAndGet(Result.ClientConnectionId);
+	if (!CCP) {
+		X_DEBUG_PRINTF("Missing source connection");
+		return;
+	}
+	X_DEBUG_PRINTF("PairId: %" PRIx64 "", Result.ConnectionPairId);
+	switch (CCP->State) {
+		case CLIENT_STATE_S5_UDP_BINDING: {
+			assert(CCP->LocalUdpChannelId);
+			auto UP  = ClientUdpChannelPool.CheckAndGet(CCP->LocalUdpChannelId);
+			auto URP = UP ? *UP : nullptr;
+			if (!URP) {
+				DestroyUdpBinding(CCP);
+			}
+			if (!URP || !Result.ConnectionPairId) {
+				static constexpr const ubyte S5Refused[] = {
+					'\x05', '\x05', '\x00',          // refused
+					'\x01',                          // ipv4
+					'\x00', '\x00', '\x00', '\x00',  // ip: 0.0.0.0
+					'\x00', '\x00',                  // port 0:
+				};
+				CCP->PostData(S5Refused, sizeof(S5Refused));
+				FlushAndKillClientConnection(CCP);
+				return;
+			}
+			auto & Address         = URP->GetBindAddress();
+			ubyte  S5Established[] = {
+                '\x05', '\x00', '\x00',          // ok
+                '\x01',                          // ipv4
+                '\x00', '\x00', '\x00', '\x00',  // ip: 0.0.0.0
+                '\x00', '\x00',                  // port 0:
+			};
+			auto W = xStreamWriter(S5Established + 4);
+			W.W(Address.SA4, 4);
+			W.W2(Address.Port);
+
+			CCP->PostData(S5Established, sizeof(S5Established));
+			CCP->ConnectionPairId = Result.ConnectionPairId;
+			CCP->State            = CLIENT_STATE_S5_UDP_READY;
+			return;
+		}
+		default:
+			X_DEBUG_PRINTF("Invalid client connection state, closing");
+			KillClientConnection(CCP);
+			break;
+	}
+}
+
+void xProxyService::OnData(xUdpChannel * ChannelPtr, void * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
+	X_DEBUG_PRINTF("UDP Data: @%s\n%s", RemoteAddress.ToString().c_str(), HexShow(DataPtr, DataSize).c_str());
 }
