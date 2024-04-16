@@ -238,6 +238,7 @@ bool xProxyService::CreateLocalUdpChannel(xProxyClientConnection * CCP) {
 	}
 	URP->ClientConnectionId = CCP->ClientConnectionId;
 	CCP->LocalUdpChannelId  = Id;
+	KeepAlive(URP);
 	return true;
 }
 
@@ -268,6 +269,7 @@ void xProxyService::OnTerminalUdpAssociationResult(const xCreateUdpAssociationRe
 				FlushAndKillClientConnection(CCP);
 				return;
 			}
+			KeepAliveUseUdpTimeout(CCP);
 			URP->TerminalControllerId = CCP->TerminalControllerId;
 			URP->ConnectionPairId     = Result.ConnectionPairId;
 
