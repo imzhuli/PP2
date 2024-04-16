@@ -5,21 +5,25 @@
 
 // xProxyService
 
-bool xProxyService::Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress, const xNetAddress & DispatcherAddress) {
+bool xProxyService::Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress, const xNetAddress & UdpExportAddress, const xNetAddress & DispatcherAddress) {
 	assert(IoCtxPtr && BindAddress && DispatcherAddress);
 	RuntimeAssert(TcpServer.Init(IoCtxPtr, BindAddress, this));
 	RuntimeAssert(DispatcherClient.Init(IoCtxPtr, DispatcherAddress, this));
 	RuntimeAssert(RelayClientPool.Init(MAX_PROXY_RELAY_CONNECTION));
 	RuntimeAssert(ClientConnectionPool.Init(MAX_PROXY_CLIENT_CONNECTION));
+	RuntimeAssert(ClientUdpChannelPool.Init(MAX_PROXY_UDP_RECEIVER));
 
 	this->IoCtxPtr = IoCtxPtr;
 	NowMS          = GetTimestampMS();
 	Reset(AuditClientConnectionCount);
+	this->UdpExportAddress = UdpExportAddress;
 	return true;
 }
 
 void xProxyService::Clean() {
+	Reset(UdpExportAddress);
 	Renew(RelayClientMap);
+	ClientUdpChannelPool.Clean();
 	ClientConnectionPool.Clean();
 	RelayClientPool.Clean();
 	TcpServer.Clean();
@@ -251,6 +255,20 @@ void xProxyService::PostDataToTerminalController(xProxyClientConnection * CCP, c
 	return;
 }
 
+void xProxyService::PostDataToTerminalControllerRaw(uint64_t TerminalControllerId, const void * DataPtr, size_t DataSize) {
+	if (!DataSize) {  // life saver
+		return;
+	}
+	auto PRC = RelayClientPool.CheckAndGet(TerminalControllerId);
+	if (!PRC) {
+		X_DEBUG_PRINTF("Relay server lost");
+		return;
+	}
+	PRC->PostData(DataPtr, DataSize);
+	KeepAlive(PRC);
+	return;
+}
+
 void xProxyService::OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp) {
 	auto CCP = ClientConnectionPool.CheckAndGet(ClientConnectionId);
 	if (!CCP) {
@@ -420,6 +438,15 @@ void xProxyService::ShrinkKillList() {
 				}
 			}
 		} while (false);
+		if (auto UdpReceiverId = Steal(CCP->LocalUdpChannelId)) {
+			auto UP = ClientUdpChannelPool.CheckAndGet(UdpReceiverId);
+			assert(UP);
+			auto UCP = *UP;
+			ClientUdpChannelPool.Release(UdpReceiverId);
+			UCP->Clean();
+			delete UCP;
+		}
+
 		CCP->Clean();
 		assert(CCP == ClientConnectionPool.CheckAndGet(CCP->ClientConnectionId));
 		ClientConnectionPool.Release(CCP->ClientConnectionId);

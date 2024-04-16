@@ -13,6 +13,7 @@ static constexpr const uint64_t TCP_CONNECTION_IDLE_TIMEOUT_MS  = 125'000;
 static constexpr const uint64_t TCP_CONNECTION_FLUSH_TIMEOUT_MS = 3'000;
 static constexpr const uint64_t MAX_PROXY_RELAY_CONNECTION      = 10'000;
 static constexpr const uint64_t MAX_PROXY_CLIENT_CONNECTION     = 10'000;
+static constexpr const uint64_t MAX_PROXY_UDP_RECEIVER          = 50'000;
 
 class xProxyClientConnection;
 class xProxyRelayClient;
@@ -90,8 +91,11 @@ class xProxyUdpReceiver
 	: public xUdpChannel
 	, public xListNode {
 public:
-	uint64_t KeepAliveTimestampMS = {};
-	uint64_t ClientConnectionId   = {};
+	uint64_t    KeepAliveTimestampMS = {};
+	uint64_t    ClientConnectionId   = {};
+	uint64_t    TerminalControllerId = {};
+	uint64_t    ConnectionPairId     = {};
+	xNetAddress LastSourceAddress    = {};
 };
 
 class xProxyService
@@ -103,7 +107,7 @@ private:
 	friend class xProxyDispatcherClient;
 
 public:
-	bool Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress, const xNetAddress & DispatcherAddress);
+	bool Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress, const xNetAddress & UdpExportAddress, const xNetAddress & DispatcherAddress);
 	void Clean();
 	void Tick(uint64_t NowMS);
 
@@ -144,6 +148,7 @@ protected:
 	void OnRelayData(const xRelayToProxyData & Post);
 	void OnCloseConnection(const xCloseClientConnection & Post);
 	void OnTerminalUdpAssociationResult(const xCreateUdpAssociationResp & Result);
+	void OnRelayUdpData(const xRelayToProxyUdpData & Post);
 
 protected:
 	void   OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) override;
@@ -170,6 +175,7 @@ protected:
 
 	xProxyRelayClient * GetTerminalController(xProxyClientConnection * CCP);
 	xProxyRelayClient * GetTerminalController(const xNetAddress & AddressKey);
+	void                PostDataToTerminalControllerRaw(uint64_t TerminalControllerId, const void * DataPtr, size_t Dataize);
 	void                PostDataToTerminalController(xProxyClientConnection * CCP, const void * DataPtr, size_t DataSize);
 
 	void PostAuthRequest(xProxyClientConnection * CCP, const std::string_view AccountNameView, const std::string_view PasswordView);
@@ -214,6 +220,8 @@ protected:
 	void ShrinkFlushTimeout();
 	void ShrinkKillList();
 	void ShrinkRelayClient();
+	// TODO:
+	void ShrinkUdpReceiver();
 
 protected:
 	xIoContext *                            IoCtxPtr = nullptr;
@@ -222,6 +230,7 @@ protected:
 	xProxyDispatcherClient                  DispatcherClient;
 	xIndexedStorage<xProxyRelayClient>      RelayClientPool;
 	xIndexedStorage<xProxyClientConnection> ClientConnectionPool;
+	xNetAddress                             UdpExportAddress;
 
 	xList<xProxyClientIdleNode> ClientAuthTimeoutList;
 	xList<xProxyClientIdleNode> ClientIdleTimeoutList;

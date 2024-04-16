@@ -1,5 +1,41 @@
 #include "./proxy_access.hpp"
 
+// return value: consumed size, non-zero only on success
+size_t ParseS5UdpAddress(xNetAddress & Output, const void * StartPtr, size_t BufferSize) {
+	auto R                 = xStreamReader(StartPtr);
+	auto TotalRequiredSize = (size_t)4;
+	if (BufferSize < TotalRequiredSize) {
+		return 0;
+	}
+	R.Skip(2);  // RESERVED
+	auto Frag = R.R1();
+	if (Frag) {
+		X_DEBUG_PRINTF("udp fragment relaying is not supported");
+		return 0;
+	}
+	auto Type = R.R1();
+	if (Type == 0x01) {          // IPV4
+		TotalRequiredSize += 6;  // address + port
+		if (BufferSize < TotalRequiredSize) {
+			return 0;
+		}
+		Output = xNetAddress::Make4();
+		R.R(Output.SA4, 4);
+	} else if (Type == 0x06) {
+		TotalRequiredSize += 18;  // address + port
+		if (BufferSize < TotalRequiredSize) {
+			return 0;
+		}
+		Output = xNetAddress::Make6();
+		R.R(Output.SA6, 16);
+	} else {
+		X_DEBUG_PRINTF("Unsupported relay address type");
+		return 0;
+	}
+	Output.Port = R.R2();
+	return R.Offset();
+}
+
 size_t xProxyService::OnClientS5Init(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
 	X_DEBUG_PRINTF("New s5 connection");
 
@@ -131,9 +167,10 @@ size_t xProxyService::OnClientS5Connect(xProxyClientConnection * CCP, void * Dat
 
 	if (Operation == 0x03) {     // udp bind address
 		if (DomainNameLength) {  // udp bind refuse domain name
-			goto UNSUPPORTED;
+			X_DEBUG_PRINTF("ignore hostname in udp binding");
 		}
 		if (!CreateLocalUdpChannel(CCP)) {
+			X_DEBUG_PRINTF("Failed to create local udp channel");
 			goto LOCAL_UDP_FAILED;
 		}
 		auto RelayClientConnectionPtr = GetTerminalController(CCP);
@@ -184,23 +221,23 @@ size_t xProxyService::OnClientS5UdpData(xProxyClientConnection * CCP, ubyte * Da
 
 bool xProxyService::CreateLocalUdpChannel(xProxyClientConnection * CCP) {
 	assert(!CCP->LocalUdpChannelId);
-	auto P = new (std::nothrow) xProxyUdpReceiver();
-	if (!P) {
+	auto URP = new (std::nothrow) xProxyUdpReceiver();
+	if (!URP) {
 		return false;
 	}
-	auto Id = ClientUdpChannelPool.Acquire(P);
-	if (!Id) {
-		delete P;
+	auto Id = ClientUdpChannelPool.Acquire(URP);
+	if (!URP) {
+		delete URP;
 		return false;
 	}
 	auto BindAddress = CCP->GetLocalAddress().Decay();
-	if (!P->Init(this->IoCtxPtr, BindAddress, this)) {
+	if (!URP->Init(this->IoCtxPtr, BindAddress, this)) {
 		ClientUdpChannelPool.Release(Id);
-		delete P;
+		delete URP;
 		return false;
 	}
-	P->ClientConnectionId  = CCP->ClientConnectionId;
-	CCP->LocalUdpChannelId = Id;
+	URP->ClientConnectionId = CCP->ClientConnectionId;
+	CCP->LocalUdpChannelId  = Id;
 	return true;
 }
 
@@ -217,6 +254,7 @@ void xProxyService::OnTerminalUdpAssociationResult(const xCreateUdpAssociationRe
 			auto UP  = ClientUdpChannelPool.CheckAndGet(CCP->LocalUdpChannelId);
 			auto URP = UP ? *UP : nullptr;
 			if (!URP) {
+				X_DEBUG_PRINTF("Local udp channal not found!");
 				DestroyUdpBinding(CCP);
 			}
 			if (!URP || !Result.ConnectionPairId) {
@@ -230,6 +268,9 @@ void xProxyService::OnTerminalUdpAssociationResult(const xCreateUdpAssociationRe
 				FlushAndKillClientConnection(CCP);
 				return;
 			}
+			URP->TerminalControllerId = CCP->TerminalControllerId;
+			URP->ConnectionPairId     = Result.ConnectionPairId;
+
 			auto & Address         = URP->GetBindAddress();
 			ubyte  S5Established[] = {
                 '\x05', '\x00', '\x00',          // ok
@@ -238,8 +279,10 @@ void xProxyService::OnTerminalUdpAssociationResult(const xCreateUdpAssociationRe
                 '\x00', '\x00',                  // port 0:
 			};
 			auto W = xStreamWriter(S5Established + 4);
-			W.W(Address.SA4, 4);
+			W.W(UdpExportAddress.SA4, 4);
 			W.W2(Address.Port);
+
+			X_DEBUG_PRINTF("Response: %s", StrToHex(S5Established, sizeof(S5Established)).c_str());
 
 			CCP->PostData(S5Established, sizeof(S5Established));
 			CCP->ConnectionPairId = Result.ConnectionPairId;
@@ -253,6 +296,66 @@ void xProxyService::OnTerminalUdpAssociationResult(const xCreateUdpAssociationRe
 	}
 }
 
-void xProxyService::OnData(xUdpChannel * ChannelPtr, void * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
-	X_DEBUG_PRINTF("UDP Data: @%s\n%s", RemoteAddress.ToString().c_str(), HexShow(DataPtr, DataSize).c_str());
+void xProxyService::OnData(xUdpChannel * ChannelPtr, void * _, size_t DataSize, const xNetAddress & RemoteAddress) {
+	auto URP       = static_cast<xProxyUdpReceiver *>(ChannelPtr);
+	auto DataPtr   = static_cast<ubyte *>(_);
+	auto ToAddress = xNetAddress();
+	auto ASize     = ParseS5UdpAddress(ToAddress, DataPtr, DataSize);
+	if (!ASize) {
+		X_DEBUG_PRINTF("Invalid udp target address");
+		return;
+	}
+	DataSize -= ASize;
+	if (!DataSize) {
+		X_DEBUG_PRINTF("Invalid data size");
+		return;
+	}
+	DataPtr += ASize;
+	X_DEBUG_PRINTF("UDP Data: %s -> %s\n%s", RemoteAddress.ToString().c_str(), ToAddress.ToString().c_str(), HexShow(DataPtr, DataSize).c_str());
+
+	ubyte Buffer[MaxPacketSize];
+	auto  R            = xProxyToRelayUdpData();
+	R.ConnectionPairId = URP->ConnectionPairId;
+	R.ToAddress        = ToAddress;
+	R.DataView         = { (const char *)DataPtr, DataSize };
+	auto RSize         = WritePacket(Cmd_PostProxyToRelayUdpData, 0, Buffer, sizeof(Buffer), R);
+
+	PostDataToTerminalControllerRaw(URP->TerminalControllerId, Buffer, RSize);
+	URP->LastSourceAddress = RemoteAddress;
+	return;
+}
+
+void xProxyService::OnRelayUdpData(const xRelayToProxyUdpData & Post) {
+	X_DEBUG_PRINTF("RelayData: ClientConnectionId=%" PRIx64 ", Size=%zi", Post.ClientConnectionId, Post.DataView.size());
+	auto CCP = ClientConnectionPool.CheckAndGet(Post.ClientConnectionId);
+	if (!CCP) {
+		X_DEBUG_PRINTF("Connection lost");
+		return;
+	}
+	assert(CCP->LocalUdpChannelId);
+	auto UP  = ClientUdpChannelPool.CheckAndGet(CCP->LocalUdpChannelId);
+	auto URP = UP ? *UP : nullptr;
+	if (!URP) {
+		X_DEBUG_PRINTF("Local udp channal not found!");
+		return;
+	}
+	assert(Post.DataView.size() <= MaxRelayPayloadSize);
+
+	if (!Post.FromAddress.IsV4()) {
+		X_DEBUG_PRINTF("Unsupported address type");
+		return;
+	}
+
+	ubyte Buffer[MaxPacketSize];
+	auto  W = xStreamWriter(Buffer);
+	W.W2(0);     // reserved
+	W.W1(0);     // no frag
+	W.W1(0x01);  // ipv4
+	W.W(Post.FromAddress.SA4, 4);
+	W.W2(Post.FromAddress.Port);
+	W.W(Post.DataView.data(), Post.DataView.size());
+
+	X_DEBUG_PRINTF("Post data %s -> %s \n%s", Post.FromAddress.ToString().c_str(), URP->LastSourceAddress.ToString(), HexShow(Buffer, W.Offset()).c_str());
+	URP->PostData(Buffer, W.Offset(), URP->LastSourceAddress);
+	return;
 }

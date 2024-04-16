@@ -90,6 +90,15 @@ bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPt
 			ProxyServicePtr->OnCloseConnection(Post);
 			break;
 		}
+		case Cmd_PostRelayToProxyUdpData: {
+			auto Post = xRelayToProxyUdpData();
+			if (!Post.Deserialize(PayloadPtr, PayloadSize)) {
+				X_DEBUG_PRINTF("Invalid protocol");
+				break;
+			}
+			ProxyServicePtr->OnRelayUdpData(Post);
+			break;
+		}
 		default: {
 			X_DEBUG_PRINTF("CommandId: %" PRIu32 ", RequestId:%" PRIx64 "", Header.CommandId, Header.RequestId);
 			X_DEBUG_PRINTF("Unsupported packet");

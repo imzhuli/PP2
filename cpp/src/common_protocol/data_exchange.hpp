@@ -108,3 +108,29 @@ struct xCloseUdpAssociation : xBinaryMessage {
 	}
 	uint64_t ConnectionPairId;
 };
+
+struct xProxyToRelayUdpData : xBinaryMessage {
+	void SerializeMembers() {
+		W(ConnectionPairId, ToAddress, DataView);
+	}
+	void DeserializeMembers() {
+		R(ConnectionPairId, ToAddress, DataView);
+	}
+
+	uint64_t         ConnectionPairId;
+	xNetAddress      ToAddress;
+	std::string_view DataView;
+};
+
+struct xRelayToProxyUdpData : xBinaryMessage {
+	void SerializeMembers() {
+		W(ClientConnectionId, FromAddress, DataView);
+	}
+	void DeserializeMembers() {
+		R(ClientConnectionId, FromAddress, DataView);
+	}
+
+	uint64_t         ClientConnectionId;
+	xNetAddress      FromAddress;
+	std::string_view DataView;
+};

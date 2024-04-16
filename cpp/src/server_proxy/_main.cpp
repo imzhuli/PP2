@@ -10,6 +10,7 @@ auto RunState = xRunState();
 
 auto ClientService     = xProxyService();
 auto BindAddress       = xNetAddress();
+auto UdpExportAddress  = xNetAddress();
 auto DispatcherAddress = xNetAddress();
 
 int main(int argc, char ** argv) {
@@ -28,11 +29,12 @@ int main(int argc, char ** argv) {
 	auto C = xConfig(ConfigOpt->c_str());
 	C.Require(BindAddress, "bind_address");
 	C.Require(DispatcherAddress, "dispatcher_address");
+	C.Require(UdpExportAddress, "udp_export_address");
 
 	auto RSG = xScopeGuard([] { RunState.Start(); }, [] { RunState.Finish(); });
 	auto ICG = xResourceGuard(IoCtx);
 	RuntimeAssert(ICG);
-	auto CSG = xResourceGuard(ClientService, &IoCtx, BindAddress, DispatcherAddress);
+	auto CSG = xResourceGuard(ClientService, &IoCtx, BindAddress, UdpExportAddress, DispatcherAddress);
 	RuntimeAssert(CSG);
 
 	while (RunState) {

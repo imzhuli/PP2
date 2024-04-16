@@ -6,7 +6,7 @@ static uint64_t LastOutputMS = 0;
 
 void OutputAudit(uint64_t NowMS) {
 	auto Diff = NowMS - LastOutputMS;
-	if (Diff < 60'000) {
+	if (Diff < 600'000) {
 		return;
 	}
 	LastOutputMS = NowMS;
