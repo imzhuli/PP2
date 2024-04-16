@@ -357,7 +357,9 @@ void xProxyService::OnRelayUdpData(const xRelayToProxyUdpData & Post) {
 	W.W2(Post.FromAddress.Port);
 	W.W(Post.DataView.data(), Post.DataView.size());
 
-	X_DEBUG_PRINTF("Post data %s -> %s \n%s", Post.FromAddress.ToString().c_str(), URP->LastSourceAddress.ToString(), HexShow(Buffer, W.Offset()).c_str());
+	X_DEBUG_PRINTF(
+		"Post data %s -> %s \n%s", Post.FromAddress.ToString().c_str(), URP->LastSourceAddress.ToString().c_str(), HexShow(Buffer, W.Offset()).c_str()
+	);
 	URP->PostData(Buffer, W.Offset(), URP->LastSourceAddress);
 	return;
 }

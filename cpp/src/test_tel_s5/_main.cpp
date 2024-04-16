@@ -53,11 +53,11 @@ struct TelS5Client : xTcpConnection::iListener {
 			cout << HexShow(DataPtr, 2) << endl;
 			if (DataPtr[0] != 0x05) {
 				X_PERROR("Invalid server choice");
-				quick_exit(-1);
+				QuickExit(-1);
 			}
 			if (DataPtr[1] != 0x02) {
 				X_PERROR("No user/pass auth");
-				quick_exit(-1);
+				QuickExit(-1);
 			}
 
 			ubyte Buffer[1024];
@@ -79,11 +79,11 @@ struct TelS5Client : xTcpConnection::iListener {
 
 			if (DataPtr[0] != 0x01) {
 				X_PERROR("Invalid auth response");
-				quick_exit(-1);
+				QuickExit(-1);
 			}
 			if (DataPtr[1]) {
 				X_PERROR("Authentication failed");
-				quick_exit(-1);
+				QuickExit(-1);
 			}
 			cout << "Client auth succeeded" << endl;
 
@@ -113,7 +113,7 @@ struct TelS5Client : xTcpConnection::iListener {
 			auto R = xStreamReader(DataPtr);
 			if (R.R1() != 0x05 || R.R1() != 0 || R.R1() != 0) {
 				X_PERROR("Failed to get connected");
-				quick_exit(-1);
+				QuickExit(-1);
 			}
 			auto Type = R.R1();
 			if (Type == 0x01) {  // ipv4
