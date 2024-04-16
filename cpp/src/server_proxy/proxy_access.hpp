@@ -139,7 +139,7 @@ protected:
 		X_DEBUG_PRINTF("ClientClose");
 		KillClientConnection(UpCast(TcpConnectionPtr));
 	}
-	void OnData(xUdpChannel * ChannelPtr, void * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress);
+	void OnData(xUdpChannel * ChannelPtr, void * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override;
 
 	// from dispatch server
 	void OnAuthResponse(uint64_t ClientConnectionId, const xProxyClientAuthResp & AuthResp);
