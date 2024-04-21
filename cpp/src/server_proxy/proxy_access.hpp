@@ -198,6 +198,9 @@ protected:
 		CCP->KeepAliveTimestampMS = NowMS;
 		ClientIdleTimeoutList.GrabTail(*CCP);
 	}
+	void KeepAliveUseUdpTimeout(xProxyClientConnection * CCP) {
+		ClientUsingUdpIdleList.GrabTail(*CCP);
+	}
 	void KeepAlive(xProxyUdpReceiver * URP) {
 		URP->KeepAliveTimestampMS = NowMS;
 		UdpReceiverIdleList.GrabTail(*URP);
@@ -234,6 +237,7 @@ protected:
 
 	xList<xProxyClientIdleNode> ClientAuthTimeoutList;
 	xList<xProxyClientIdleNode> ClientIdleTimeoutList;
+	xList<xProxyClientIdleNode> ClientUsingUdpIdleList;
 	xList<xProxyClientIdleNode> ClientFlushTimeoutList;
 	xList<xProxyClientIdleNode> ClientKillList;
 
