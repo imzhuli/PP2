@@ -166,7 +166,6 @@ void xProxyService::RequestUdpBinding(xProxyRelayClient * RCP, xProxyClientConne
 	auto Req               = xCreateUdpAssociation{};
 	Req.ClientConnectionId = CCP->ClientConnectionId;
 	Req.TerminalId         = CCP->TerminalId;
-	Req.BindAddressHint    = CCP->TargetAddress;
 
 	ubyte Buffer[MaxPacketSize];
 	auto  RSize = WritePacket(Cmd_CreateUdpAssociation, 0, Buffer, sizeof(Buffer), Req);

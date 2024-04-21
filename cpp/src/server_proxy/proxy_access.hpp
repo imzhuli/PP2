@@ -73,7 +73,7 @@ public:
 	xIndexId     TerminalControllerId      = {};
 	xIndexId     TerminalId                = {};
 	xIndexId     ConnectionPairId          = {};
-	xNetAddress  TargetAddress             = {};  // also used as UdpBindAddress
+	xNetAddress  TargetAddress             = {};  // ignored by UdpBinding, udp bind use tcp listening Address.Decay()
 	xIndexId     LocalUdpChannelId         = {};
 
 	struct {

@@ -1,7 +1,7 @@
 #pragma once
 #include "./protocol.hpp"
 
-static constexpr const size_t MaxRelayPayloadSize = 3600;
+static constexpr const size_t MaxRelayPayloadSize = 4096;
 
 struct xCreateRelayConnectionPair : xBinaryMessage {
 	void SerializeMembers() {
@@ -75,15 +75,14 @@ struct xCloseClientConnection : xBinaryMessage {
 
 struct xCreateUdpAssociation : xBinaryMessage {
 	void SerializeMembers() {
-		W(ClientConnectionId, TerminalId, BindAddressHint);
+		W(ClientConnectionId, TerminalId);
 	}
 	void DeserializeMembers() {
-		R(ClientConnectionId, TerminalId, BindAddressHint);
+		R(ClientConnectionId, TerminalId);
 	}
 
-	uint64_t    ClientConnectionId;
-	uint64_t    TerminalId;
-	xNetAddress BindAddressHint;
+	uint64_t ClientConnectionId;
+	uint64_t TerminalId;
 };
 
 struct xCreateUdpAssociationResp : xBinaryMessage {

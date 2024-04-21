@@ -247,7 +247,7 @@ void xTerminalRelay::OnProxyCreateUdpAssociation(xServiceClientConnection & Conn
 
 	// real connection object:
 	auto RUC         = new xRelayUdpChannel();
-	auto BindAddress = Req.BindAddressHint.IsV6() ? xNetAddress::Make6() : xNetAddress::Make4();
+	auto BindAddress = GetBindAddress(Req.TerminalId);
 	if (!RUC->Init(this, BindAddress, PP->ConnectionPairId)) {
 		auto RSize = WritePacket(Cmd_CreateUdpAssociationResp, Header.RequestId, Buffer, sizeof(Buffer), Resp);
 		Connection.PostData(Buffer, RSize);
