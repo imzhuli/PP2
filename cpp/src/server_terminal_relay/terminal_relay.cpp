@@ -231,10 +231,14 @@ void xTerminalRelay::OnProxyCreateUdpAssociation(xServiceClientConnection & Conn
 		X_PERROR("Invalid protocol");
 		return;
 	}
+	auto BindAddress = GetBindAddress(Req.TerminalId);
+	X_DEBUG_PRINTF(
+		"Udp association: ClientConnectionId=%" PRIx64 ", TerminalId=%" PRIx64 ", BindAddressHint=%s", Req.ClientConnectionId, Req.TerminalId,
+		BindAddress.ToString().c_str()
+	);
 
 	auto Resp               = xCreateUdpAssociationResp();
 	Resp.ClientConnectionId = Req.ClientConnectionId;
-	X_DEBUG_PRINTF("Udp association: ClientConnectionId=%" PRIx64 "", Resp.ClientConnectionId);
 
 	ubyte Buffer[MaxPacketSize];
 	auto  PP = CreateConnectionPair();
@@ -246,8 +250,7 @@ void xTerminalRelay::OnProxyCreateUdpAssociation(xServiceClientConnection & Conn
 	auto PPG = xScopeGuard([&, this] { DestroyConnectionPair(PP); });
 
 	// real connection object:
-	auto RUC         = new xRelayUdpChannel();
-	auto BindAddress = GetBindAddress(Req.TerminalId);
+	auto RUC = new xRelayUdpChannel();
 	if (!RUC->Init(this, BindAddress, PP->ConnectionPairId)) {
 		auto RSize = WritePacket(Cmd_CreateUdpAssociationResp, Header.RequestId, Buffer, sizeof(Buffer), Resp);
 		Connection.PostData(Buffer, RSize);
