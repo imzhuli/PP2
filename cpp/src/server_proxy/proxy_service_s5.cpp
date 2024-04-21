@@ -313,7 +313,7 @@ void xProxyService::OnData(xUdpChannel * ChannelPtr, void * _, size_t DataSize, 
 		return;
 	}
 	DataPtr += ASize;
-	X_DEBUG_PRINTF("UDP Data: %s -> %s\n%s", RemoteAddress.ToString().c_str(), ToAddress.ToString().c_str(), HexShow(DataPtr, DataSize).c_str());
+	X_DEBUG_PRINTF("Udp Data: %s -> %s\n%s", RemoteAddress.ToString().c_str(), ToAddress.ToString().c_str(), HexShow(DataPtr, DataSize).c_str());
 
 	ubyte Buffer[MaxPacketSize];
 	auto  R            = xProxyToRelayUdpData();
