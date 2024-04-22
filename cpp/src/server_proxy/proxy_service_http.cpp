@@ -40,7 +40,7 @@ size_t xProxyService::OnClientHttpHeader(xProxyClientConnection * CCP, void * Da
 }
 
 void xProxyService::ProcessHttpHeaderLine(xProxyClientConnection * CCP, const std::string & Line) {
-	cout << "Line: " << std::string(Line) << endl;
+	X_DEBUG_PRINTF("Line: \n%s", HexShow(Line).c_str());
 	const char * CL = Line.c_str();
 
 	if (CCP->Http.Mode == eHttpMode::UNSPEC) {  // reqeust line
