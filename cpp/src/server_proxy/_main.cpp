@@ -29,7 +29,8 @@ int main(int argc, char ** argv) {
 	auto C = xConfig(ConfigOpt->c_str());
 	C.Require(BindAddress, "bind_address");
 	C.Require(DispatcherAddress, "dispatcher_address");
-	C.Require(UdpExportAddress, "udp_export_address");
+	C.Require(UdpExportAddress, "udp_export_ip");
+	Reset(UdpExportAddress.Port);
 
 	auto RSG = xScopeGuard([] { RunState.Start(); }, [] { RunState.Finish(); });
 	auto ICG = xResourceGuard(IoCtx);

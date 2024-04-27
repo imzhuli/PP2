@@ -20,19 +20,19 @@ xStaticIpTable LoadStaticIpTable(const char * Filename) {
 			continue;
 		}
 
-		auto TerminalAddressString           = Trim(Segs[0]);
+		auto TargetIpString                  = Trim(Segs[0]);
 		auto TerminalControllerAddressString = Trim(Segs[1]);
 		auto TerminalId                      = std::strtoll(Trim(Segs[2]).c_str(), nullptr, 0);
 
-		auto Record       = xStaticIpRecord();
-		Record.TerminalIp = xNetAddress::Parse(TerminalAddressString);
-		RuntimeAssert(Record.TerminalIp && !Record.TerminalIp.Port);
+		auto Record     = xStaticIpRecord();
+		Record.TargetIp = xNetAddress::Parse(TargetIpString);
+		RuntimeAssert(Record.TargetIp && !Record.TargetIp.Port);
 		Record.TerminalControllerAddress = xNetAddress::Parse(TerminalControllerAddressString);
 		RuntimeAssert(Record.TerminalControllerAddress && Record.TerminalControllerAddress.Port);
 		Record.TerminalId = TerminalId;
 		RuntimeAssert(Record.TerminalId);
 
-		Table.insert(std::make_pair(TerminalAddressString, std::move(Record)));
+		Table.insert(std::make_pair(TargetIpString, std::move(Record)));
 	}
 
 	for (auto & P : Table) {

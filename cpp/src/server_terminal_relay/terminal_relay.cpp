@@ -101,10 +101,10 @@ bool xTerminalRelay::LoadTerminalBindings(const char * TerminalBindingFile) {
 	auto Map = LoadStaticIpTable(TerminalBindingFile);
 	for (auto & N : Map) {
 		auto & R = N.second;
-		if (!R.TerminalIp) {
+		if (!R.TargetIp) {
 			continue;
 		}
-		BindIpTable[R.TerminalId] = R.TerminalIp;
+		BindIpTable[R.TerminalId] = R.TargetIp;
 	}
 	return !BindIpTable.empty();
 }

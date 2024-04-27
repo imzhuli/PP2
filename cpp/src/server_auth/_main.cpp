@@ -3,7 +3,8 @@
 #include "../common_protocol/client_auth.hpp"
 #include "../common_protocol/protocol.hpp"
 #include "../component/static_ip_table.hpp"
-#include "./demo_user.hpp"
+#include "./address_binding.hpp"
+#include "./request.hpp"
 
 #include <pp2db/pp2db.hpp>
 #include <unordered_map>
@@ -20,9 +21,12 @@ struct xExtractedAuthInfo {
 
 static xStaticIpTable IpTable;
 
+static void OnStaticIpResult(xVariable CC, const xResultBase * ResultPtr);
+
 std::unordered_map<std::string, xExtractedAuthInfo> AuthMap;
 
 class xAuthService : public xClient {
+
 protected:
 	void OnServerConnected() override {
 		X_DEBUG_PRINTF("");
@@ -50,32 +54,52 @@ protected:
 			X_PERROR("Invalid protocol");
 			return;
 		}
-		X_DEBUG_PRINTF("ClientAuth: [%s:%s@%s]", Req.AccountName.c_str(), Req.Password.c_str(), Req.AddressString.c_str());
+		X_DEBUG_PRINTF("[%s:%s@%s]", Req.AccountName.c_str(), Req.Password.c_str(), Req.AddressString.c_str());
+		PostQueryStaticIp(OnStaticIpResult, { .U64 = Header.RequestId }, Req.AccountName, Req.Password);
+	}
+
+	TerminalControllerBinding GetTerminalControllerBinding(const std::string & BindAddress) {
+		auto Iter = IpTable.find(BindAddress);
+		if (Iter == IpTable.end()) {
+			return {};
+		}
+		auto & R = Iter->second;
+		return {
+			.TerminalControllerAddress = R.TerminalControllerAddress,
+			.TerminalId                = R.TerminalId,
+		};
+	}
+
+	std::vector<xPacketCommandId> InterestedCommandIds = { Cmd_ProxyClientAuth };
+
+public:
+	void OnDbAuthResult(uint64_t RequestContextId, const xQueryStaticIpResult * RP) {
+		if (!RP) {
+			X_DEBUG_PRINTF("=============> RequestId: %" PRIx64 ", no result", RequestContextId);
+			return;
+		}
+		X_DEBUG_PRINTF("=============> RequestId: %" PRIx64 ", proxy_ip=%s, enable_udp=%s", RequestContextId, RP->ExportIp.c_str(), YN(RP->EnableUdp));
+
 		auto Resp = xProxyClientAuthResp();
 
-		auto UserIter = DemoUsers.find(Req.AccountName);
-		if (UserIter == DemoUsers.end()) {
-			Resp.AuditKey                  = 0;
-			Resp.CacheTimeout              = 300;
-			Resp.TerminalControllerAddress = xNetAddress::Parse("192.168.123.45:6789");  // relay server, or terminal service address
-			Resp.TerminalId                = 1024;                                       // index in relay server
+		if (!RP) {
 		} else {
-			auto & U                       = UserIter->second;
-			Resp.AuditKey                  = U.AuditId;
-			Resp.CacheTimeout              = 300;
-			Resp.TerminalControllerAddress = U.ControllerAddress;  // relay server, or terminal service address
-			Resp.TerminalId                = U.TerminalId;         // index in relay server
+			auto Binding = GetTerminalControllerBinding(RP->ExportIp);
+			if (Binding.TerminalControllerAddress) {
+				Resp.AuditKey                  = -1;
+				Resp.CacheTimeout              = 300;
+				Resp.TerminalControllerAddress = Binding.TerminalControllerAddress;  // relay server, or terminal service address
+				Resp.TerminalId                = Binding.TerminalId;                 // index in relay server
+			}
 		}
 
 		ubyte Buffer[MaxPacketSize];
-		auto  RSize = WritePacket(Cmd_ProxyClientAuthResp, Header.RequestId, Buffer, sizeof(Buffer), Resp);
+		auto  RSize = WritePacket(Cmd_ProxyClientAuthResp, RequestContextId, Buffer, sizeof(Buffer), Resp);
 		if (!RSize) {
 			return;
 		}
 		PostData(Buffer, RSize);
 	}
-
-	std::vector<xPacketCommandId> InterestedCommandIds = { Cmd_ProxyClientAuth };
 };
 
 std::string DbUser;
@@ -89,6 +113,12 @@ auto AuthService         = xAuthService();
 auto RunState            = xRunState();
 auto Ticker              = xTicker();
 auto AuthConsumerAddress = xNetAddress();
+
+void OnStaticIpResult(xVariable CC, const xResultBase * ResultPtr) {
+	auto RequestId = CC.U64;
+	auto RP        = static_cast<const xQueryStaticIpResult *>(ResultPtr);
+	AuthService.OnDbAuthResult(RequestId, RP);
+}
 
 int main(int argc, char ** argv) {
 
@@ -125,6 +155,7 @@ int main(int argc, char ** argv) {
 	while (RunState) {
 		Ticker.Update();
 		IoCtx.LoopOnce();
+		PoolPP2DBResults();
 		AuthService.Tick(Ticker);
 	}
 

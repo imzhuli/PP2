@@ -200,13 +200,14 @@ size_t xProxyService::OnClientS5Data(xProxyClientConnection * CCP, ubyte * DataP
 }
 
 void xProxyService::OnS5AuthResult(xProxyClientConnection * CCP, const xProxyClientAuthResp & AuthResp) {
-	if (!AuthResp.AuditKey) {
+	if (!AuthResp.AuditKey || !AuthResp.TerminalControllerAddress) {
 		X_DEBUG_PRINTF("No audit id found, close connection");
 		CCP->State = CLIENT_STATE_CLOSED;
 		CCP->PostData("\x01\x01", 2);
 		FlushAndKillClientConnection(CCP);
 		return;
 	}
+	X_DEBUG_PRINTF("TerminalControllerBinding: %s, %" PRIx64 "", AuthResp.TerminalControllerAddress.ToString().c_str(), AuthResp.TerminalId);
 	CCP->TerminalControllerAddress = AuthResp.TerminalControllerAddress;
 	CCP->TerminalId                = AuthResp.TerminalId;
 	CCP->State                     = CLIENT_STATE_S5_AUTH_DONE;

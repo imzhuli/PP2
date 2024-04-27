@@ -4,7 +4,7 @@
 #include <unordered_map>
 
 struct xStaticIpRecord {
-	xNetAddress TerminalIp;
+	xNetAddress TargetIp;
 	xNetAddress TerminalControllerAddress;
 	uint64_t    TerminalId;
 };
