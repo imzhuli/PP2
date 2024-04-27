@@ -17,8 +17,8 @@ FIND_PATH(MYSQL_INCLUDE_DIR mysql/mysql.h
   /usr/include/
 )
 
-# SET(MYSQL_NAMES mysqlclient mysqlclient_r)
-SET(MYSQL_NAMES libmysqlclient.a)
+SET(MYSQL_NAMES mysqlclient mysqlclient_r)
+#SET(MYSQL_NAMES libmysqlclient.a)
 FIND_LIBRARY(MYSQL_LIBRARY
   NAMES ${MYSQL_NAMES}
   PATHS /opt/homebrew/opt/mysql-client@8.0/lib /opt/homebrew/opt/mysql-client/lib /usr/lib /usr/local/lib

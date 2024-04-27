@@ -8,12 +8,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 find_package(MySQL REQUIRED)
 
 include_directories(
-	${MYSQL_INCLUDE_DIR}
+	${DB_INCLUDE_DIRS}
 	${LOCAL_3RD_INCLUDE_DIR}
 	${X_INCLUDE_DIRS}
 )
 
 link_directories(
+	${DB_LIBRARY_DIRS}
 	${LOCAL_3RD_LIBRARY_DIR}
 	${X_LIBRARY_DIRS}
 )
@@ -35,7 +36,7 @@ endif()
 
 set(lib_dependency
 	maxminddb
-	${MYSQL_LIBRARIES}
+	${DB_LIBRARIES} ${MYSQL_LIBRARIES}
 	${LOCAL_3RD_LIBRARIES}
 	${X_LIBRARIES}
 	${PLATFORM_LIBRARIES}
@@ -46,7 +47,6 @@ set(lib_dependency
 # local libs
 aux_source_directory("./common"                COMMON_SRC)
 aux_source_directory("./common_job"            COMMON_SRC)
-aux_source_directory("./common_mysql"          COMMON_SRC)
 aux_source_directory("./common_protocol"       COMMON_SRC)
 aux_source_directory("./common_web_service"    COMMON_SRC)
 aux_source_directory("./component"             COMMON_SRC)
@@ -74,6 +74,7 @@ build_app(server_terminal_relay)
 
 build_app(test)
 build_app(test_consumer)
+build_app(test_db)
 build_app(test_dns_query)
 build_app(test_geoip)
 build_app(test_tcp_show)
@@ -88,6 +89,7 @@ install(TARGETS
 
 	_test
 	_test_consumer
+	_test_db
 	_test_dns_query
 	_test_geoip
 	_test_tcp_show

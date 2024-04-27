@@ -1,11 +1,15 @@
 #pragma once
-#include "../common/base.hpp"
+#include <core/core_min.hpp>
+#include <core/core_time.hpp>
+#include <core/list.hpp>
+#include <core/thread.hpp>
+#include <vector>
 
-struct xJobNode : xListNode {
+struct xJobNode : xel::xListNode {
 protected:
 	X_INLINE ~xJobNode() = default;
 };
-using xJobList = xList<xJobNode>;
+using xJobList = xel::xList<xJobNode>;
 
 class xJobWheel {
 public:
@@ -39,7 +43,7 @@ public:
 		WheelNodes[JobIndex].GrabTail(J);
 	}
 
-	void ProcessJobs(void (*Callback)(xVariable, xJobNode &), xVariable V = {}, size_t Ticks = 1) {
+	void ProcessJobs(void (*Callback)(xel::xVariable, xJobNode &), xel::xVariable V = {}, size_t Ticks = 1) {
 		assert(Ticks <= MaxTicks);
 		for (size_t i = 0; i < Ticks; ++i) {
 			auto & List = WheelNodes[CurrentIndex];
@@ -51,14 +55,13 @@ public:
 		}
 	}
 
-	void CleanJobs(void (*Callback)(xVariable, xJobNode &), xVariable V) {
+	void CleanJobs(void (*Callback)(xel::xVariable, xJobNode &), xel::xVariable V) {
 		ProcessJobs(Callback, V, WheelNodes.size());
 	}
 
 private:
-	static void AssertUnfinishedJobs(xVariable, xJobNode &) {
-		X_PERROR("AssertUnfinishedJobs");
-		Fatal();
+	static void AssertUnfinishedJobs(xel::xVariable, xJobNode &) {
+		X_PFATAL("AssertUnfinishedJobs");
 	}
 
 private:
@@ -77,6 +80,6 @@ public:
 	xJobNode * WaitForJobTimeout(uint64_t MS);
 
 private:
-	xJobList   JobList;
-	xSemaphore JobSemaphore;
+	xJobList        JobList;
+	xel::xSemaphore JobSemaphore;
 };

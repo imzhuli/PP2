@@ -1,9 +1,10 @@
 #pragma once
-#include "./base.hpp"
-
+#include <core/core_min.hpp>
 #include <core/ini.hpp>
+#include <network/net_address.hpp>
 
-class xConfig final : xNonCopyable {
+class xConfig final : ::xel::xNonCopyable {
+
 public:
 	xConfig(const char * filename)
 		: Reader(filename) {
@@ -13,7 +14,7 @@ public:
 	}
 
 	void Require(std::string & Dst, const char * Key);
-	void Require(xNetAddress & Dst, const char * Key);
+	void Require(xel::xNetAddress & Dst, const char * Key);
 	void Require(int64_t & Dst, const char * Key);
 	template <typename T>
 	std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<int64_t, T>> Require(T & Dst, const char * Key) {
@@ -35,5 +36,5 @@ public:
 	}
 
 private:
-	xIniReader Reader;
+	xel::xIniReader Reader;
 };

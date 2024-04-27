@@ -1,5 +1,9 @@
 #include "./config.hpp"
 
+#include <cinttypes>
+
+using namespace xel;
+
 void xConfig::Require(std::string & Dst, const char * Key) {
 	assert(Key);
 	auto Value = Reader.Get(Key);

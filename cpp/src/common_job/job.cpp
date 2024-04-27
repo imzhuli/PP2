@@ -1,5 +1,7 @@
 #include "./job.hpp"
 
+using namespace xel;
+
 // from other threads:
 void xJobQueue::PostWakeupN(int64_t N) {
 	JobSemaphore.NotifyN(N);

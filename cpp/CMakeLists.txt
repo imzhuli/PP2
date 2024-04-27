@@ -76,11 +76,19 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH          FALSE)
 set(CMAKE_INSTALL_RPATH                        "\$ORIGIN")
 
 if ("${X_LIB}" STREQUAL "")
-	message( FATAL_ERROR "x_lib dependency not found" )
+	message(FATAL_ERROR "x_lib dependency not found")
 else()
 	set(X_INCLUDE_DIRS "${X_LIB}/./_3rd_installed/include" "${X_LIB}/./_corex_installed/include")
 	set(X_LIBRARY_DIRS "${X_LIB}/./_3rd_installed/lib" "${X_LIB}/./_corex_installed/lib")
 	set(X_LIBRARIES     xel curl websockets everest freetype mbedtls mbedx509 mbedcrypto p256m z)
+endif()
+
+if ("${DB_LIB}" STREQUAL "")
+	message(FATAL_ERROR "db_lib dependency not found")
+else()
+	set(DB_INCLUDE_DIRS "${DB_LIB}/./_install/include")
+	set(DB_LIBRARY_DIRS "${DB_LIB}/./_install/lib")
+	set(DB_LIBRARIES     pp2db)
 endif()
 
 set(LOCAL_3RD_DIR          "${PROJECT_SOURCE_DIR}/../_3rd_installed")
@@ -90,36 +98,36 @@ set(LOCAL_3RD_CMAKE_DIR    "${LOCAL_3RD_LIBRARY_DIR}/cmake")
 
 # abseil & protobuf
 set(LOCAL_3RD_LIBRARIES    protobuf protobuf-lite utf8_range utf8_validity)
-set(LOCAL_3RD_LIBRARIES    
+set(LOCAL_3RD_LIBRARIES
 	${LOCAL_3RD_LIBRARIES}
 	absl_cord absl_cordz_functions absl_cordz_info absl_cordz_sample_token absl_cord_internal absl_cordz_handle
 	absl_crc_cord_state absl_crc32c absl_crc_cpu_detect absl_crc_internal
 
 	absl_flags_commandlineflag absl_flags_commandlineflag_internal absl_flags_config
 	absl_flags_internal absl_flags_marshalling absl_flags_parse absl_flags_private_handle_accessor absl_flags_program_name
-	absl_flags_reflection absl_flags_usage absl_flags_usage_internal 
+	absl_flags_reflection absl_flags_usage absl_flags_usage_internal
 
 	absl_vlog_config_internal absl_log_internal_message
 	absl_log_entry absl_log_flags absl_log_globals absl_log_initialize absl_log_internal_check_op absl_log_internal_conditions
-	absl_log_internal_fnmatch absl_log_internal_format absl_log_internal_globals absl_log_internal_log_sink_set 
-	absl_log_internal_nullguard absl_log_internal_proto absl_log_severity absl_log_sink absl_raw_logging_internal 
-	
-	absl_hash absl_low_level_hash 
+	absl_log_internal_fnmatch absl_log_internal_format absl_log_internal_globals absl_log_internal_log_sink_set
+	absl_log_internal_nullguard absl_log_internal_proto absl_log_severity absl_log_sink absl_raw_logging_internal
+
+	absl_hash absl_low_level_hash
 	absl_periodic_sampler absl_hashtablez_sampler
 
 	absl_random_distributions absl_random_internal_distribution_test_util absl_random_internal_platform absl_random_internal_pool_urbg
 	absl_random_internal_randen absl_random_internal_randen_hwaes absl_random_internal_randen_hwaes_impl absl_random_internal_randen_slow
 	absl_random_internal_seed_material absl_random_seed_gen_exception absl_random_seed_sequences absl_raw_hash_set
-	
-	absl_scoped_set_env   
-	absl_status absl_statusor 
-	absl_synchronization absl_spinlock_wait absl_kernel_timeout_internal absl_graphcycles_internal 
-	absl_civil_time absl_city absl_time absl_time_zone 
-	absl_leak_check absl_stacktrace absl_examine_stack  
-	absl_symbolize absl_debugging_internal absl_demangle_internal 
-	absl_str_format_internal absl_string_view absl_strings absl_strings_internal 
-	absl_throw_delegate absl_malloc_internal 
-	absl_bad_any_cast_impl absl_bad_optional_access absl_bad_variant_access 
+
+	absl_scoped_set_env
+	absl_status absl_statusor
+	absl_synchronization absl_spinlock_wait absl_kernel_timeout_internal absl_graphcycles_internal
+	absl_civil_time absl_city absl_time absl_time_zone
+	absl_leak_check absl_stacktrace absl_examine_stack
+	absl_symbolize absl_debugging_internal absl_demangle_internal
+	absl_str_format_internal absl_string_view absl_strings absl_strings_internal
+	absl_throw_delegate absl_malloc_internal
+	absl_bad_any_cast_impl absl_bad_optional_access absl_bad_variant_access
 	absl_failure_signal_handler absl_strerror absl_die_if_null absl_exponential_biased absl_int128 absl_base
 )
 
