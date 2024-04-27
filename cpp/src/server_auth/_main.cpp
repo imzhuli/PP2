@@ -1,9 +1,9 @@
 #include "../common/base.hpp"
 #include "../common/config.hpp"
+#include "../common/terminal.hpp"
 #include "../common_protocol/client_auth.hpp"
 #include "../common_protocol/protocol.hpp"
 #include "../component/static_ip_table.hpp"
-#include "./address_binding.hpp"
 #include "./request.hpp"
 
 #include <pp2db/pp2db.hpp>
@@ -58,7 +58,7 @@ protected:
 		PostQueryStaticIp(OnStaticIpResult, { .U64 = Header.RequestId }, Req.AccountName, Req.Password);
 	}
 
-	TerminalControllerBinding GetTerminalControllerBinding(const std::string & BindAddress) {
+	xTerminalControllerBinding GetTerminalControllerBinding(const std::string & BindAddress) {
 		auto Iter = IpTable.find(BindAddress);
 		if (Iter == IpTable.end()) {
 			return {};

@@ -13,7 +13,7 @@ struct xTerminalInfo {
 	uint64_t    TerminalControllerSubIndex;  // index in relay server
 };
 
-struct TerminalControllerBinding {
+struct xTerminalControllerBinding {
 	xNetAddress TargetAddress;
 	xNetAddress TerminalControllerAddress;
 	uint64_t    TerminalId;
