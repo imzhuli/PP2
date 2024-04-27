@@ -5,7 +5,10 @@
 #include "../component/static_ip_table.hpp"
 #include "./demo_user.hpp"
 
+#include <pp2db/pp2db.hpp>
 #include <unordered_map>
+
+using namespace pp2db;
 
 struct xExtractedAuthInfo {
 	int32_t     AuditId;
@@ -75,6 +78,12 @@ protected:
 	std::vector<xPacketCommandId> InterestedCommandIds = { Cmd_ProxyClientAuth };
 };
 
+std::string DbUser;
+std::string DbPass;
+std::string DbName;
+std::string DbHost;
+uint16_t    DbPort;
+
 auto IoCtx               = xIoContext();
 auto AuthService         = xAuthService();
 auto RunState            = xRunState();
@@ -100,6 +109,13 @@ int main(int argc, char ** argv) {
 	C.Require(IpTableFile, "ip_table_file");
 	IpTable = LoadStaticIpTable(IpTableFile.c_str());
 
+	C.Require(DbUser, "DbUser");
+	C.Require(DbPass, "DbPass");
+	C.Require(DbName, "DbName");
+	C.Require(DbHost, "DbHost");
+	C.Require(DbPort, "DbPort");
+	RuntimeAssert(InitPP2DB(DbUser.c_str(), DbPass.c_str(), DbName.c_str(), DbHost.c_str(), DbPort, 30));
+
 	auto RSG = xScopeGuard([] { RunState.Start(); }, [] { RunState.Finish(); });
 	auto ICG = xResourceGuard(IoCtx);
 	RuntimeAssert(ICG);
@@ -112,5 +128,6 @@ int main(int argc, char ** argv) {
 		AuthService.Tick(Ticker);
 	}
 
+	CleanPP2DB();
 	return 0;
 }

@@ -8,8 +8,7 @@ void xConfig::Require(std::string & Dst, const char * Key) {
 	assert(Key);
 	auto Value = Reader.Get(Key);
 	if (!Value) {
-		X_PERROR("Failed to get config key: %s", Key);
-		Fatal();
+		X_PFATAL("Failed to get config key: %s", Key);
 	}
 	Dst = Value;
 	return;
@@ -21,8 +20,7 @@ void xConfig::Require(xNetAddress & Dst, const char * Key) {
 	Require(AddrStr, Key);
 	Dst = xNetAddress::Parse(AddrStr);
 	if (!Dst) {
-		X_PERROR("Failed to get config key: %s, addr_str=%s", Key, AddrStr.c_str());
-		Fatal();
+		X_PFATAL("Failed to get config key: %s, addr_str=%s", Key, AddrStr.c_str());
 	}
 	return;
 }
