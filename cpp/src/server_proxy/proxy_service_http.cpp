@@ -52,7 +52,7 @@ void xProxyService::ProcessHttpHeaderLine(xProxyClientConnection * CCP, const st
 		CCP->Http.Mode = eHttpMode::NORMAL;
 		// remove schema tags:
 		auto Segs = Split(Line, " ");
-		if (Segs.size() < 1) {
+		if (Segs.size() < 2) {
 			return;
 		}
 		auto & Schema   = Segs[1];
