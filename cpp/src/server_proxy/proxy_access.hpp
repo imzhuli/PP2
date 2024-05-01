@@ -75,6 +75,9 @@ public:
 	xIndexId     ConnectionPairId          = {};
 	xNetAddress  TargetAddress             = {};  // ignored by UdpBinding, udp bind use tcp listening Address.Decay()
 	xIndexId     LocalUdpChannelId         = {};
+	uint32_t     ClientFlags               = {};
+	//
+	static constexpr const uint32_t CLIENT_FLAG_ENABLE_UDP = 0x01;
 
 	struct {
 		std::string TargetHost      = {};

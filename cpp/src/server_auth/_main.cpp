@@ -90,6 +90,7 @@ public:
 				Resp.CacheTimeout              = 300;
 				Resp.TerminalControllerAddress = Binding.TerminalControllerAddress;  // relay server, or terminal service address
 				Resp.TerminalId                = Binding.TerminalId;                 // index in relay server
+				Resp.EnableUdp                 = RP->EnableUdp;
 			}
 		}
 

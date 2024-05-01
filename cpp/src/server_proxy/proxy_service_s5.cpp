@@ -169,6 +169,10 @@ size_t xProxyService::OnClientS5Connect(xProxyClientConnection * CCP, void * Dat
 		if (DomainNameLength) {  // udp bind refuse domain name
 			X_DEBUG_PRINTF("ignore hostname in udp binding");
 		}
+		if (0 == (CCP->ClientFlags & xProxyClientConnection::CLIENT_FLAG_ENABLE_UDP)) {
+			X_DEBUG_PRINTF("Not authorized client");
+			goto LOCAL_UDP_FAILED;
+		}
 		if (!CreateLocalUdpChannel(CCP)) {
 			X_DEBUG_PRINTF("Failed to create local udp channel");
 			goto LOCAL_UDP_FAILED;
@@ -210,6 +214,7 @@ void xProxyService::OnS5AuthResult(xProxyClientConnection * CCP, const xProxyCli
 	X_DEBUG_PRINTF("TerminalControllerBinding: %s, %" PRIx64 "", AuthResp.TerminalControllerAddress.ToString().c_str(), AuthResp.TerminalId);
 	CCP->TerminalControllerAddress = AuthResp.TerminalControllerAddress;
 	CCP->TerminalId                = AuthResp.TerminalId;
+	CCP->ClientFlags               = AuthResp.EnableUdp ? xProxyClientConnection::CLIENT_FLAG_ENABLE_UDP : 0;
 	CCP->State                     = CLIENT_STATE_S5_AUTH_DONE;
 	CCP->PostData("\x01\x00", 2);
 	return;
