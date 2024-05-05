@@ -193,7 +193,7 @@ int xHttpServerDelegate::LwsCallback(struct lws * wsi, enum lws_callback_reasons
 			lws_callback_on_writable(wsi);
 			return 0;
 		}  // clang-format off
-			
+
 		// CASE_PRINT(LWS_CALLBACK_GET_THREAD_ID);
 		// CASE_PRINT(LWS_CALLBACK_PROTOCOL_INIT);
 		// CASE_PRINT(LWS_CALLBACK_WSI_CREATE);
@@ -209,7 +209,7 @@ int xHttpServerDelegate::LwsCallback(struct lws * wsi, enum lws_callback_reasons
 		default:
 			// X_DEBUG_PRINTF("Uncaught callback %i, PSS=%p", (int)reason, Pss);
 			break;
-	}
+	}  // clang-format on
 	return 0;
 }
 
@@ -272,6 +272,13 @@ bool xHttpServer::Init(const xHttpServerOptions & Options) {
 }
 
 void xHttpServer::Clean() {
+	do {
+		auto G = xSpinlockGuard(PendingWriteSyncLock);
+		while (auto NP = PendingWriteList.PopHead()) {
+			auto BlockPtr = X_Entry(NP, xHttpSendBlock, PendingWriteNode);
+			Delete(BlockPtr);
+		}
+	} while (false);
 	assert(PssList.IsEmpty());
 	lws_context_destroy((struct lws_context *)Steal(LwsContext.P));
 	SmallBlockBufferPool.Clean();
@@ -294,8 +301,8 @@ void xHttpServer::Run() {
 			RunThreadWriteList.GrabListTail(PendingWriteList);
 		} while (false);
 		// dispatch writes:
-		for (auto & N : RunThreadWriteList) {
-			auto BlockPtr = X_Entry(&N, xHttpSendBlock, PendingWriteNode);
+		while (auto NP = RunThreadWriteList.PopHead()) {
+			auto BlockPtr = X_Entry(NP, xHttpSendBlock, PendingWriteNode);
 			auto PPss     = ConnectionIdPool.CheckAndGet(BlockPtr->ConnectionId);
 			if (!PPss) {
 				Delete(BlockPtr);
@@ -308,12 +315,8 @@ void xHttpServer::Run() {
 			}
 		}
 	}
-	for (auto & N : RunThreadWriteList) {
-		auto BlockPtr = X_Entry(&N, xHttpSendBlock, PendingWriteNode);
-		Delete(BlockPtr);
-	}
-	for (auto & N : PssList) {
-		CleanPss(static_cast<xPerSessionData *>(&N));
+	while (auto NP = PssList.PopHead()) {
+		CleanPss(static_cast<xPerSessionData *>(NP));
 	}
 
 	RunThreadId = std::thread::id();
@@ -388,8 +391,8 @@ bool xHttpServer::InitPss(struct xPerSessionData * Pss) {
 void xHttpServer::CleanPss(struct xPerSessionData * Pss) {
 	assert(ConnectionIdPool.CheckAndGet(Pss->ConnectionId)->P == Pss);
 	// X_DEBUG_PRINTF("Pss=%p, ConnectionId=%" PRIx64 "", Pss, Pss->ConnectionId);
-	for (auto & N : Pss->SendBlockList) {
-		auto BlockPtr = X_Entry(&N, xHttpServer::xHttpSendBlock, PendingWriteNode);
+	while (auto NP = Pss->SendBlockList.PopHead()) {
+		auto BlockPtr = X_Entry(NP, xHttpServer::xHttpSendBlock, PendingWriteNode);
 		Delete(BlockPtr);
 	}
 	ConnectionIdPool.Release(Pss->ConnectionId);

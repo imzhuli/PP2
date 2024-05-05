@@ -395,38 +395,29 @@ void xProxyService::OnCloseConnection(const xCloseClientConnection & Post) {
 }
 
 void xProxyService::ShrinkAuthTimeout() {
-	auto KillTimepoint = NowMS - TCP_CONNECTION_AUTH_TIMEOUT_MS;
-	for (auto & N : ClientAuthTimeoutList) {
-		if (N.KeepAliveTimestampMS > KillTimepoint) {
-			break;
-		}
-		KillClientConnection(&N);
+	auto C = [KillTimepoint = NowMS - TCP_CONNECTION_AUTH_TIMEOUT_MS](const xProxyClientIdleNode & N) { return N.KeepAliveTimestampMS < KillTimepoint; };
+	while (auto NP = ClientAuthTimeoutList.PopHead(C)) {
+		KillClientConnection(NP);
 	}
 }
 
 void xProxyService::ShrinkIdleTimeout() {
-	auto KillTimepoint = NowMS - TCP_CONNECTION_IDLE_TIMEOUT_MS;
-	for (auto & N : ClientIdleTimeoutList) {
-		if (N.KeepAliveTimestampMS > KillTimepoint) {
-			break;
-		}
-		KillClientConnection(&N);
+	auto C = [KillTimepoint = NowMS - TCP_CONNECTION_IDLE_TIMEOUT_MS](const xProxyClientIdleNode & N) { return N.KeepAliveTimestampMS < KillTimepoint; };
+	while (auto NP = ClientIdleTimeoutList.PopHead(C)) {
+		KillClientConnection(NP);
 	}
 }
 
 void xProxyService::ShrinkFlushTimeout() {
-	auto KillTimepoint = NowMS - TCP_CONNECTION_FLUSH_TIMEOUT_MS;
-	for (auto & N : ClientFlushTimeoutList) {
-		if (N.KeepAliveTimestampMS > KillTimepoint) {
-			break;
-		}
-		KillClientConnection(&N);
+	auto C = [KillTimepoint = NowMS - TCP_CONNECTION_FLUSH_TIMEOUT_MS](const xProxyClientIdleNode & N) { return N.KeepAliveTimestampMS < KillTimepoint; };
+	while (auto NP = ClientFlushTimeoutList.PopHead(C)) {
+		KillClientConnection(NP);
 	}
 }
 
 void xProxyService::ShrinkKillList() {
-	for (auto & N : ClientKillList) {
-		auto CCP = static_cast<xProxyClientConnection *>(&N);
+	while (auto NP = ClientKillList.PopHead()) {
+		auto CCP = static_cast<xProxyClientConnection *>(NP);
 		do {                              // notify terminal to close connection
 			if (CCP->ConnectionPairId) {  // active close connection
 				X_DEBUG_PRINTF("ConnectionPairId: %" PRIx64 "", CCP->ConnectionPairId);
@@ -458,9 +449,8 @@ void xProxyService::ShrinkRelayClient() {
 	// TODO: Close idle
 
 	// Disconnected:
-	for (auto & N : RelayClientKillList) {
-		auto RPC = static_cast<xProxyRelayClient *>(&N);
-		RPC->Clean();
-		RelayClientPool.Release(N.ConnectionId);
+	while (auto NP = static_cast<xProxyRelayClient *>(RelayClientKillList.PopHead())) {
+		NP->Clean();
+		RelayClientPool.Release(NP->ConnectionId);
 	}
 }

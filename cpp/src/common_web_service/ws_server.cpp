@@ -194,6 +194,13 @@ bool xWsServer::Init(const xWsServerOptions & Options) {
 }
 
 void xWsServer::Clean() {
+	do {
+		auto G = xSpinlockGuard(PendingWriteSyncLock);
+		while (auto NP = PendingWriteList.PopHead()) {
+			auto BlockPtr = X_Entry(NP, xHttpSendBlock, PendingWriteNode);
+			Delete(BlockPtr);
+		}
+	} while (false);
 	assert(PssList.IsEmpty());
 	lws_context_destroy((struct lws_context *)Steal(LwsContext.P));
 	SmallBlockBufferPool.Clean();
@@ -216,8 +223,8 @@ void xWsServer::Run() {
 			RunThreadWriteList.GrabListTail(PendingWriteList);
 		} while (false);
 		// dispatch writes:
-		for (auto & N : RunThreadWriteList) {
-			auto BlockPtr = X_Entry(&N, xHttpSendBlock, PendingWriteNode);
+		while (auto NP = RunThreadWriteList.PopHead()) {
+			auto BlockPtr = X_Entry(NP, xHttpSendBlock, PendingWriteNode);
 			if (!BlockPtr->DataSize) {
 				KillConnection(BlockPtr->ConnectionId);
 				Delete(BlockPtr);
@@ -235,12 +242,8 @@ void xWsServer::Run() {
 			}
 		}
 	}
-	for (auto & N : RunThreadWriteList) {
-		auto BlockPtr = X_Entry(&N, xHttpSendBlock, PendingWriteNode);
-		Delete(BlockPtr);
-	}
-	for (auto & N : PssList) {
-		CleanPss(static_cast<xPerSessionData *>(&N));
+	while (auto NP = PssList.PopHead()) {
+		CleanPss(static_cast<xPerSessionData *>(NP));
 	}
 
 	RunThreadId = std::thread::id();
@@ -322,8 +325,8 @@ bool xWsServer::InitPss(struct xPerSessionData * Pss) {
 
 void xWsServer::CleanPss(struct xPerSessionData * Pss) {
 	assert(ConnectionIdPool.CheckAndGet(Pss->ConnectionId)->P == Pss);
-	for (auto & N : Pss->SendBlockList) {
-		auto BlockPtr = X_Entry(&N, xWsServer::xHttpSendBlock, PendingWriteNode);
+	while (auto NP = Pss->SendBlockList.PopHead()) {
+		auto BlockPtr = X_Entry(NP, xWsServer::xHttpSendBlock, PendingWriteNode);
 		Delete(BlockPtr);
 	}
 	ConnectionIdPool.Release(Pss->ConnectionId);

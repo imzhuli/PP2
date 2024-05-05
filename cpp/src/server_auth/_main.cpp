@@ -4,6 +4,7 @@
 #include "../common_protocol/client_auth.hpp"
 #include "../common_protocol/protocol.hpp"
 #include "../component/static_ip_table.hpp"
+#include "./auth_cache.hpp"
 #include "./request.hpp"
 
 #include <pp2db/pp2db.hpp>
@@ -122,6 +123,10 @@ void OnStaticIpResult(xVariable CC, const xResultBase * ResultPtr) {
 }
 
 int main(int argc, char ** argv) {
+
+	// auto K = xAuthCacheService::MakeKey("Name", "Key");
+	// cout << "K(" << K.length() << "): " << K << endl;
+	// QuickExit(-1);
 
 	auto CL = xCommandLine(
 		argc, argv,

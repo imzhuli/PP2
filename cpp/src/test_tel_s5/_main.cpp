@@ -171,18 +171,16 @@ void IoThread() {
 	while (RunState) {
 		IoCtx.LoopOnce();
 		JQ.GrabJobList(JL);
-		for (auto & N : JL) {
-			auto   J     = static_cast<PostJob *>(&N);
-			auto & Input = J->Input;
+		while (auto JP = static_cast<PostJob *>(JL.PopHead())) {
+			auto & Input = JP->Input;
 			TC.PostData(Input.data(), Input.size());
-			delete J;
+			delete JP;
 		}
 	}
 	JQ.GrabJobList(JL);
-	for (auto & N : JL) {
-		auto J = static_cast<PostJob *>(&N);
-		cout << "Unprocessed job: " << J->Input << endl;
-		delete J;
+	while (auto JP = static_cast<PostJob *>(JL.PopHead())) {
+		cout << "Unprocessed job: " << JP->Input << endl;
+		delete JP;
 	}
 }
 

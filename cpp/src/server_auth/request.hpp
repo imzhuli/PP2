@@ -50,12 +50,9 @@ public:
 
 	void Tick() {
 		Ticker.Update();
-		auto KillTimepoint = Ticker() - 1'500;
-		for (auto & N : TimeoutList) {
-			if (KillTimepoint < N.TimestampMS) {
-				break;
-			}
-			RCManager.Release(N.IndexId);
+		auto C = [KillTimepoint = Ticker() - 1'500](const xRequestContextNode & N) { return N.TimestampMS < KillTimepoint; };
+		while (auto NP = TimeoutList.PopHead(C)) {
+			RCManager.Release(NP->IndexId);
 		}
 	}
 

@@ -47,9 +47,8 @@ public:
 		assert(Ticks <= MaxTicks);
 		for (size_t i = 0; i < Ticks; ++i) {
 			auto & List = WheelNodes[CurrentIndex];
-			for (auto & N : List) {
-				List.Remove(N);
-				Callback(V, N);
+			while (auto NP = List.PopHead()) {
+				Callback(V, *NP);
 			}
 			CurrentIndex = (CurrentIndex + 1) % WheelNodes.size();
 		}

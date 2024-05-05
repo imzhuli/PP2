@@ -6,6 +6,9 @@
 #include <core/core_value_util.hpp>
 #include <core/executable.hpp>
 #include <core/indexed_storage.hpp>
+#include <core/memory.hpp>
+#include <core/memory_pool.hpp>
+#include <core/queue.hpp>
 #include <core/string.hpp>
 #include <core/thread.hpp>
 #include <core/version.hpp>

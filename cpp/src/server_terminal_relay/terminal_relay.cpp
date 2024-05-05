@@ -85,13 +85,11 @@ void xTerminalRelay::Clean() {
 
 void xTerminalRelay::Tick(uint64_t NowMS) {
 	xTerminalController::Tick(NowMS);
-	for (auto & N : KillConnectionList) {
-		auto RTP = static_cast<xRelayTerminalConnection *>(&N);
+	while (auto RTP = static_cast<xRelayTerminalConnection *>(KillConnectionList.PopHead())) {
 		RTP->Clean();
 		delete RTP;
 	}
-	for (auto & N : KillUdpAssociationList) {
-		auto RUC = static_cast<xRelayUdpChannel *>(&N);
+	while (auto RUC = static_cast<xRelayUdpChannel *>(KillUdpAssociationList.PopHead())) {
 		RUC->Clean();
 		delete RUC;
 	}

@@ -86,8 +86,8 @@ void DispatchResults(xDnsResultCallback Callback) {
 		auto G = xSpinlockGuard(FinishedJobListLock);
 		FJL.GrabListTail(FinishedJobList);
 	} while (false);
-	for (auto & Node : FJL) {
-		auto & Job      = static_cast<xDnsJob &>(Node);
+	while (auto PJ = FJL.PopHead()) {
+		auto & Job      = static_cast<xDnsJob &>(*PJ);
 		auto   ReqIndex = Job.JobCtx.U64;
 		auto   ReqPtr   = RequestPool.CheckAndGet(ReqIndex);
 		X_DEBUG_PRINTF("ReqPtr=%p, Id=%" PRIx64 "", ReqPtr, ReqIndex);
@@ -109,15 +109,11 @@ void DispatchResults(xDnsResultCallback Callback) {
 	}
 	// try remove timeout requests:
 	DnsReqTicker.Update();
-	auto KillTimepoint = DnsReqTicker - DnsReqTimeoutMS;
-	for (auto & N : DnsReqList) {
-		auto ReqPtr = &N;
-		if (ReqPtr->Timestamp > KillTimepoint) {
-			break;
-		}
-		assert(ReqPtr == RequestPool.CheckAndGet(N.Index));
-		Callback(ReqPtr->Context, {}, {});
-		RequestPool.Release(N.Index);
+	auto C = [KillTimepoint = DnsReqTicker - DnsReqTimeoutMS](const xDnsReq & N) { return N.Timestamp < KillTimepoint; };
+	while (auto NP = DnsReqList.PopHead(C)) {
+		assert(NP == RequestPool.CheckAndGet(NP->Index));
+		Callback(NP->Context, {}, {});
+		RequestPool.Release(NP->Index);
 	}
 }
 
@@ -141,9 +137,8 @@ void CleanDnsCache() {
 	}
 	do {
 		auto G = xSpinlockGuard(FinishedJobListLock);
-		for (auto & Node : FinishedJobList) {
-			auto & J = static_cast<xDnsJob &>(Node);
-			DeleteDnsJob(&J);
+		while (auto NP = FinishedJobList.PopHead()) {
+			DeleteDnsJob(static_cast<xDnsJob *>(NP));
 		}
 	} while (false);
 	::EnableLocal = false;
