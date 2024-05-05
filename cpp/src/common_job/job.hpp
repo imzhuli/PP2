@@ -78,6 +78,11 @@ public:
 	xJobNode * WaitForJob();
 	xJobNode * WaitForJobTimeout(uint64_t MS);
 
+	template <typename T>
+	std::enable_if_t<std::is_base_of_v<xJobNode, T>, bool> WaitForJobTimeout(T *& R, uint64_t MS) {
+		return JobSemaphore.WaitFor(xel::xMilliSeconds(MS), [this, &R] { R = static_cast<T *>(JobList.PopHead()); });
+	}
+
 private:
 	xJobList        JobList;
 	xel::xSemaphore JobSemaphore;
