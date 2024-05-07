@@ -1,50 +1,30 @@
 #include "../common/base.hpp"
-#include "../component/terminal_service.hpp"
+#include "../common_job/async_request.hpp"
 
-#include <network/udp_channel.hpp>
+struct xAuthRequestSource {
+	uint64_t RequestId;
 
-static auto IoCtx = xIoContext();
-static auto ICG   = xResourceGuard(IoCtx);
+	xAuthRequestSource(xAuthRequestSource &&)      = default;
+	xAuthRequestSource(const xAuthRequestSource &) = delete;
+};
 
-static auto RunState = xRunState();
-static auto Ticker   = xTicker();
+struct xAuthResult {
+	uint64_t    AuditKey;                   // 绑定的计量账号(不是计费)
+	xNetAddress TerminalControllerAddress;  // relay server, or terminal service address
+	uint64_t    TerminalId;                 // index in relay server
+	bool        EnableUdp;
+};
 
-static const char * GET      = "GET / HTTP/1.1\r\nHost: www.baidu.com\r\n\r\n";
-static auto         TouchAll = xInstantRun([] { Touch(RunState, Ticker, GET); });
-
-struct xUdpTest : xUdpChannel::iListener {
-	void OnData(xUdpChannel * ChannelPtr, void * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
-		X_DEBUG_PRINTF("UdpData: @\n%s", RemoteAddress.ToString().c_str(), HexShow(DataPtr, DataSize).c_str());
+class xAuthRequestManager : public xAsyncRequestManager<xAuthRequestSource, xAuthResult> {
+	void UpdateRequest(const xIndexId RequestId, const xUpdateKey & UpdateKey) override {
+	}
+	void DispatchResult(const xRequestSource & Source, const xDataNode & Data) override {
 	}
 };
 
 int main(int argc, char ** argv) {
+	auto X = xAuthRequestManager();
 
-	auto CL = xCommandLine(
-		argc, argv,
-		{
-			{ 'a', nullptr, "address", true },
-		}
-	);
-
-	auto TAO = CL["address"];
-	if (!TAO()) {
-		cerr << "miss -a target_address" << endl;
-		return 1;
-	}
-	auto TA = xNetAddress::Parse(*TAO);
-
-	RunState.Start();
-
-	auto UT = xUdpTest();
-	auto U  = xUdpChannel();
-	U.Init(&IoCtx, TA.Decay(), &UT);
-	U.PostData(GET, strlen(GET), TA);
-
-	while (true) {
-		IoCtx.LoopOnce(1024);
-	}
-
-	RunState.Finish();
+	Touch(X);
 	return 0;
 }
