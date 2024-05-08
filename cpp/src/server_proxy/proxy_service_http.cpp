@@ -25,7 +25,6 @@ size_t xProxyService::OnClientHttpHeader(xProxyClientConnection * CCP, void * Da
 			auto BodyStart = LineEnd + 2;
 			if (BodyStart != Unprocessed.size()) {  // body read
 				CCP->Http.Body = Unprocessed.substr(BodyStart);
-				return DataSize;
 			}
 			if (!OnHttpHeaderDone(CCP)) {
 				return InvalidDataSize;
