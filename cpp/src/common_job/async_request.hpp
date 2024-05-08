@@ -171,7 +171,7 @@ private:
 
 private:
 	xTicker                                    Ticker;
-	uint64_t                                   CacheTimeoutMS = 15'000;
+	uint64_t                                   CacheTimeoutMS = 5 * 60'000;
 	xRequestList                               CacheTimeoutList;
 	xList<typename xRequest::xDispatcher>      DispatcherList;
 	xIndexedStorage<xRequest>                  RequestNodeManager;
