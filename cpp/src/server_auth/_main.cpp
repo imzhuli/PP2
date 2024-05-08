@@ -102,7 +102,7 @@ public:
 		return Account + "\0" + Password;
 	}
 
-	void PostRequest(uint64_t RequestId, const xRequestSource & Source) {
+	void PostRequest(uint64_t RequestId, const xRequestSource & Source) override {
 		auto & R = static_cast<const xAuthRequest &>(Source);
 		PostQueryStaticIp(OnStaticIpResult, { .U64 = RequestId }, R.Account, R.Password);
 		return;
