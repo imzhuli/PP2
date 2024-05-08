@@ -67,7 +67,6 @@ function(build_app sub_dir_name)
 endfunction()
 
 build_app(server_auth)
-build_app(server_auth_2)
 build_app(server_dns)
 build_app(server_geoip)
 build_app(server_proxy)
@@ -82,8 +81,7 @@ build_app(test_tcp_show)
 build_app(test_tel_s5)
 
 install(TARGETS
-	# _server_auth
-	_server_auth_2
+	_server_auth
 	_server_dns
 	_server_geoip
 	_server_proxy

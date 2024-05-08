@@ -4,8 +4,7 @@
 #include "../common_protocol/client_auth.hpp"
 #include "../common_protocol/protocol.hpp"
 #include "../component/static_ip_table.hpp"
-#include "./auth_cache.hpp"
-#include "./request.hpp"
+#include "./auth_request.hpp"
 
 #include <pp2db/pp2db.hpp>
 #include <unordered_map>
@@ -24,9 +23,28 @@ static xStaticIpTable IpTable;
 
 static void OnStaticIpResult(xVariable CC, const xResultBase * ResultPtr);
 
-std::unordered_map<std::string, xExtractedAuthInfo> AuthMap;
+class xAuthService
+	: public xClient
+	, public xAsyncRequestManager<xAuthRequestSource, xAuthResult> {
 
-class xAuthService : public xClient {
+	using xAuthRequestManager = xAsyncRequestManager<xAuthRequestSource, xAuthResult>;
+
+public:
+	bool Init(xIoContext * IoContextPtr, const xNetAddress & TargetAddress, size_t MaxCacheSize = 250'000) {
+		if (!xClient::Init(IoContextPtr, TargetAddress)) {
+			return false;
+		}
+		if (!xAuthRequestManager::Init(MaxCacheSize)) {
+			xClient::Clean();
+			return false;
+		}
+		return true;
+	}
+
+	void Clean() {
+		xAuthRequestManager::Clean();
+		xClient::Clean();
+	}
 
 protected:
 	void OnServerConnected() override {
@@ -42,9 +60,10 @@ protected:
 				OnClientAuth(Header, PayloadPtr, PayloadSize);
 				break;
 			}
-			default:
+			default: {
 				X_DEBUG_PRINTF("Unknown command id: %" PRIx64 "", Header.CommandId);
 				break;
+			}
 		}
 		return true;
 	}
@@ -56,7 +75,12 @@ protected:
 			return;
 		}
 		X_DEBUG_PRINTF("[%s:%s@%s]", Req.AccountName.c_str(), Req.Password.c_str(), Req.AddressString.c_str());
-		PostQueryStaticIp(OnStaticIpResult, { .U64 = Header.RequestId }, Req.AccountName, Req.Password);
+		auto CacheKey = MakeKey(Req.AccountName, Req.Password);
+		auto S        = xAuthRequest();
+		S.RequestId   = Header.RequestId;
+		S.Account     = std::move(Req.AccountName);
+		S.Password    = std::move(Req.Password);
+		Query(CacheKey, S);
 	}
 
 	xTerminalControllerBinding GetTerminalControllerBinding(const std::string & BindAddress) {
@@ -74,33 +98,60 @@ protected:
 	std::vector<xPacketCommandId> InterestedCommandIds = { Cmd_ProxyClientAuth };
 
 public:
-	void OnDbAuthResult(uint64_t RequestContextId, const xQueryStaticIpResult * RP) {
-		if (!RP) {
-			X_DEBUG_PRINTF("=============> RequestId: %" PRIx64 ", no result", RequestContextId);
-			return;
-		}
-		X_DEBUG_PRINTF("=============> RequestId: %" PRIx64 ", proxy_ip=%s, enable_udp=%s", RequestContextId, RP->ExportIp.c_str(), YN(RP->EnableUdp));
+	xUpdateKey MakeKey(const std::string & Account, const std::string & Password) {
+		return Account + "\0" + Password;
+	}
 
+	void PostRequest(uint64_t RequestId, const xRequestSource & Source) {
+		auto & R = static_cast<const xAuthRequest &>(Source);
+		PostQueryStaticIp(OnStaticIpResult, { .U64 = RequestId }, R.Account, R.Password);
+		return;
+	}
+
+	void PostResult(const xRequestSource & Source, bool HasData, const xDataNode & Data) override {
+		cout << "HasValue? " << YN(HasData) << endl;
 		auto Resp = xProxyClientAuthResp();
-
-		if (!RP) {
-		} else {
-			auto Binding = GetTerminalControllerBinding(RP->ExportIp);
-			if (Binding.TerminalControllerAddress) {
-				Resp.AuditKey                  = -1;
-				Resp.CacheTimeout              = 300;
-				Resp.TerminalControllerAddress = Binding.TerminalControllerAddress;  // relay server, or terminal service address
-				Resp.TerminalId                = Binding.TerminalId;                 // index in relay server
-				Resp.EnableUdp                 = RP->EnableUdp;
-			}
+		if (HasData) {
+			Resp.AuditKey                  = -1;
+			Resp.CacheTimeout              = 300;
+			Resp.TerminalControllerAddress = Data.TerminalControllerAddress;  // relay server, or terminal service address
+			Resp.TerminalId                = Data.TerminalId;                 // index in relay server
+			Resp.EnableUdp                 = Data.EnableUdp;
 		}
 
 		ubyte Buffer[MaxPacketSize];
-		auto  RSize = WritePacket(Cmd_ProxyClientAuthResp, RequestContextId, Buffer, sizeof(Buffer), Resp);
+		auto  RSize = WritePacket(Cmd_ProxyClientAuthResp, Source.RequestId, Buffer, sizeof(Buffer), Resp);
 		if (!RSize) {
 			return;
 		}
 		PostData(Buffer, RSize);
+	}
+
+	void OnDbAuthResult(uint64_t RequestContextId, const xQueryStaticIpResult * RP) {
+		if (!RP) {
+			X_DEBUG_PRINTF("=============> RequestId: %" PRIx64 ", no result", RequestContextId);
+			SetNoData(RequestContextId);
+			return;
+		}
+		X_DEBUG_PRINTF("=============> RequestId: %" PRIx64 ", proxy_ip=%s, enable_udp=%s", RequestContextId, RP->ExportIp.c_str(), YN(RP->EnableUdp));
+
+		auto Binding = GetTerminalControllerBinding(RP->ExportIp);
+		if (!Binding.TerminalControllerAddress) {
+			SetNoData(RequestContextId);
+			return;
+		}
+
+		auto CacheNode                      = xAuthResult();
+		CacheNode.AuditKey                  = -1;
+		CacheNode.TerminalControllerAddress = Binding.TerminalControllerAddress;
+		CacheNode.TerminalId                = Binding.TerminalId;
+		CacheNode.EnableUdp                 = RP->EnableUdp;
+		SetData(RequestContextId, CacheNode);
+	}
+
+	void Tick(uint64_t NowMS) {
+		xClient::Tick(NowMS);
+		xAuthRequestManager::Tick(NowMS);
 	}
 };
 
@@ -123,10 +174,6 @@ void OnStaticIpResult(xVariable CC, const xResultBase * ResultPtr) {
 }
 
 int main(int argc, char ** argv) {
-
-	// auto K = xAuthCacheService::MakeKey("Name", "Key");
-	// cout << "K(" << K.length() << "): " << K << endl;
-	// QuickExit(-1);
 
 	auto CL = xCommandLine(
 		argc, argv,
@@ -161,8 +208,8 @@ int main(int argc, char ** argv) {
 	while (RunState) {
 		Ticker.Update();
 		IoCtx.LoopOnce();
-		PoolPP2DBResults();
 		AuthService.Tick(Ticker);
+		PoolPP2DBResults();
 	}
 
 	CleanPP2DB();
