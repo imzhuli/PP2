@@ -210,9 +210,8 @@ xProxyRelayClient * xProxyService::GetTerminalController(const xNetAddress & Add
 	auto Iter       = RelayClientMap.find(AddressKey);
 	if (Iter != RelayClientMap.end()) {  // found connection
 		auto ConnectionId = Iter->second;
-		if (RelayClientPool.Check(ConnectionId)) {
-			return &RelayClientPool[ConnectionId];
-		}
+		assert(RelayClientPool.Check(ConnectionId));
+		return &RelayClientPool[ConnectionId];
 	}
 	auto TerminalControllerId = RelayClientPool.Acquire();
 	if (!TerminalControllerId) {
@@ -455,13 +454,19 @@ void xProxyService::ShrinkKillList() {
 }
 
 void xProxyService::ShrinkRelayClient() {
+	auto RemoveRelayClient = [this](xProxyRelayClient * NP) {
+		auto AddressKey = NP->GetTargetAddress().ToString();
+		RelayClientMap.erase(AddressKey);
+		NP->Clean();
+		RelayClientPool.Release(NP->ConnectionId);
+	};
+
 	auto KeepAlivePoint = NowMS - MaxRelayKeepAliveTimeout;
 	auto IdlePoint      = NowMS - MaxRelayClientIdleTimeout;
 	auto Condition      = [KeepAlivePoint](const xProxyRelayClientNode & N) { return N.KeepAliveTimestampMS <= KeepAlivePoint; };
 	while (auto NP = static_cast<xProxyRelayClient *>(RelayClientKeepAliveList.PopHead(Condition))) {
 		if (NP->LastDataTimestampMS < IdlePoint) {
-			NP->Clean();
-			RelayClientPool.Release(NP->ConnectionId);
+			RemoveRelayClient(NP);
 			continue;
 		}
 		NP->PostRequestKeepAlive();
@@ -470,7 +475,6 @@ void xProxyService::ShrinkRelayClient() {
 
 	// Disconnected:
 	while (auto NP = static_cast<xProxyRelayClient *>(RelayClientKillList.PopHead())) {
-		NP->Clean();
-		RelayClientPool.Release(NP->ConnectionId);
+		RemoveRelayClient(NP);
 	}
 }
