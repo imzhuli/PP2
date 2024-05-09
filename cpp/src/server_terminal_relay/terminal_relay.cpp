@@ -40,12 +40,15 @@ void xRelayUdpChannel::OnData(xUdpChannel * ChannelPtr, void * DataPtr, size_t D
 bool xRelayTerminalConnection::Init(
 	xTerminalRelay * RelayPtr, const xNetAddress & TargetAddress, const xNetAddress & BindAddress, uint64_t RelayConnectionPairId
 ) {
+	X_DEBUG_PRINTF("Trying to create connection: bind@%s, Target@%s", BindAddress.ToString().c_str(), TargetAddress.ToString().c_str());
 	if (TargetAddress.Type != BindAddress.Type) {
+		X_DEBUG_PRINTF("Invalid bind address type");
 		return false;
 	}
 
 	auto IoCtxPtr = RelayPtr->GetIoCtxPtr();
 	if (!Connection.Init(IoCtxPtr, TargetAddress, BindAddress, this)) {
+		X_DEBUG_PRINTF("failed to create connection");
 		return false;
 	}
 	this->RelayPtr              = RelayPtr;
