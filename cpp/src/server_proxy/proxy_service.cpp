@@ -210,8 +210,9 @@ xProxyRelayClient * xProxyService::GetTerminalController(const xNetAddress & Add
 	auto Iter       = RelayClientMap.find(AddressKey);
 	if (Iter != RelayClientMap.end()) {  // found connection
 		auto ConnectionId = Iter->second;
-		assert(RelayClientPool.Check(ConnectionId));
-		return &RelayClientPool[ConnectionId];
+		if (RelayClientPool.Check(ConnectionId)) {
+			return &RelayClientPool[ConnectionId];
+		}
 	}
 	auto TerminalControllerId = RelayClientPool.Acquire();
 	if (!TerminalControllerId) {
