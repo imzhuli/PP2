@@ -259,6 +259,7 @@ void xProxyService::PostDataToTerminalController(xProxyClientConnection * CCP, c
 		RemainSize -= PostSize;
 	}
 	KeepAlive(CCP);
+	UpdateAntiIdle(PRC);
 	return;
 }
 
