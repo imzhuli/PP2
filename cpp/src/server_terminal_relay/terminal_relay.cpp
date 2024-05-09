@@ -212,7 +212,7 @@ void xTerminalRelay::OnProxyToRelay(xServiceClientConnection & Connection, const
 
 	auto PP = GetConnectionPairById(Req.ConnectionPairId);
 	if (!PP) {
-		X_DEBUG_PRINTF("Failed to find connection pair");
+		X_DEBUG_PRINTF("Failed to find connection pair: Id=%" PRIx64 "", Req.ConnectionPairId);
 		return;
 	}
 	KeepAlive(PP);
