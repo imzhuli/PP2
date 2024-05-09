@@ -190,7 +190,10 @@ protected:
 	void RequestUdpBinding(xProxyRelayClient * RCP, xProxyClientConnection * CCP);
 	void DestroyUdpBinding(xProxyClientConnection * CCP);
 
-	void KeepAlive(xProxyRelayClient * RCP) {
+	void UpdateAntiIdle(xProxyRelayClient * RCP) {
+		RCP->LastDataTimestampMS = NowMS;
+	}
+	void UpdateKeepAlive(xProxyRelayClient * RCP) {
 		RCP->KeepAliveTimestampMS = NowMS;
 		RelayClientKeepAliveList.GrabTail(*RCP);
 	}

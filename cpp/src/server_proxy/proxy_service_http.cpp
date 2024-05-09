@@ -240,7 +240,8 @@ void xProxyService::OnHttpConnected(xProxyClientConnection * CCP, uint64_t NewCo
 }
 
 size_t xProxyService::OnClientHttpStream(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
-	X_DEBUG_PRINTF("HttpStream: size=%zi", DataSize);
+	X_DEBUG_PRINTF("ClientHttpStream: size=%zi", DataSize);
 	PostDataToTerminalController(CCP, DataPtr, DataSize);
+	KeepAlive(CCP);
 	return DataSize;
 }

@@ -36,15 +36,10 @@ size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataP
 		if (RemainSize < PacketSize) {        // wait for data
 			break;
 		}
-		if (Header.IsKeepAlive()) {
-			X_DEBUG_PRINTF("KeepAlive");
-			ProxyServicePtr->KeepAlive(this);
-		} else {
-			auto PayloadPtr  = xPacket::GetPayloadPtr(DataPtr);
-			auto PayloadSize = Header.GetPayloadSize();
-			if (!OnPacket(Header, PayloadPtr, PayloadSize)) { /* packet error */
-				return InvalidDataSize;
-			}
+		auto PayloadPtr  = xPacket::GetPayloadPtr(DataPtr);
+		auto PayloadSize = Header.GetPayloadSize();
+		if (!OnPacket(Header, PayloadPtr, PayloadSize)) { /* packet error */
+			return InvalidDataSize;
 		}
 		DataPtr    += PacketSize;
 		RemainSize -= PacketSize;

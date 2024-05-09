@@ -4,6 +4,8 @@
 #include "./proxy_access.hpp"
 
 // xProxyService
+static constexpr const uint64_t MaxRelayKeepAliveTimeout  = 60'000;
+static constexpr const uint64_t MaxRelayClientIdleTimeout = 10 * 60'000;
 
 bool xProxyService::Init(xIoContext * IoCtxPtr, const xNetAddress & BindAddress, const xNetAddress & UdpExportAddress, const xNetAddress & DispatcherAddress) {
 	assert(IoCtxPtr && BindAddress && DispatcherAddress);
@@ -216,11 +218,11 @@ xProxyRelayClient * xProxyService::GetTerminalController(const xNetAddress & Add
 		RelayClientPool.Release(TerminalControllerId);
 		return nullptr;
 	}
-	//
+	// new terminal controller id
 	PC->ConnectionId           = TerminalControllerId;
-	PC->KeepAliveTimestampMS   = NowMS;
 	PC->LastDataTimestampMS    = NowMS;
 	RelayClientMap[AddressKey] = TerminalControllerId;
+	UpdateKeepAlive(PC);
 	return PC;
 }
 
@@ -264,7 +266,7 @@ void xProxyService::PostDataToTerminalControllerRaw(uint64_t TerminalControllerI
 		return;
 	}
 	PRC->PostData(DataPtr, DataSize);
-	KeepAlive(PRC);
+	UpdateAntiIdle(PRC);
 	return;
 }
 
@@ -382,6 +384,7 @@ void xProxyService::OnRelayData(const xRelayToProxyData & Post) {
 	}
 	auto DataView = Post.DataView;
 	CCP->PostData(DataView.data(), DataView.size());
+	KeepAlive(CCP);
 }
 
 void xProxyService::OnCloseConnection(const xCloseClientConnection & Post) {
@@ -445,8 +448,18 @@ void xProxyService::ShrinkKillList() {
 }
 
 void xProxyService::ShrinkRelayClient() {
-	// TODO: KeepAlive
-	// TODO: Close idle
+	auto KeepAlivePoint = NowMS - MaxRelayKeepAliveTimeout;
+	auto IdlePoint      = NowMS - MaxRelayClientIdleTimeout;
+	auto Condition      = [KeepAlivePoint](const xProxyRelayClientNode & N) { return N.KeepAliveTimestampMS <= KeepAlivePoint; };
+	while (auto NP = static_cast<xProxyRelayClient *>(RelayClientKeepAliveList.PopHead(Condition))) {
+		if (NP->LastDataTimestampMS < IdlePoint) {
+			NP->Clean();
+			RelayClientPool.Release(NP->ConnectionId);
+			continue;
+		}
+		NP->PostRequestKeepAlive();
+		UpdateKeepAlive(NP);
+	}
 
 	// Disconnected:
 	while (auto NP = static_cast<xProxyRelayClient *>(RelayClientKillList.PopHead())) {
