@@ -163,6 +163,7 @@ void xTerminalRelay::OnProxyCreateConnection(xServiceClientConnection & Connecti
 	auto RTP         = new xRelayTerminalConnection();
 	auto BindAddress = GetBindAddress(Req.TerminalId);
 	if (!BindAddress || !Req.TargetAddress || !RTP->Init(this, Req.TargetAddress, BindAddress, PP->ConnectionPairId)) {
+		X_DEBUG_PRINTF("Failed to create terminal connection");
 		auto RSize = WritePacket(Cmd_CreateConnectionResp, Header.RequestId, Buffer, sizeof(Buffer), Resp);
 		Connection.PostData(Buffer, RSize);
 		delete RTP;
@@ -212,7 +213,6 @@ void xTerminalRelay::OnProxyToRelay(xServiceClientConnection & Connection, const
 		return;
 	}
 	KeepAlive(PP);
-	X_DEBUG_PRINTF("ProxyToRelay: %zi", Req.DataView.size());
 
 	auto RTP = GetTargetConnection(PP);
 	if (!RTP) {
