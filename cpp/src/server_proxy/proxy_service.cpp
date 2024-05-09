@@ -62,11 +62,13 @@ void xProxyService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && Native
 }
 
 size_t xProxyService::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, size_t DataSize) {
+	X_DEBUG_PRINTF("\n%s", HexShow(DataPtr, DataSize).c_str());
 	auto CCP = UpCast(TcpConnectionPtr);
 
 	switch (CCP->State) {
 		case CLIENT_STATE_INIT:
 			return OnClientInit(CCP, DataPtr, DataSize);
+
 		case CLIENT_STATE_S5_WAIT_FOR_CLIENT_AUTH:
 			return OnClientS5Auth(CCP, DataPtr, DataSize);
 		case CLIENT_STATE_S5_AUTH_DONE:
@@ -98,8 +100,12 @@ size_t xProxyService::OnClientInit(xProxyClientConnection * CCP, void * DataPtr,
 	if (DataSize < 3) {
 		return 0;  // not determinate
 	}
-	if (((const ubyte *)DataPtr)[0] == 0x05) {  // version : S5
+	auto C0 = ((const ubyte *)DataPtr)[0];
+	if (C0 == 0x05) {  // version : S5
 		return OnClientS5Init(CCP, DataPtr, DataSize);
+	}
+	if (!isalpha(C0)) {
+		return InvalidDataSize;
 	}
 	return OnClientHttpInit(CCP, DataPtr, DataSize);
 }
@@ -419,8 +425,8 @@ void xProxyService::ShrinkFlushTimeout() {
 }
 
 void xProxyService::ShrinkKillList() {
-	while (auto NP = ClientKillList.PopHead()) {
-		auto CCP = static_cast<xProxyClientConnection *>(NP);
+	while (auto CCP = static_cast<xProxyClientConnection *>(ClientKillList.PopHead())) {
+		X_DEBUG_PRINTF("Cleanup connection: %" PRIx64 "", CCP->ClientConnectionId);
 		do {                              // notify terminal to close connection
 			if (CCP->ConnectionPairId) {  // active close connection
 				X_DEBUG_PRINTF("ConnectionPairId: %" PRIx64 "", CCP->ConnectionPairId);
