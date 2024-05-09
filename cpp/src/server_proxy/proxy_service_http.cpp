@@ -124,9 +124,10 @@ bool xProxyService::OnHttpHeaderDone(xProxyClientConnection * CCP) {
 
 	if (CCP->Http.Mode == eHttpMode::NORMAL) {
 		CCP->Http.Header.append("Connection: close\r\n\r\n", 21);
-	} else {
-		assert(CCP->Http.Mode == eHttpMode::RAW);
+	} else if (CCP->Http.Mode == eHttpMode::RAW) {
 		Reset(CCP->Http.Header);
+	} else {
+		return false;
 	}
 
 	if (CCP->Http.TargetHost.empty()) {
