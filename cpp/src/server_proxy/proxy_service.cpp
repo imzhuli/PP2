@@ -229,6 +229,7 @@ xProxyRelayClient * xProxyService::GetTerminalController(const xNetAddress & Add
 	PC->LastDataTimestampMS    = NowMS;
 	RelayClientMap[AddressKey] = TerminalControllerId;
 	UpdateKeepAlive(PC);
+	X_DEBUG_PRINTF("New connection to relay: %s", Address.ToString().c_str());
 	return PC;
 }
 

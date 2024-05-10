@@ -21,6 +21,8 @@ public:
 		return TargetAddress;
 	}
 
+	void PostData(const void * _, size_t DataSize);
+
 protected:
 	void   OnConnected(xTcpConnection * TcpConnectionPtr) override;
 	void   OnPeerClose(xTcpConnection * TcpConnectionPtr) override;

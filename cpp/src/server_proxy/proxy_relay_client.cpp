@@ -4,6 +4,7 @@
 
 // xProxyRelayClient
 bool xProxyRelayClient::Init(xProxyService * ProxyServicePtr, const xNetAddress & TargetAddress) {
+	X_DEBUG_PRINTF("New connection to relay: %s", TargetAddress.ToString().c_str());
 	if (!xTcpConnection::Init(ProxyServicePtr->IoCtxPtr, TargetAddress, this)) {
 		return false;
 	}
@@ -25,6 +26,11 @@ void xProxyRelayClient::OnConnected(xTcpConnection * TcpConnectionPtr) {
 
 void xProxyRelayClient::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
 	ProxyServicePtr->RemoveRelayClient(this);
+}
+
+void xProxyRelayClient::PostData(const void * _, size_t DataSize) {
+	X_DEBUG_PRINTF("\n%s", HexShow(_, DataSize).c_str());
+	return xTcpConnection::PostData(_, DataSize);
 }
 
 size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtrInput, size_t DataSize) {
