@@ -18,11 +18,17 @@ void xProxyRelayClient::Clean() {
 	Reset(TargetAddress);
 }
 
+void xProxyRelayClient::OnConnected(xTcpConnection * TcpConnectionPtr) {
+	X_DEBUG_PRINTF("OnProxyRelayClient connected");
+	PostRequestKeepAlive();
+}
+
 void xProxyRelayClient::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
 	ProxyServicePtr->RemoveRelayClient(this);
 }
 
 size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtrInput, size_t DataSize) {
+	X_DEBUG_PRINTF("OnRelayData: \n%s", HexShow(DataPtrInput, DataSize).c_str());
 	assert(TcpConnectionPtr == this);
 	auto   DataPtr    = static_cast<ubyte *>(DataPtrInput);
 	size_t RemainSize = DataSize;

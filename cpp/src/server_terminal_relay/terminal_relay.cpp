@@ -47,7 +47,7 @@ bool xRelayTerminalConnection::Init(
 
 	auto IoCtxPtr = RelayPtr->GetIoCtxPtr();
 	if (!Connection.Init(IoCtxPtr, TargetAddress, BindAddress, this)) {
-		X_DEBUG_PRINTF("failed to create connection");
+		X_DEBUG_PRINTF("Failed to create connection");
 		return false;
 	}
 	this->RelayPtr              = RelayPtr;
