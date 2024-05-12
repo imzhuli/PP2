@@ -12,8 +12,6 @@ size_t xProxyService::OnClientHttpInit(xProxyClientConnection * CCP, void * Data
 size_t xProxyService::OnClientHttpHeader(xProxyClientConnection * CCP, void * DataPtr, size_t DataSize) {
 	auto & Unprocessed = CCP->Http.Unprocessed;
 	Unprocessed.append((const char *)DataPtr, DataSize);
-	X_DEBUG_PRINTF("=============New Data Block===========\n%s", HexShow(DataPtr, DataSize).c_str());
-
 	size_t LineStart = 0;
 	size_t LineEnd   = Unprocessed.find("\r\n");
 	while (true) {

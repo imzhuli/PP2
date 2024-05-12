@@ -62,7 +62,7 @@ void xProxyService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && Native
 }
 
 size_t xProxyService::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, size_t DataSize) {
-	X_DEBUG_PRINTF("\n%s", HexShow(DataPtr, DataSize).c_str());
+	X_DEBUG_PRINTF("Size=%zi", DataSize);
 	auto CCP = UpCast(TcpConnectionPtr);
 
 	switch (CCP->State) {

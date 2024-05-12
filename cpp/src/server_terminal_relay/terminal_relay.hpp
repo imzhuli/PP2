@@ -21,7 +21,7 @@ public:
 	void Clean();
 
 	void OnData(xUdpChannel * ChannelPtr, void * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override;
-	void OnError(xUdpChannel * ChannelPtr) override{};
+	void OnError(xUdpChannel * ChannelPtr) override {};
 };
 
 struct xRelayTerminalConnectionNode : xListNode {
@@ -37,6 +37,9 @@ class xRelayTerminalConnection final
 public:
 	bool Init(xTerminalRelay * RelayPtr, const xNetAddress & TargetAddress, const xNetAddress & BindAddress, uint64_t RelayConnectionPairId);
 	void Clean();
+
+public:
+	uint64_t InitTimestampMS X_DEBUG_INIT(GetTimestampMS());
 
 protected:
 	void   OnConnected(xTcpConnection * TcpConnectionPtr) override;

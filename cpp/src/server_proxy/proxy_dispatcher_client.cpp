@@ -2,6 +2,7 @@
 
 // xDispatcherClient
 bool xProxyDispatcherClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
+	X_DEBUG_PRINTF("CmdId=%" PRIx64 "", Header.CommandId);
 	switch (Header.CommandId) {
 		case Cmd_ProxyClientAuthResp: {
 			auto Resp = xProxyClientAuthResp();
@@ -20,7 +21,7 @@ bool xProxyDispatcherClient::OnPacket(const xPacketHeader & Header, ubyte * Payl
 			break;
 		}
 		default: {
-			X_DEBUG_PRINTF("CmdId=%" PRIx64 "", Header.CommandId);
+			X_DEBUG_PRINTF("Unprocessed CmdId=%" PRIx64 "", Header.CommandId);
 			break;
 		}
 	}

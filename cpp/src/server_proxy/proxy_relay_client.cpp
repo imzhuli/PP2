@@ -29,12 +29,10 @@ void xProxyRelayClient::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
 }
 
 void xProxyRelayClient::PostData(const void * _, size_t DataSize) {
-	X_DEBUG_PRINTF("\n%s", HexShow(_, DataSize).c_str());
 	return xTcpConnection::PostData(_, DataSize);
 }
 
 size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtrInput, size_t DataSize) {
-	X_DEBUG_PRINTF("OnRelayData: \n%s", HexShow(DataPtrInput, DataSize).c_str());
 	assert(TcpConnectionPtr == this);
 	auto   DataPtr    = static_cast<ubyte *>(DataPtrInput);
 	size_t RemainSize = DataSize;
