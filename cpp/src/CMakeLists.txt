@@ -50,6 +50,7 @@ aux_source_directory("./common_job"            COMMON_SRC)
 aux_source_directory("./common_protocol"       COMMON_SRC)
 aux_source_directory("./common_web_service"    COMMON_SRC)
 aux_source_directory("./component"             COMMON_SRC)
+aux_source_directory("./profiler"              COMMON_SRC)
 add_library(app_common ${COMMON_SRC})
 
 
@@ -73,12 +74,8 @@ build_app(server_proxy)
 build_app(server_terminal_relay)
 
 build_app(test)
-build_app(test_consumer)
 build_app(test_db)
-build_app(test_dns_query)
-build_app(test_geoip)
-build_app(test_tcp_show)
-build_app(test_tel_s5)
+build_app(test_delay)
 
 install(TARGETS
 	_server_auth
@@ -88,12 +85,8 @@ install(TARGETS
 	_server_terminal_relay
 
 	_test
-	_test_consumer
 	_test_db
-	_test_dns_query
-	_test_geoip
-	_test_tcp_show
-	_test_tel_s5
+	_test_delay
 
 	RUNTIME DESTINATION bin
 	ARCHIVE DESTINATION lib
