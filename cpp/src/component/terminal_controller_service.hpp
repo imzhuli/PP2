@@ -31,10 +31,7 @@ protected:
 	void                   ClearTimeoutRelayConnectionPairs();
 
 protected:
-	bool OnPacket(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) override;
-
-protected:
-	virtual void OnDestroyTimeoutConnectionPair(xRelayConnectionPair * CP){};
+	virtual void OnDestroyTimeoutConnectionPair(xRelayConnectionPair * CP) {};
 
 protected:
 	xTicker                               Ticker;

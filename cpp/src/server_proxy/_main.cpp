@@ -2,6 +2,7 @@
 #include "../common/config.hpp"
 #include "./audit.hpp"
 #include "./auth.hpp"
+#include "./global.hpp"
 #include "./proxy_access.hpp"
 
 auto IoCtx    = xIoContext();
@@ -12,6 +13,7 @@ auto ClientService     = xProxyService();
 auto BindAddress       = xNetAddress();
 auto UdpExportAddress  = xNetAddress();
 auto DispatcherAddress = xNetAddress();
+auto ProfileLoggerFile = std::string();
 
 int main(int argc, char ** argv) {
 
@@ -30,7 +32,10 @@ int main(int argc, char ** argv) {
 	C.Require(BindAddress, "bind_address");
 	C.Require(DispatcherAddress, "dispatcher_address");
 	C.Require(UdpExportAddress, "udp_export_ip");
+	C.Require(ProfileLoggerFile, "profile_logger");
 	Reset(UdpExportAddress.Port);
+
+	auto PLG = xResourceGuard(ProfilerLogger, ProfileLoggerFile.c_str());
 
 	auto RSG = xScopeGuard([] { RunState.Start(); }, [] { RunState.Finish(); });
 	auto ICG = xResourceGuard(IoCtx);

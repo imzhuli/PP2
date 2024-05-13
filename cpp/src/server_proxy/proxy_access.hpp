@@ -3,12 +3,13 @@
 #include "../common_protocol/client_auth.hpp"
 #include "../common_protocol/data_exchange.hpp"
 #include "../common_protocol/network.hpp"
+#include "../profiler/base.hpp"
 #include "./proxy_dispatcher_client.hpp"
 #include "./proxy_relay_client.hpp"
 
 #include <unordered_map>
 
-static constexpr const uint64_t TCP_CONNECTION_AUTH_TIMEOUT_MS  = 15'000;  // auth and connection
+static constexpr const uint64_t TCP_CONNECTION_AUTH_TIMEOUT_MS  = 10'000;  // auth and connection
 static constexpr const uint64_t TCP_CONNECTION_IDLE_TIMEOUT_MS  = 125'000;
 static constexpr const uint64_t TCP_CONNECTION_FLUSH_TIMEOUT_MS = 3'000;
 static constexpr const uint64_t MAX_PROXY_RELAY_CONNECTION      = 10'000;
@@ -88,6 +89,9 @@ public:
 		std::string Body            = {};
 		eHttpMode   Mode            = eHttpMode::UNSPEC;
 	} Http;
+
+	xConnectionProfiler Profiler;
+	void                PostData(const void * DataPtr, size_t DataSize);
 };
 
 class xProxyUdpReceiver

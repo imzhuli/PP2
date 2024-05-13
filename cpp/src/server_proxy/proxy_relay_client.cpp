@@ -1,5 +1,6 @@
 #include "./proxy_relay_client.hpp"
 
+#include "./global.hpp"
 #include "./proxy_access.hpp"
 
 // xProxyRelayClient
@@ -10,6 +11,8 @@ bool xProxyRelayClient::Init(xProxyService * ProxyServicePtr, const xNetAddress 
 	}
 	this->ProxyServicePtr = ProxyServicePtr;
 	this->TargetAddress   = TargetAddress;
+	ResizeSendBuffer(1'500'000);
+	ResizeRecvBuffer(1'500'000);
 	return true;
 }
 
@@ -21,14 +24,20 @@ void xProxyRelayClient::Clean() {
 
 void xProxyRelayClient::OnConnected(xTcpConnection * TcpConnectionPtr) {
 	X_DEBUG_PRINTF("OnProxyRelayClient connected");
+	Profiler.Reset();
+	Profiler.MarkStartConnection();
+	Profiler.MarkEstablished();
 	PostRequestKeepAlive();
 }
 
 void xProxyRelayClient::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
+	Profiler.MarkCloseConnection();
+	ProfilerLogger.I("ProxyRelayClient: %s", Profiler.Dump().ToString().c_str());
 	ProxyServicePtr->RemoveRelayClient(this);
 }
 
 void xProxyRelayClient::PostData(const void * _, size_t DataSize) {
+	Profiler.MarkUpload(DataSize);
 	return xTcpConnection::PostData(_, DataSize);
 }
 
@@ -54,7 +63,9 @@ size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataP
 		DataPtr    += PacketSize;
 		RemainSize -= PacketSize;
 	}
-	return DataSize - RemainSize;
+	auto ProcessedData = DataSize - RemainSize;
+	Profiler.MarkDownload(ProcessedData);
+	return ProcessedData;
 }
 
 bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {

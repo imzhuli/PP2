@@ -71,7 +71,3 @@ void xTerminalController::OutputAudit() {
 	Audit_TimestampMS = Ticker();
 	cout << "xTerminalController Audit_ConnectionPairCount=" << Audit_ConnectionPairCount << endl;
 }
-
-bool xTerminalController::OnPacket(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
-	return true;
-}

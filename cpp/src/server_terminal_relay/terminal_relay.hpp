@@ -62,6 +62,8 @@ protected:
 	xNetAddress GetBindAddress(uint64_t TerminalId);
 
 protected:
+	void OnClientConnected(xServiceClientConnection & Connection) override;
+	void OnClientClose(xServiceClientConnection & Connection) override;
 	bool OnPacket(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) override;
 	void OnProxyCreateConnection(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
 	void OnProxyCloseConnection(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);

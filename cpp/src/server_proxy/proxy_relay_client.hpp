@@ -1,5 +1,6 @@
 #pragma once
 #include "../common/base.hpp"
+#include "../profiler/base.hpp"
 
 class xProxyService;
 
@@ -30,6 +31,7 @@ protected:
 	bool   OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
 
 protected:
-	xProxyService * ProxyServicePtr = nullptr;
-	xNetAddress     TargetAddress   = {};
+	xProxyService *     ProxyServicePtr = nullptr;
+	xNetAddress         TargetAddress   = {};
+	xConnectionProfiler Profiler;
 };

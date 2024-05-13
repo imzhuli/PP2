@@ -1,6 +1,7 @@
 #include "../common_protocol/client_auth.hpp"
 #include "../common_protocol/data_exchange.hpp"
 #include "../common_protocol/network.hpp"
+#include "./global.hpp"
 #include "./proxy_access.hpp"
 
 // xProxyService
@@ -54,6 +55,7 @@ void xProxyService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && Native
 		ClientConnectionPool.Release(NewConnectionId);
 		return;
 	}
+	NewClientConnectionPtr->Profiler.MarkStartConnection();
 	X_DEBUG_PRINTF("NewClientConnectionId:%" PRIx64 "", NewConnectionId);
 	NewClientConnectionPtr->ClientConnectionId   = NewConnectionId;
 	NewClientConnectionPtr->KeepAliveTimestampMS = NowMS;
@@ -67,26 +69,25 @@ size_t xProxyService::OnData(xTcpConnection * TcpConnectionPtr, void * DataPtr, 
 
 	switch (CCP->State) {
 		case CLIENT_STATE_INIT:
-			return OnClientInit(CCP, DataPtr, DataSize);
-
+			return CCP->Profiler.MarkUpload(OnClientInit(CCP, DataPtr, DataSize));
 		case CLIENT_STATE_S5_WAIT_FOR_CLIENT_AUTH:
-			return OnClientS5Auth(CCP, DataPtr, DataSize);
+			return CCP->Profiler.MarkUpload(OnClientS5Auth(CCP, DataPtr, DataSize));
 		case CLIENT_STATE_S5_AUTH_DONE:
-			return OnClientS5Connect(CCP, DataPtr, DataSize);
+			return CCP->Profiler.MarkUpload(OnClientS5Connect(CCP, DataPtr, DataSize));
 		case CLIENT_STATE_S5_TCP_ESTABLISHED:
-			return OnClientS5Data(CCP, (ubyte *)DataPtr, DataSize);
+			return CCP->Profiler.MarkUpload(OnClientS5Data(CCP, (ubyte *)DataPtr, DataSize));
 		case CLIENT_STATE_S5_UDP_READY:
-			return OnClientS5UdpData(CCP, (ubyte *)DataPtr, DataSize);
+			return CCP->Profiler.MarkUpload(OnClientS5UdpData(CCP, (ubyte *)DataPtr, DataSize));
 
 		case CLIENT_STATE_HTTP_WAIT_FOR_HEADER:
-			return OnClientHttpHeader(CCP, DataPtr, DataSize);
+			return CCP->Profiler.MarkUpload(OnClientHttpHeader(CCP, DataPtr, DataSize));
 		case CLIENT_STATE_HTTP_WAIT_FOR_AUTH_RESULT:
 		case CLIENT_STATE_HTTP_AUTH_DONE:
 		case CLIENT_STATE_HTTP_WAIT_FOR_DNS_RESULT:
 		case CLIENT_STATE_HTTP_TCP_CONNECTING:
-			return OnClientHttpBody(CCP, DataPtr, DataSize);
+			return CCP->Profiler.MarkUpload(OnClientHttpBody(CCP, DataPtr, DataSize));
 		case CLIENT_STATE_HTTP_TCP_ESTABLISHED:
-			return OnClientHttpStream(CCP, DataPtr, DataSize);
+			return CCP->Profiler.MarkUpload(OnClientHttpStream(CCP, DataPtr, DataSize));
 
 		default:
 			// X_DEBUG_PRINTF("CCP ID=%" PRIx64 ", STATE=%i\n%s", CCP->ClientConnectionId, (int)CCP->State, HexShow(DataPtr, DataSize).c_str());
@@ -348,6 +349,7 @@ void xProxyService::OnTerminalConnectionResult(const xCreateRelayConnectionPairR
 		X_DEBUG_PRINTF("Missing source connection");
 		return;
 	}
+	CCP->Profiler.MarkEstablished();
 	switch (CCP->State) {
 		case CLIENT_STATE_S5_TCP_CONNECTING: {
 			if (!Result.ConnectionPairId) {
@@ -429,6 +431,7 @@ void xProxyService::ShrinkFlushTimeout() {
 void xProxyService::ShrinkKillList() {
 	while (auto CCP = static_cast<xProxyClientConnection *>(ClientKillList.PopHead())) {
 		X_DEBUG_PRINTF("Cleanup connection: %" PRIx64 "", CCP->ClientConnectionId);
+		CCP->Profiler.MarkCloseConnection();
 		do {                              // notify terminal to close connection
 			if (CCP->ConnectionPairId) {  // active close connection
 				X_DEBUG_PRINTF("ConnectionPairId: %" PRIx64 "", CCP->ConnectionPairId);
@@ -447,7 +450,7 @@ void xProxyService::ShrinkKillList() {
 			UCP->Clean();
 			delete UCP;
 		}
-
+		ProfilerLogger.I("ClientConnection:%s", CCP->Profiler.Dump().ToString().c_str());
 		CCP->Clean();
 		assert(CCP == ClientConnectionPool.CheckAndGet(CCP->ClientConnectionId));
 		ClientConnectionPool.Release(CCP->ClientConnectionId);

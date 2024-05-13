@@ -117,6 +117,14 @@ xNetAddress xTerminalRelay::GetBindAddress(uint64_t TerminalId) {
 	return Iter->second;
 }
 
+void xTerminalRelay::OnClientConnected(xServiceClientConnection & Connection) {
+	Connection.ResizeSendBuffer(1'500'000);
+	Connection.ResizeRecvBuffer(1'500'000);
+}
+
+void xTerminalRelay::OnClientClose(xServiceClientConnection & Connection) {
+}
+
 bool xTerminalRelay::OnPacket(xServiceClientConnection & Connection, const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
 	switch (Header.CommandId) {
 		case Cmd_CreateConnection:
