@@ -68,6 +68,10 @@ size_t xProxyRelayClient::OnData(xTcpConnection * TcpConnectionPtr, void * DataP
 	return ProcessedData;
 }
 
+void xProxyRelayClient::OnFlush(xTcpConnection * TcpConnectionPtr) {
+	X_DEBUG_PRINTF("");
+}
+
 bool xProxyRelayClient::OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize) {
 	switch (Header.CommandId) {
 		case Cmd_CreateConnectionResp: {
