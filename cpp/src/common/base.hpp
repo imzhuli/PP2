@@ -48,7 +48,7 @@ std::unique_ptr<T> P2U(T * Ptr) {
     return std::unique_ptr<T>(Ptr);
 }
 
-using xNotifier = void(xVariable);
+using xNotifierFunc = void(xVariable);
 X_STATIC_INLINE void TrivialNotifier(xVariable) {}
 
 std::string DebugSign(const void * DataPtr, size_t Size);

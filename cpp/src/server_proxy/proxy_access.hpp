@@ -233,8 +233,6 @@ protected:
 	void ShrinkFlushTimeout();
 	void ShrinkKillList();
 	void ShrinkRelayClient();
-	// TODO:
-	void ShrinkUdpReceiver();
 
 protected:
 	xIoContext *                            IoCtxPtr = nullptr;
