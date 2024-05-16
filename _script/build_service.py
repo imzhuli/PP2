@@ -18,7 +18,7 @@ j_threads = ""
 
 try:
     argv = sys.argv[1:]
-    opts, args = getopt.getopt(argv, "d:x:j:")
+    opts, args = getopt.getopt(argv, "rd:x:j:")
 except getopt.GetoptError:
     sys.exit(2)
 for opt, arg in opts:
@@ -30,8 +30,13 @@ for opt, arg in opts:
         print("dblib path: %s" % (db_path))
     if opt == "-j":
         j_threads = " -j%s " % arg
-
+    if opt == '-r':
+        os.environ["PS_BUILD_CONFIG_TYPE"] = "Release"
     pass
+
+if os.getenv("PS_BUILD_CONFIG_TYPE") is None:
+    os.environ["PS_BUILD_CONFIG_TYPE"]="Debug"
+build_type=os.getenv("PS_BUILD_CONFIG_TYPE")
 
 if not os.path.isdir(x_path):
     print("x_path not found")
@@ -62,5 +67,5 @@ os.system(
     f'-DX_LIB={x_path!r} '
     f'-DDB_LIB={db_path!r} '
     f'-DCMAKE_INSTALL_PREFIX={full_install_dir!r} -B {build_path!r} {src_dir!r}')
-os.system(f"cmake --build {build_path} -- {j_threads} all")
-os.system(f"cmake --build {build_path} -- install")
+os.system(f"cmake --build {build_path} --config {build_type} -- {j_threads} all")
+os.system(f"cmake --install {build_path} --config {build_type}")
