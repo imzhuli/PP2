@@ -14,17 +14,19 @@ if __name__ != "__main__":
     print("not valid entry, name=%s" % (__name__))
     exit
 
-server_side_lib_only = "OFF"
 try:
     argv = sys.argv[1:]
-    opts, args = getopt.getopt(argv, "s")
+    opts, args = getopt.getopt(argv, "r")
 except getopt.GetoptError:
     sys.exit(2)
 for opt, arg in opts:
-    if opt == "-s":
-        server_side_lib_only = "ON"
-        print("server-side lib only")
+    if opt == '-r':
+        os.environ["PS_BUILD_CONFIG_TYPE"] = "Release"
     pass
+
+if os.getenv("PS_BUILD_CONFIG_TYPE") is None:
+    os.environ["PS_BUILD_CONFIG_TYPE"]="Debug"
+build_type=os.getenv("PS_BUILD_CONFIG_TYPE")
 
 # remove temp dir
 cwd = os.getcwd()
