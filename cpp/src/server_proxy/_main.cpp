@@ -1,7 +1,6 @@
 #include "../common/base.hpp"
 #include "../common/config.hpp"
 #include "./audit.hpp"
-#include "./auth.hpp"
 #include "./global.hpp"
 #include "./proxy_access.hpp"
 
