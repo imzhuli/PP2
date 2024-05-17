@@ -5,6 +5,7 @@ import getopt
 import os
 import shutil
 import sys
+import xsetup
 
 import _build_mmdb as mmdb
 import _build_abseil as abseil
@@ -21,12 +22,9 @@ except getopt.GetoptError:
     sys.exit(2)
 for opt, arg in opts:
     if opt == '-r':
-        os.environ["PS_BUILD_CONFIG_TYPE"] = "Release"
+        xsetup.Release()
     pass
-
-if os.getenv("PS_BUILD_CONFIG_TYPE") is None:
-    os.environ["PS_BUILD_CONFIG_TYPE"]="Debug"
-build_type=os.getenv("PS_BUILD_CONFIG_TYPE")
+xsetup.Output()
 
 # remove temp dir
 cwd = os.getcwd()
@@ -36,13 +34,13 @@ if not mmdb.build():
     print("failed to build mmdb")
     exit -1
 
-# if not abseil.build():
-#     print("failed to build abseil")
-#     exit -1
+if not abseil.build():
+    print("failed to build abseil")
+    exit -1
 
-# if not protobuf.build():
-#     print("failed to build protobuf")
-#     exit -1
+if not protobuf.build():
+    print("failed to build protobuf")
+    exit -1
 
 if os.path.isdir(dependency_unzip_dir):
     shutil.rmtree(dependency_unzip_dir)

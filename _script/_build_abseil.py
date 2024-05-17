@@ -3,6 +3,7 @@
 import tarfile
 import os
 import _cmake_util as cu
+import xsetup
 
 cwd = os.getcwd()
 unzip_dir = f"{cwd}/_3rd_build"
@@ -13,11 +14,6 @@ install_dir = f"{cwd}/_3rd_installed"
 
 
 def build():
-    if os.getenv("PS_BUILD_CONFIG_TYPE") is None:
-        os.environ["PS_BUILD_CONFIG_TYPE"]="Debug"
-    build_type=os.getenv("PS_BUILD_CONFIG_TYPE")
-    print(f"=============> {build_type}")
-
     try:
         file = tarfile.open(src_file)
         file.extractall(unzip_dir)
@@ -32,13 +28,14 @@ def build():
         os.chdir(unzipped_src_dir)
         os.system(
             'cmake '
+            f'{xsetup.cmake_build_type} '
             '-Wno-dev '
             '-DABSL_BUILD_TESTING=OFF '
             '-DABSL_PROPAGATE_CXX_STD=ON '
             '-DCMAKE_CXX_STANDARD=20 '
             f'-DCMAKE_INSTALL_PREFIX={install_dir!r} -B build .')
-        os.system(f"cmake --build build --config {build_type} -- all")
-        os.system(f"cmake --install build --config {build_type}")
+        os.system(f"cmake --build build {xsetup.cmake_build_config} -- all")
+        os.system(f"cmake --install build {xsetup.cmake_build_config}")
     except Exception as e:
         return False
     finally:

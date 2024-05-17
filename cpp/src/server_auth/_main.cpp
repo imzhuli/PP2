@@ -109,7 +109,6 @@ public:
 	}
 
 	void PostResult(const xRequestSource & Source, bool HasData, const xDataNode & Data) override {
-		cout << "HasValue? " << YN(HasData) << endl;
 		auto Resp = xProxyClientAuthResp();
 		if (HasData) {
 			Resp.AuditKey                  = -1;
