@@ -5,9 +5,7 @@ import shutil
 import sys
 import platform
 
-using_single_build=False
-if platform.system() == 'Linux':
-    using_single_build=True
+using_single_build=(platform.system() != 'Windows')
 print(f"using_single_build={using_single_build}")
 
 if __name__ != "__main__":
