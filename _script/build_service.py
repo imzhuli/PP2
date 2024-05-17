@@ -3,6 +3,12 @@ import getopt
 import os
 import shutil
 import sys
+import platform
+
+using_single_build=False
+if platform.system() == 'Linux':
+    using_single_build=True
+print(f"using_single_build={using_single_build}")
 
 if __name__ != "__main__":
     print("not valid entry, name=%s" % (__name__))
@@ -62,8 +68,13 @@ if os.path.isdir(build_path):
     shutil.rmtree(build_path)
 os.makedirs(build_path)
 
+config_setup=""
+if using_single_build:
+    config_setup=f"-DCMAKE_BUILD_TYPE={build_type}"
+
 os.system(
     'cmake -Wno-dev '
+    f'{config_setup} ' \
     f'-DX_LIB={x_path!r} '
     f'-DDB_LIB={db_path!r} '
     f'-DCMAKE_INSTALL_PREFIX={full_install_dir!r} -B {build_path!r} {src_dir!r}')
