@@ -80,8 +80,9 @@ void xDnsService::WorkerThreadFunc() {
 		hints.ai_socktype = SOCK_STREAM;
 
 		X_DEBUG_BREAKPOINT();
-		if (auto status = getaddrinfo(PJ->Hostname.c_str(), nullptr, &hints, &res)) {
-			X_DEBUG_PRINTF("getaddrinfo: %s\n", gai_strerror(status));
+		if (auto err = getaddrinfo(PJ->Hostname.c_str(), nullptr, &hints, &res)) {
+			Touch(err);
+			X_DEBUG_PRINTF("getaddrinfo: %s\n", gai_strerror(err));
 		} else {
 			for (p = res; p != NULL; p = p->ai_next) {
 				if (p->ai_family == AF_INET) {  // IPv4
