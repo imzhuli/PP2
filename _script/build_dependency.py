@@ -34,13 +34,13 @@ if not mmdb.build():
     print("failed to build mmdb")
     exit -1
 
-if not abseil.build():
-    print("failed to build abseil")
-    exit -1
+# if not abseil.build():
+#     print("failed to build abseil")
+#     exit -1
 
-if not protobuf.build():
-    print("failed to build protobuf")
-    exit -1
+# if not protobuf.build():
+#     print("failed to build protobuf")
+#     exit -1
 
 if os.path.isdir(dependency_unzip_dir):
     shutil.rmtree(dependency_unzip_dir)
