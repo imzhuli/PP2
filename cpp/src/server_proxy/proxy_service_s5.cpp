@@ -334,7 +334,7 @@ void xProxyService::OnData(xUdpChannel * ChannelPtr, void * _, size_t DataSize, 
 }
 
 void xProxyService::OnRelayUdpData(const xRelayToProxyUdpData & Post) {
-	X_DEBUG_PRINTF("RelayData: ClientConnectionId=%" PRIx64 ", Size=%zi", Post.ClientConnectionId, Post.DataView.size());
+	X_DEBUG_PRINTF("RelayData: ClientConnectionId=%" PRIx64 ", Size=%zi, \n%s", Post.ClientConnectionId, Post.DataView.size(), HexShow(Post.DataView).c_str());
 	auto CCP = ClientConnectionPool.CheckAndGet(Post.ClientConnectionId);
 	if (!CCP) {
 		X_DEBUG_PRINTF("Connection lost");

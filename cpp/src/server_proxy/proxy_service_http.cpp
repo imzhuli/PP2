@@ -43,40 +43,43 @@ void xProxyService::ProcessHttpHeaderLine(xProxyClientConnection * CCP, const st
 
 	if (CCP->Http.Mode == eHttpMode::UNSPEC) {  // reqeust line
 		if (CL == strcasestr(CL, "CONNECT ")) {
-			CCP->Http.Mode = eHttpMode::RAW;
-			// header will be ignored later
+			CCP->Http.Mode      = eHttpMode::RAW;
+			auto TargetStartPtr = CL + size_t(8);
+			auto TargetEndPtr   = strchr(TargetStartPtr, ' ');
+			if (!TargetEndPtr) {
+				X_DEBUG_PRINTF("Invalid target");
+				return;
+			}
+			CCP->Http.TargetHost = std::string(TargetStartPtr, TargetEndPtr - TargetStartPtr);
 			return;
 		}
+
 		CCP->Http.Mode = eHttpMode::NORMAL;
 		// remove schema tags:
 		auto Segs = Split(Line, " ");
 		if (Segs.size() < 2) {
 			return;
 		}
-		auto & Schema   = Segs[1];
-		auto   TagIndex = Schema.find("://");
-		if (TagIndex == Schema.npos) {
-			CCP->Http.Header.append(Line);
-			CCP->Http.Header.append("\r\n", 2);
+		auto & Schema      = Segs[1];
+		auto   TargetIndex = size_t(0);
+		auto   TagIndex    = Schema.find("://");
+		if (TagIndex != Schema.npos) {
+			TargetIndex = TagIndex + 3;
+		}
+		// find target
+		auto UriIndex = Schema.find("/", TargetIndex);
+		if (UriIndex == Schema.npos) {
+			X_DEBUG_PRINTF("Invalid path found");
 			return;
 		}
-		auto UriIndex = Schema.find("/", TagIndex + 3);
-		if (UriIndex == Schema.npos) {
-			Schema = "/";
-		} else {
-			Schema = Schema.substr(UriIndex);
-		}
+		CCP->Http.TargetHost = Schema.substr(TargetIndex, UriIndex - TargetIndex);
+		Schema               = Schema.substr(UriIndex);
+
 		auto SchemaLine = JoinStr(Segs, ' ');
 		X_DEBUG_PRINTF("Update uri schema: [%s]", SchemaLine.c_str());
-		CCP->Http.Header.append(Line);
+		CCP->Http.Header.append(SchemaLine);
 		CCP->Http.Header.append("\r\n", 2);
 		return;
-	}
-
-	if (CL == strcasestr(CL, "Host:")) {
-		auto Host = Trim(CL + 5);
-		X_DEBUG_PRINTF("Request host: %s", Host.c_str());
-		CCP->Http.TargetHost = std::move(Host);
 	}
 	if (CL == strcasestr(CL, "proxy-connection:")) {
 		X_DEBUG_PRINTF("Remove Header: %s", CL);
