@@ -28,7 +28,7 @@ protected:
 	void   OnConnected(xTcpConnection * TcpConnectionPtr) override;
 	void   OnPeerClose(xTcpConnection * TcpConnectionPtr) override;
 	size_t OnData(xTcpConnection * TcpConnectionPtr, void * DataPtrInput, size_t DataSize) override;
-	void   OnFlush(xTcpConnection * TcpConnectionPtr);
+	void   OnFlush(xTcpConnection * TcpConnectionPtr) override;
 	bool   OnPacket(const xPacketHeader & Header, ubyte * PayloadPtr, size_t PayloadSize);
 
 protected:
