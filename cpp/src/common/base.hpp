@@ -55,3 +55,8 @@ std::string DebugSign(const void * DataPtr, size_t Size);
 static inline std::string DebugSign(const std::string_view& V) {
     return DebugSign(V.data(), V.size());
 }
+
+// min_defs:
+using xServerId = uint32_t;
+using xGroupId = uint32_t;
+

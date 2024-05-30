@@ -45,12 +45,13 @@ set(lib_dependency
 # message(STATUS ${lib_dependency})
 
 # local libs
-aux_source_directory("./common"                COMMON_SRC)
-aux_source_directory("./common_job"            COMMON_SRC)
-aux_source_directory("./common_protocol"       COMMON_SRC)
-aux_source_directory("./common_web_service"    COMMON_SRC)
-aux_source_directory("./component"             COMMON_SRC)
-aux_source_directory("./profiler"              COMMON_SRC)
+aux_source_directory("./common"                    COMMON_SRC)
+aux_source_directory("./common_job"                COMMON_SRC)
+aux_source_directory("./common_protocol"           COMMON_SRC)
+aux_source_directory("./common_server_group"       COMMON_SRC)
+aux_source_directory("./common_web_service"        COMMON_SRC)
+aux_source_directory("./component"                 COMMON_SRC)
+aux_source_directory("./profiler"                  COMMON_SRC)
 add_library(app_common ${COMMON_SRC})
 
 
