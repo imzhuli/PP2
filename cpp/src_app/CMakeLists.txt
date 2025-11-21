@@ -33,6 +33,7 @@ endif()
 
 aux_source_directory("./lib_backend_connection"      LIB_SRC)
 aux_source_directory("./lib_client"                  LIB_SRC)
+aux_source_directory("./lib_util"                    LIB_SRC)
 
 add_library(server ${LIB_SRC})
 target_compile_definitions(server PRIVATE X_OPTION_STATIC)
@@ -61,6 +62,7 @@ set(target_list
 	############ tests:
 	t_server_register
 	t_server_list_client
+	t_service_bootstrap
 
 	)
 

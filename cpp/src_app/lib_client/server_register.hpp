@@ -1,7 +1,7 @@
 #include <pp_common/_.hpp>
 #include <pp_common/_common.hpp>
 
-class xServerListRegister final {
+class xServerListRegister final : xel::xNonCopyable {
 public:
     bool Init(xel::xIoContext * IC);
     void Clean();
@@ -14,6 +14,9 @@ public:
         MyServiceInfo      = ServiceInfo;
         MyServiceInfoDirty = true;
     }
+
+    eServiceType GetMyServiceType() const { return MyServiceType; }
+    xServiceInfo GetMyServiceInfo() const { return MyServiceInfo; }
 
 private:
     void OnConnected();

@@ -29,8 +29,8 @@ void DumpLocalServerId(const std::string & LocalServerIdFilename, uint64_t Local
 
 //////////////////////////////////////////////////////
 
-bool xServerIdClient::Init(xIoContext * ICP, xNetAddress TargetAddress, uint64_t FirstTryServerId) {
-    if (!ClientWrapper.Init(ICP, TargetAddress)) {
+bool xServerIdClient::Init(xIoContext * ICP, uint64_t FirstTryServerId) {
+    if (!ClientWrapper.Init(ICP)) {
         return false;
     }
     ClientWrapper.OnConnected = Delegate(&xServerIdClient::OnServerConnected, this);
@@ -40,8 +40,8 @@ bool xServerIdClient::Init(xIoContext * ICP, xNetAddress TargetAddress, uint64_t
     return true;
 }
 
-bool xServerIdClient::Init(xIoContext * ICP, xNetAddress TargetAddress, const std::string & LocalServerIdFilename) {
-    if (!ClientWrapper.Init(ICP, TargetAddress)) {
+bool xServerIdClient::Init(xIoContext * ICP, const std::string & LocalServerIdFilename) {
+    if (!ClientWrapper.Init(ICP)) {
         return false;
     }
     ClientWrapper.OnConnected = Delegate(&xServerIdClient::OnServerConnected, this);

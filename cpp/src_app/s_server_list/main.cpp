@@ -111,7 +111,7 @@ static void TryRemovePreviousServiceInfo(const xTcpServiceClientConnectionHandle
     if (!PreviousInfo) {
         return;
     }
-    DEBUG_LOG("Type=%u, ServerId=%" PRIx64 "", (unsigned)PreviousInfo->Type, PreviousInfo->Info.ServerId);
+    DEBUG_LOG("Type=%u, ServerId=%" PRIu64 "", (unsigned)PreviousInfo->Type, PreviousInfo->Info.ServerId);
     RemoveServerinfoById(PreviousInfo->Type, PreviousInfo->Info.ServerId);
     delete PreviousInfo;
 }
@@ -132,7 +132,7 @@ static bool OnRegisterServer(const xTcpServiceClientConnectionHandle & Handle, u
     auto Inserted = InsertServiceInfo(Request.ServiceType, Request.ServiceInfo.ServerId, Request.ServiceInfo.Address);
     if (!Inserted) {
         Logger->E(
-            "insert new server info failed: Type=%u, ServerId=%" PRIx64 ", Address=%s", (unsigned)Request.ServiceType, Request.ServiceInfo.ServerId,
+            "insert new server info failed: Type=%u, ServerId=%" PRIu64 ", Address=%s", (unsigned)Request.ServiceType, Request.ServiceInfo.ServerId,
             Request.ServiceInfo.Address.ToString().c_str()
         );
         return false;
@@ -144,7 +144,7 @@ static bool OnRegisterServer(const xTcpServiceClientConnectionHandle & Handle, u
     Handle->UserContext.P = NewInfo;
 
     Logger->I(
-        "ServiceInfo updated: Type=%u, ServerId=%" PRIx64 ", Address=%s", (unsigned)Request.ServiceType, Request.ServiceInfo.ServerId,
+        "ServiceInfo updated: Type=%u, ServerId=%" PRIu64 ", Address=%s", (unsigned)Request.ServiceType, Request.ServiceInfo.ServerId,
         Request.ServiceInfo.Address.ToString().c_str()
     );
     PostRegisterServerAccepted(Handle, true);
@@ -224,9 +224,10 @@ int main(int argc, char ** argv) {
     TcpService.OnClientClean     = OnClientClean;
     TcpService.OnClientPacket    = OnClientPacket;
 
-    X_GUARD(ServerIdClient, ServiceIoContext, ServerIdCenterAddress, RuntimeEnv.DefaultLocalServerIdFilePath);
-    ServerIdClient.OnServerIdUpdateCallback = [](uint64_t UpdatedServerId) {
-        Logger->I("Update local server id: %" PRIx64 "", UpdatedServerId);
+    X_GUARD(ServerIdClient, ServiceIoContext, RuntimeEnv.DefaultLocalServerIdFilePath);
+    ServerIdClient.SetServerAddress(ServerIdCenterAddress);
+    ServerIdClient.OnServerIdUpdated = [](uint64_t UpdatedServerId) {
+        Logger->I("Update local server id: %" PRIu64 "", UpdatedServerId);
         RebuildServerListWithSelf();
         PrintServerInfoListByType(eServiceType::ServerList);
     };
