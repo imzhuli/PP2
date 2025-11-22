@@ -9,14 +9,17 @@ public:
     bool Init(xIoContext * ICP, const xNetAddress & MasterServerListServiceAddress);
     void Clean();
     void Tick(uint64_t NowMS);
-    void AddServiceRegistration(eServiceType ServiceType, const xServiceInfo & ServerInfo);
-    void RemoveServiceRegistration(eServiceType ServiceType, const xServiceInfo & ServerInfo);
 
-    std::function<void(uint64_t)>                                                                           OnServerIdUpdated       = Noop<>;
+    uint64_t GetServiceId() const { return ServerIdClient.GetLocalServerId(); }
+    void     AddServiceRegistration(eServiceType ServiceType, const xNetAddress & ServerAddress);
+    void     RemoveServiceRegistration(eServiceType ServiceType, const xNetAddress & ServerAddress);
+
+    std::function<void(uint64_t ServerId)>                                                                  OnServerIdUpdated       = Noop<>;
     std::function<void(eServiceType ServiceType, xVersion ServiceVersion, const std::vector<xServiceInfo>)> OnServerInfoListUpdated = Noop<>;
 
 private:
     void InternalTick(uint64_t NowMS);
+    void InternalOnServerIdUpdated(uint64_t ServerId);
     void InternalOnServerInfoListUpdated(eServiceType, xVersion, const std::vector<xServiceInfo> & ServerInfoList);
 
 private:
@@ -26,7 +29,14 @@ private:
     xServerListClient ServerListClient;
     xServerIdClient   ServerIdClient;
 
-    std::vector<std::unique_ptr<xServerListRegister>> ServiceRegistrationList;
+    struct xServiceRegistration {
+        eServiceType ServiceType;
+        xNetAddress  ServerAddress;
+
+        auto operator<=>(const xServiceRegistration &) const = default;
+    };
+    std::vector<xServiceRegistration>                 ServiceLocalRegistration;
+    std::vector<std::unique_ptr<xServerListRegister>> ServiceRegistrationClientList;
 
     uint64_t LastTickTimestampMS = 0;
 };

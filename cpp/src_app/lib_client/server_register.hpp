@@ -15,8 +15,8 @@ public:
         MyServiceInfoDirty = true;
     }
 
-    eServiceType GetMyServiceType() const { return MyServiceType; }
-    xServiceInfo GetMyServiceInfo() const { return MyServiceInfo; }
+    eServiceType         GetMyServiceType() const { return MyServiceType; }
+    const xServiceInfo & GetMyServiceInfo() const { return MyServiceInfo; }
 
 private:
     void OnConnected();

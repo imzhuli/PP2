@@ -11,6 +11,7 @@ int main(int argc, char ** argv) {
     X_GUARD(SLC, ServiceIoContext, std::vector{ xNetAddress::Parse("127.0.0.1:10200") });
     SLC.EnableServerIdCenterUpdate(true);
     SLC.EnableServerListUpdate(true);
+    SLC.EnableServerTestUpdate(true);
 
     SLC.OnServerListUpdated = [](eServiceType T, xVersion V, const std::vector<xServiceInfo> & List) {
         cout << "on server list updated: type=" << (unsigned)T << ", version=" << V << endl;

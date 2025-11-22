@@ -29,10 +29,6 @@ void xServerListRegister::OnConnected() {
 }
 
 void xServerListRegister::PostRegisterServiceInfo() {
-    if (MyServiceType == eServiceType::Unspecified) {
-        return;
-    }
-
     auto Request        = xPP_UpdateServiceInfo();
     Request.ServiceType = MyServiceType;
     Request.ServiceInfo = MyServiceInfo;

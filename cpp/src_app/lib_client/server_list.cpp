@@ -64,6 +64,15 @@ void xServerListClient::Tick(uint64_t NowMS) {
         ServerListRequestTimestampMS = NowMS;
         RequestServerList();
     }
+
+    if (EnableServerTestDownload) {
+        bool ShouldUpdate = ServerTestRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_LIST_TIMEOUT_MS;
+        if (!ShouldUpdate) {
+            return;
+        }
+        ServerTestRequestTimestampMS = NowMS;
+        RequestServerTest();
+    }
 }
 
 //////////
@@ -79,6 +88,11 @@ void xServerListClient::OnTargetConnected(xClientConnection & CC) {
     if (EnableServerListDownload) {
         ServerListRequestTimestampMS = NowMS;
         RequestServerList();
+    }
+
+    if (EnableServerTestDownload) {
+        ServerTestRequestTimestampMS = NowMS;
+        RequestServerTest();
     }
 }
 
@@ -124,4 +138,8 @@ void xServerListClient::RequestServerId() {
 
 void xServerListClient::RequestServerList() {
     RequestServerListByType(eServiceType::ServerList);
+}
+
+void xServerListClient::RequestServerTest() {
+    RequestServerListByType(eServiceType::ServerTest);
 }

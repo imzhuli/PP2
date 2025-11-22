@@ -19,6 +19,12 @@ public:
         ServerListVersion            = 0;
     }
 
+    void EnableServerTestUpdate(bool E) {
+        EnableServerTestDownload     = E;
+        ServerTestRequestTimestampMS = 0;
+        ServerTestVersion            = 0;
+    }
+
     using xOnServerListUpdated = std::function<void(eServiceType, xVersion, const std::vector<xServiceInfo> &)>;
 
     xOnServerListUpdated OnServerListUpdated = Noop<>;
@@ -45,4 +51,9 @@ private:
     uint64_t ServerListRequestTimestampMS = 0;
     xVersion ServerListVersion            = 0;
     void     RequestServerList();
+
+    bool     EnableServerTestDownload     = false;
+    uint64_t ServerTestRequestTimestampMS = 0;
+    xVersion ServerTestVersion            = 0;
+    void     RequestServerTest();
 };

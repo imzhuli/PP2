@@ -12,16 +12,17 @@ bool xServiceBootstrap::Init(xIoContext * ICP, const xNetAddress & MasterServerL
     ServerListClient.EnableServerIdCenterUpdate(true);
     ServerListClient.OnServerListUpdated = Delegate(&xServiceBootstrap::InternalOnServerInfoListUpdated, this);
 
-    ServerIdClient.OnServerIdUpdated = [this](uint64_t ServerId) { OnServerIdUpdated(ServerId); };
+    ServerIdClient.OnServerIdUpdated = Delegate(&xServiceBootstrap::InternalOnServerIdUpdated, this);
 
     return true;
 }
 
 void xServiceBootstrap::Clean() {
-    for (auto & U : ServiceRegistrationList) {
+    for (auto & U : ServiceRegistrationClientList) {
         U->Clean();
     }
-    Reset(ServiceRegistrationList);
+    Reset(ServiceRegistrationClientList);
+    Reset(ServiceLocalRegistration);
     ServerListClient.Clean();
     ServerIdClient.Clean();
     Reset(ICP);
@@ -37,26 +38,55 @@ void xServiceBootstrap::Tick(uint64_t NowMS) {
 
 void xServiceBootstrap::InternalTick(uint64_t NowMS) {
     TickAll(NowMS, ServerListClient, ServerIdClient);
-    for (auto & N : ServiceRegistrationList) {
+    for (auto & N : ServiceRegistrationClientList) {
         N->Tick(NowMS);
     }
 }
 
-void xServiceBootstrap::AddServiceRegistration(eServiceType ServiceType, const xServiceInfo & ServerInfo) {
-    ServiceRegistrationList.emplace_back(new xServerListRegister());
-    auto N = ServiceRegistrationList.back().get();
-    RuntimeAssert(N->Init(ICP));
-    N->UpdateMasterServierListAddress(MasterServerListServiceAddress);
-    N->UpdateMyServiceInfo(ServiceType, ServerInfo);
+void xServiceBootstrap::InternalOnServerIdUpdated(uint64_t ServerId) {
+    for (auto & U : ServiceRegistrationClientList) {
+        U->Clean();
+    }
+    Reset(ServiceRegistrationClientList);
+
+    if (ServerId) {
+        for (auto & N : ServiceLocalRegistration) {
+            ServiceRegistrationClientList.emplace_back(new xServerListRegister());
+            auto & U = ServiceRegistrationClientList.back();
+            SERVICE_RUNTIME_ASSERT(U->Init(ICP));
+            U->UpdateMasterServierListAddress(MasterServerListServiceAddress);
+            U->UpdateMyServiceInfo(N.ServiceType, { ServerId, N.ServerAddress });
+        }
+    }
+
+    OnServerIdUpdated(ServerId);
 }
 
-void xServiceBootstrap::RemoveServiceRegistration(eServiceType ServiceType, const xServiceInfo & ServerInfo) {
-    for (auto I = ServiceRegistrationList.begin(); I != ServiceRegistrationList.end(); ++I) {
+void xServiceBootstrap::AddServiceRegistration(eServiceType ServiceType, const xNetAddress & ServerAddress) {
+    ServiceLocalRegistration.push_back({ ServiceType, ServerAddress });
+    if (auto ServerId = ServerIdClient.GetLocalServerId()) {
+        ServiceRegistrationClientList.emplace_back(new xServerListRegister());
+        auto & U = ServiceRegistrationClientList.back();
+        U->Init(ICP);
+        U->UpdateMasterServierListAddress(MasterServerListServiceAddress);
+        U->UpdateMyServiceInfo(ServiceType, { ServerId, ServerAddress });
+    }
+}
+
+void xServiceBootstrap::RemoveServiceRegistration(eServiceType ServiceType, const xNetAddress & ServerAddress) {
+    for (auto I = ServiceLocalRegistration.begin(); I != ServiceLocalRegistration.end(); ++I) {
         auto & N = *I;
-        if (N->GetMyServiceType() == ServiceType && N->GetMyServiceInfo() == ServerInfo) {
+        if (N == xServiceRegistration{ ServiceType, ServerAddress }) {
+            ServiceLocalRegistration.erase(I);
+            break;
+        }
+    }
+    for (auto I = ServiceRegistrationClientList.begin(); I != ServiceRegistrationClientList.end(); ++I) {
+        auto & N = *I;
+        if (N->GetMyServiceType() == ServiceType && N->GetMyServiceInfo().Address == ServerAddress) {
             N->Clean();
-            ServiceRegistrationList.erase(I);
-            return;
+            ServiceRegistrationClientList.erase(I);
+            break;
         }
     }
 }
@@ -68,6 +98,10 @@ void xServiceBootstrap::InternalOnServerInfoListUpdated(eServiceType ServiceType
             return;
         }
         ServerIdClient.SetServerAddress(ServerInfoList[0].Address);
+        return;
+    }
+    if (ServiceType == eServiceType::ServerList) {
+        Logger->F("list of server-list-service updated, not implemented");
         return;
     }
 }

@@ -97,3 +97,10 @@ private:
 #define DEBUG_LOG(...)
 #define DEBUG_ADT(...)
 #endif
+
+#define SERVICE_RUNTIME_ASSERT(cond)                                                                 \
+    do {                                                                                             \
+        if (!cond) {                                                                                 \
+            Logger->F("service assert: %i@%s, condition expression: %s", __LINE__, __FILE__, #cond); \
+        }                                                                                            \
+    } while (false)
