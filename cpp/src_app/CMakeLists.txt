@@ -59,6 +59,8 @@ set(target_list
 	s_server_id_center
 	s_server_list
 
+	s_address_test
+
 	############ tests:
 	t_server_register
 	t_server_list_client

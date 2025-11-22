@@ -74,9 +74,10 @@ void xServiceBootstrap::AddServiceRegistration(eServiceType ServiceType, const x
 }
 
 void xServiceBootstrap::RemoveServiceRegistration(eServiceType ServiceType, const xNetAddress & ServerAddress) {
+    auto RemoveReference = xServiceRegistration{ ServiceType, ServerAddress };
     for (auto I = ServiceLocalRegistration.begin(); I != ServiceLocalRegistration.end(); ++I) {
         auto & N = *I;
-        if (N == xServiceRegistration{ ServiceType, ServerAddress }) {
+        if (N == RemoveReference) {
             ServiceLocalRegistration.erase(I);
             break;
         }
@@ -104,4 +105,6 @@ void xServiceBootstrap::InternalOnServerInfoListUpdated(eServiceType ServiceType
         Logger->F("list of server-list-service updated, not implemented");
         return;
     }
+
+    OnServerInfoListUpdated(ServiceType, ServiceVersion, ServerInfoList);
 }
