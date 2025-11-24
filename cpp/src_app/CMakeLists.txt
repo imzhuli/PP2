@@ -60,6 +60,9 @@ set(target_list
 	s_server_list
 
 	s_address_test
+	s_config_center
+	s_device_state_relay
+	s_relay_info_dispatcher
 
 	############ tests:
 	t_server_register
