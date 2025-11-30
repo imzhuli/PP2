@@ -1,20 +1,28 @@
-#include "../lib_util/service_bootstrap.hpp"
+#include "../lib_client/server_id.hpp"
 
+#include <pp_common/lang/dispatcher.hpp>
 #include <pp_common/service_runtime.hpp>
 
-xServiceBootstrap SB;
-eServiceType      MyServiceType    = eServiceType::ServerTest;
-xNetAddress       MyServiceAddress = xNetAddress::Parse("127.0.0.1:10300");
+xNetAddress ServerIdAddress                = xNetAddress::Parse("127.0.0.1:10100");
+xNetAddress ServerListMasterServiceAddress = xNetAddress::Parse("127.0.0.1:10200");
+xNetAddress MyServiceAddress               = xNetAddress::Parse("127.0.0.1:10300");
+
+auto ServerIdUpdateDispatcher = xDispatcher<uint64_t>();
+void OnServerIdUpdated(uint64_t SI) {
+    cout << "ServerId updated: " << SI << endl;
+}
 
 int main(int argc, char ** argv) {
     X_VAR xServiceRuntimeEnvGuard(argc, argv, false);
 
-    X_GUARD(SB, ServiceIoContext, xNetAddress::Parse("127.0.0.1:10200"));
-    SB.OnServerIdUpdated = [](uint64_t ServerId) { cout << "ServerId updated : " << ServerId << endl; };
-    SB.AddServiceRegistration(MyServiceType, MyServiceAddress);
+    xServerIdClient SIC;
+    X_GUARD(SIC, ServiceIoContext);
+    SIC.SetServerAddress(ServerIdAddress);
+    SIC.OnServerIdUpdated     = ServerIdUpdateDispatcher.Function();
+    ServerIdUpdateDispatcher += OnServerIdUpdated;
 
     while (ServiceRunState) {
-        ServiceUpdateOnce(SB);
+        ServiceUpdateOnce(SIC);
     }
 
     return 0;

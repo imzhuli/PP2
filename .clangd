@@ -1,3 +1,6 @@
+CompileFlags:
+  CompilationDatabase: ./_build/    
+
 Diagnostics:
   UnusedIncludes: None
   

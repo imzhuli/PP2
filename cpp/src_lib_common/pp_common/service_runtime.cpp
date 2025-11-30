@@ -6,11 +6,13 @@
 /// @brief Common code in ////////
 
 static xIoContext      ServiceIoContextInstance;
+static xel::xStdLogger StdLogger;
 static xel::xNonLogger NonLogger;
 
 xRuntimeEnv  RuntimeEnv                 = {};
 xLogger *    Logger                     = &NonLogger;
 xLogger *    AuditLogger                = &NonLogger;
+xLogger *    ConsoleLogger              = &StdLogger;
 xIoContext * ServiceIoContext           = nullptr;
 uint64_t     ServiceIoLoopOnceTimeoutMS = 10;
 xTicker      ServiceTicker              = {};
@@ -18,11 +20,11 @@ xRunState    ServiceRunState            = {};
 
 static void InitLogger() {
     Logger = new xBaseLogger();
-    RuntimeAssert(static_cast<xBaseLogger *>(Logger)->Init(std::string(RuntimeEnv.DefaultLoggerFilePath).c_str(), false));
+    RuntimeAssert(static_cast<xBaseLogger *>(Logger)->Init(std::string(RuntimeEnv.DefaultLoggerFilePath).c_str()));
     Logger->SetLogLevel(eLogLevel::Debug);
 
     AuditLogger = new xBaseLogger();
-    RuntimeAssert(static_cast<xBaseLogger *>(AuditLogger)->Init(std::string(RuntimeEnv.DefaultAuditLoggerFilePath).c_str(), false));
+    RuntimeAssert(static_cast<xBaseLogger *>(AuditLogger)->Init(std::string(RuntimeEnv.DefaultAuditLoggerFilePath).c_str()));
 }
 
 static void CleanLogger() {

@@ -1,5 +1,3 @@
-#include "../lib_util/service_bootstrap.hpp"
-
 #include <pp_common/service_runtime.hpp>
 #include <pp_protocol/command.hpp>
 #include <pp_protocol/device/check_address.hpp>

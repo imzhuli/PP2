@@ -65,9 +65,13 @@ set(target_list
 	s_relay_info_dispatcher
 
 	############ tests:
+	t_lang
 	t_server_register
 	t_server_list_client
 	t_service_bootstrap
+
+	############ other:
+	z_server_list
 
 	)
 

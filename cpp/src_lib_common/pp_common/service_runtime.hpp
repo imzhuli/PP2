@@ -5,6 +5,7 @@
 extern xRuntimeEnv  RuntimeEnv;
 extern xLogger *    Logger;
 extern xLogger *    AuditLogger;
+extern xLogger *    ConsoleLogger;
 extern xIoContext * ServiceIoContext;
 extern uint64_t     ServiceIoLoopOnceTimeoutMS;
 extern xTicker      ServiceTicker;
