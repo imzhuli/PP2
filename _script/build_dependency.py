@@ -8,6 +8,7 @@ import sys
 import xsetup
 
 import _build_mmdb as mmdb
+import _build_httplib as httplib
 import _build_json as nlohmann_json
 import _build_rapidcsv as rapidcsv
 import _build_rdkafka as rdkafka
@@ -24,7 +25,7 @@ try:
 except getopt.GetoptError:
     sys.exit(2)
 for opt, arg in opts:
-    if opt == '-r':
+    if opt == "-r":
         xsetup.Release()
     pass
 xsetup.Output()
@@ -33,21 +34,25 @@ xsetup.Output()
 cwd = os.getcwd()
 dependency_unzip_dir = f"{cwd}/_3rd_build"
 
+if not httplib.build():
+    print("failed to build httplib")
+    exit - 1
+
 if not nlohmann_json.build():
     print("failed to build nlohmann_json")
-    exit -1
+    exit - 1
 
 if not rapidcsv.build():
     print("failed to build rapidcsv")
-    exit -1
+    exit - 1
 
 if not mmdb.build():
     print("failed to build mmdb")
-    exit -1
+    exit - 1
 
 if not rdkafka.build():
     print("failed to build rdkafka")
-    exit -1
+    exit - 1
 
 
 # if not abseil.build():

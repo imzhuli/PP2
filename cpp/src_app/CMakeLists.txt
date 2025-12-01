@@ -71,7 +71,7 @@ set(target_list
 	t_service_bootstrap
 
 	############ other:
-	z_server_list
+	v_server_list
 
 	)
 

@@ -83,7 +83,7 @@ if ("${X_LIB}" STREQUAL "")
 else()
 	set(X_INCLUDE_DIRS "${X_LIB}/./_3rd_installed/include" "${X_LIB}/./_corex_installed/include")
 	set(X_LIBRARY_DIRS "${X_LIB}/./_3rd_installed/lib" "${X_LIB}/./_corex_installed/lib")
-	set(X_LIBRARIES     xel curl websockets everest freetype mbedtls mbedx509 mbedcrypto p256m z)
+	set(X_LIBRARIES     xel  websockets everest freetype curl mbedtls mbedx509 mbedcrypto p256m z)
 endif()
 
 set(LOCAL_3RD_DIR          "${PROJECT_SOURCE_DIR}/../_3rd_installed")
