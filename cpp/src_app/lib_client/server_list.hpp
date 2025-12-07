@@ -6,7 +6,9 @@ private:
     static constexpr uint64_t MIN_UPDATE_SERVER_ID_CENTER_TIMEOUT_MS      = 60 * 60'000;
     static constexpr uint64_t MIN_UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS     = 60 * 60'000;
     static constexpr uint64_t MIN_UPDATE_RELAY_INFO_DISPATCHER_TIMEOUT_MS = 5 * 60'000;
-    static constexpr uint64_t MIN_UPDATE_SERVER_TEST_TIMEOUT_MS           = 1 * 60'000;
+    static constexpr uint64_t MIN_UPDATE_DEVICE_STATE_RELAY_TIMEOUT_MS    = 5 * 60'000;
+
+    static constexpr uint64_t MIN_UPDATE_SERVER_TEST_TIMEOUT_MS = 1 * 60'000;
 
 public:
     bool Init(xIoContext * ICP, const std::vector<xNetAddress> & InitAddresses);
@@ -26,6 +28,13 @@ public:
     void EnableRelayInfoDispatcherObserverPortUpdate(bool E) {
         E ? EnableDownloader(eServiceType::RelayInfoDispatcher_ObserverPort, MIN_UPDATE_RELAY_INFO_DISPATCHER_TIMEOUT_MS)
           : DisableDownloader(eServiceType::RelayInfoDispatcher_ObserverPort);
+    }
+    void EnableDeviceStateRelayRelayPortUpdate(bool E) {  //
+        E ? EnableDownloader(eServiceType::DeviceStateRelay_RelayPort, MIN_UPDATE_DEVICE_STATE_RELAY_TIMEOUT_MS) : DisableDownloader(eServiceType::DeviceStateRelay_RelayPort);
+    }
+    void EnableDeviceStateRelayObserverPortUpdate(bool E) {  //
+        E ? EnableDownloader(eServiceType::DeviceStateRelay_DispatcherPort, MIN_UPDATE_DEVICE_STATE_RELAY_TIMEOUT_MS)
+          : DisableDownloader(eServiceType::DeviceStateRelay_DispatcherPort);
     }
 
     //
