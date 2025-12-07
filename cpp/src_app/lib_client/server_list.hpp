@@ -13,10 +13,22 @@ public:
         ServerIdCenterVersion            = 0;
     }
 
-    void EnableServerListUpdate(bool E) {
-        EnableServerListDownload     = E;
-        ServerListRequestTimestampMS = 0;
-        ServerListVersion            = 0;
+    void EnableServerListSlaveUpdate(bool E) {
+        EnableServerListSlaveDownload     = E;
+        ServerListSlaveRequestTimestampMS = 0;
+        ServerListSlaveVersion            = 0;
+    }
+
+    void EnableRelayInfoDispatcherRelayPortUpdate(bool E) {
+        EnableRelayInfoDispatcherRelayPortDownload     = E;
+        RelayInfoDispatcherRelayPortRequestTimestampMS = 0;
+        RelayInfoDispatcherRelayPortVersion            = 0;
+    }
+
+    void EnableRelayInfoDispatcherObserverPortUpdate(bool E) {
+        EnableRelayInfoDispatcherObserverPortDownload     = E;
+        RelayInfoDispatcherObserverPortRequestTimestampMS = 0;
+        RelayInfoDispatcherObserverPortVersion            = 0;
     }
 
     void EnableServerTestUpdate(bool E) {
@@ -35,7 +47,7 @@ private:
     void OnTargetClean(xClientConnection & CC);
     bool OnTargetPacket(xClientConnection & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
 
-    void RequestServerListByType(eServiceType Type);
+    bool RequestServerListByType(eServiceType Type);
     bool OnDownloadServiceListResp(ubyte * PayloadPtr, size_t PayloadSize);
 
 private:
@@ -45,15 +57,26 @@ private:
     bool     EnableServerIdCenterDownload     = false;
     uint64_t ServerIdCenterRequestTimestampMS = 0;
     xVersion ServerIdCenterVersion            = 0;
-    void     RequestServerId();
+    void     TryRequestServerId();
 
-    bool     EnableServerListDownload     = false;
-    uint64_t ServerListRequestTimestampMS = 0;
-    xVersion ServerListVersion            = 0;
-    void     RequestServerList();
+    bool     EnableServerListSlaveDownload     = false;
+    uint64_t ServerListSlaveRequestTimestampMS = 0;
+    xVersion ServerListSlaveVersion            = 0;
+    void     TryRequestServerListSlave();
 
+    bool     EnableRelayInfoDispatcherRelayPortDownload     = false;
+    uint64_t RelayInfoDispatcherRelayPortRequestTimestampMS = 0;
+    xVersion RelayInfoDispatcherRelayPortVersion            = 0;
+    void     TryRequestRelayInfoDispatcherRelayPort();
+
+    bool     EnableRelayInfoDispatcherObserverPortDownload     = false;
+    uint64_t RelayInfoDispatcherObserverPortRequestTimestampMS = 0;
+    xVersion RelayInfoDispatcherObserverPortVersion            = 0;
+    void     TryRequestRelayInfoDispatcherObserverPort();
+
+    /////
     bool     EnableServerTestDownload     = false;
     uint64_t ServerTestRequestTimestampMS = 0;
     xVersion ServerTestVersion            = 0;
-    void     RequestServerTest();
+    void     TryRequestServerTest();
 };

@@ -5,8 +5,11 @@
 
 static uint64_t MIN_UPDATE_SERVER_LIST_TICKER_TIMEOUT_MS = 15'000;
 
-static uint64_t MIN_UPDATE_SERVER_ID_CENTER_TIMEOUT_MS = 10 * 60'000;
-static uint64_t MIN_UPDATE_SERVER_LIST_TIMEOUT_MS      = 10 * 60'000;
+static uint64_t MIN_UPDATE_SERVER_ID_CENTER_TIMEOUT_MS                    = 60 * 60'000;
+static uint64_t MIN_UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS                   = 60 * 60'000;
+static uint64_t MIN_UPDATE_RELAY_INFO_DISPATCHER_RELAY_PORT_TIMEOUT_MS    = 10 * 60'000;
+static uint64_t MIN_UPDATE_RELAY_INFO_DISPATCHER_OBSERVER_PORT_TIMEOUT_MS = 10 * 60'000;
+static uint64_t MIN_UPDATE_SERVER_TEST_SLAVE_TIMEOUT_MS                   = 1 * 60'000;
 
 bool xServerListClient::Init(xIoContext * ICP, const std::vector<xNetAddress> & InitAddresses) {
     auto ListCopy = InitAddresses;
@@ -40,60 +43,30 @@ void xServerListClient::Clean() {
 void xServerListClient::Tick(uint64_t NowMS) {
     ClientPool.Tick(NowMS);
 
-    bool UpdateServerList = NowMS - MIN_UPDATE_SERVER_LIST_TICKER_TIMEOUT_MS;
-    if (LastTickTimestampMS > UpdateServerList) {
+    bool UpdateServerListTimepoint = NowMS - MIN_UPDATE_SERVER_LIST_TICKER_TIMEOUT_MS;
+    if (LastTickTimestampMS > UpdateServerListTimepoint) {
         return;
     }
     LastTickTimestampMS = NowMS;
 
     // request server list:
-    if (EnableServerIdCenterDownload) {
-        bool ShouldUpdate = ServerIdCenterRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_ID_CENTER_TIMEOUT_MS;
-        if (!ShouldUpdate) {
-            return;
-        }
-        ServerIdCenterRequestTimestampMS = NowMS;
-        RequestServerId();
-    }
-
-    if (EnableServerListDownload) {
-        bool ShouldUpdate = ServerListRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_LIST_TIMEOUT_MS;
-        if (!ShouldUpdate) {
-            return;
-        }
-        ServerListRequestTimestampMS = NowMS;
-        RequestServerList();
-    }
-
-    if (EnableServerTestDownload) {
-        bool ShouldUpdate = ServerTestRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_LIST_TIMEOUT_MS;
-        if (!ShouldUpdate) {
-            return;
-        }
-        ServerTestRequestTimestampMS = NowMS;
-        RequestServerTest();
-    }
+    TryRequestServerId();
+    TryRequestServerListSlave();
+    TryRequestRelayInfoDispatcherRelayPort();
+    TryRequestRelayInfoDispatcherObserverPort();
+    //
+    TryRequestServerTest();
 }
 
 //////////
 
 void xServerListClient::OnTargetConnected(xClientConnection & CC) {
-    auto NowMS = ClientPool.GetTickTimeMS();
-
-    if (EnableServerIdCenterDownload) {
-        ServerIdCenterRequestTimestampMS = NowMS;
-        RequestServerId();
-    }
-
-    if (EnableServerListDownload) {
-        ServerListRequestTimestampMS = NowMS;
-        RequestServerList();
-    }
-
-    if (EnableServerTestDownload) {
-        ServerTestRequestTimestampMS = NowMS;
-        RequestServerTest();
-    }
+    TryRequestServerId();
+    TryRequestServerListSlave();
+    TryRequestRelayInfoDispatcherRelayPort();
+    TryRequestRelayInfoDispatcherObserverPort();
+    //
+    TryRequestServerTest();
 }
 
 void xServerListClient::OnTargetClose(xClientConnection & CC) {
@@ -105,6 +78,9 @@ void xServerListClient::OnTargetClean(xClientConnection & CC) {
 }
 
 bool xServerListClient::OnDownloadServiceListResp(ubyte * PayloadPtr, size_t PayloadSize) {
+
+    X_DEBUG_PRINTF();
+
     auto Response = xPP_DownloadServiceListResp();
     if (!Response.Deserialize(PayloadPtr, PayloadSize)) {
         return false;
@@ -125,21 +101,80 @@ bool xServerListClient::OnTargetPacket(xClientConnection & CC, xPacketCommandId 
     return true;
 }
 
-void xServerListClient::RequestServerListByType(eServiceType Type) {
+bool xServerListClient::RequestServerListByType(eServiceType Type) {
     auto Request        = xPP_DownloadServiceList();
     Request.ServiceType = Type;
-    Request.LastVersion = ServerListVersion;
-    ClientPool.PostMessage(Cmd_DownloadServiceList, 0, Request);
+    Request.LastVersion = ServerListSlaveVersion;
+    return ClientPool.PostMessage(Cmd_DownloadServiceList, 0, Request);
 }
 
-void xServerListClient::RequestServerId() {
-    RequestServerListByType(eServiceType::ServerIdCenter);
+void xServerListClient::TryRequestServerId() {
+    if (!EnableServerIdCenterDownload) {
+        return;
+    }
+    auto NowMS        = ClientPool.GetTickTimeMS();
+    bool ShouldUpdate = ServerIdCenterRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_ID_CENTER_TIMEOUT_MS;
+    if (!ShouldUpdate) {
+        return;
+    }
+    if (RequestServerListByType(eServiceType::ServerIdCenter)) {
+        ServerIdCenterRequestTimestampMS = NowMS;
+    }
 }
 
-void xServerListClient::RequestServerList() {
-    RequestServerListByType(eServiceType::ServerListSlave);
+void xServerListClient::TryRequestServerListSlave() {
+    if (!EnableServerListSlaveDownload) {
+        return;
+    }
+    auto NowMS        = ClientPool.GetTickTimeMS();
+    bool ShouldUpdate = ServerListSlaveRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS;
+    if (!ShouldUpdate) {
+        return;
+    }
+    if (RequestServerListByType(eServiceType::ServerListSlave)) {
+        ServerListSlaveRequestTimestampMS = NowMS;
+    }
 }
 
-void xServerListClient::RequestServerTest() {
-    RequestServerListByType(eServiceType::ServerTest);
+void xServerListClient::TryRequestRelayInfoDispatcherRelayPort() {
+    if (!EnableRelayInfoDispatcherRelayPortDownload) {
+        return;
+    }
+    auto NowMS        = ClientPool.GetTickTimeMS();
+    bool ShouldUpdate = RelayInfoDispatcherRelayPortRequestTimestampMS < NowMS - MIN_UPDATE_RELAY_INFO_DISPATCHER_RELAY_PORT_TIMEOUT_MS;
+    if (!ShouldUpdate) {
+        return;
+    }
+    if (RequestServerListByType(eServiceType::RelayInfoDispatcher_RelayPort)) {
+        RelayInfoDispatcherRelayPortRequestTimestampMS = NowMS;
+    }
+}
+
+void xServerListClient::TryRequestRelayInfoDispatcherObserverPort() {
+    if (!EnableRelayInfoDispatcherObserverPortDownload) {
+        return;
+    }
+    auto NowMS        = ClientPool.GetTickTimeMS();
+    bool ShouldUpdate = RelayInfoDispatcherObserverPortRequestTimestampMS < NowMS - MIN_UPDATE_RELAY_INFO_DISPATCHER_OBSERVER_PORT_TIMEOUT_MS;
+    if (!ShouldUpdate) {
+        return;
+    }
+    if (RequestServerListByType(eServiceType::RelayInfoDispatcher_ObserverPort)) {
+        RelayInfoDispatcherObserverPortRequestTimestampMS = NowMS;
+    }
+}
+
+//////////
+void xServerListClient::TryRequestServerTest() {
+    if (!EnableServerTestDownload) {
+        return;
+    }
+    auto NowMS        = ClientPool.GetTickTimeMS();
+    bool ShouldUpdate = ServerTestRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_TEST_SLAVE_TIMEOUT_MS;
+    if (!ShouldUpdate) {
+        return;
+    }
+    if (RequestServerListByType(eServiceType::ServerTest)) {
+        ServerTestRequestTimestampMS = NowMS;
+    }
 }
