@@ -10,7 +10,7 @@ int main(int argc, char ** argv) {
 
     X_GUARD(SLR, ServiceIoContext);
     SLR.UpdateMasterServierListAddress(xNetAddress::Parse("127.0.0.1:10200"));
-    SLR.UpdateMyServiceInfo(eServiceType::ServerList, xServiceInfo{ .ServerId = (uint64_t)time(nullptr), .Address = xNetAddress::Parse("127.0.0.1:10300") });
+    SLR.UpdateMyServiceInfo(eServiceType::ServerListSlave, xServiceInfo{ .ServerId = (uint64_t)time(nullptr), .Address = xNetAddress::Parse("127.0.0.1:10300") });
 
     while (ServiceRunState) {
         ServiceUpdateOnce(SLR);

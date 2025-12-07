@@ -16,9 +16,9 @@ static constexpr const uint32_t MAX_BACKEND_SERVER_COUNT             = 75;
 
 /* shared defines */
 enum struct eServiceType : uint16_t {  // used for service list, one program can have multiple services
-    Unspecified    = 0,
-    ServerIdCenter = 1,
-    ServerList     = 2,
+    Unspecified     = 0,
+    ServerIdCenter  = 1,
+    ServerListSlave = 2,
 
     RelayInfoDispatcher_RelayPort    = 3,
     RelayInfoDispatcher_ObserverPort = 4,

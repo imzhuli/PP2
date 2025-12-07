@@ -33,7 +33,7 @@ void xServerBootstrap::SetMasterServerListServerAddress(const xNetAddress & Addr
     MasterServerListServerAddress = Address;
     if (MasterServerListServerAddress) {
         Logger->I("Update master serverlilst server address: %s", MasterServerListServerAddress.ToString().c_str());
-        ServerListClient.Init(ServiceIoContext, { MasterServerListServerAddress });
+        RuntimeAssert(ServerListClient.Init(ServiceIoContext, { MasterServerListServerAddress }));
         ServerListClient.EnableServerIdCenterUpdate(true);
         ServerListClient.OnServerListUpdated = Delegate(&xServerBootstrap::InternalOnServerListUpdated, this);
         for (auto & P : LocalRegisterList) {

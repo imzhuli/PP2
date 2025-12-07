@@ -137,7 +137,7 @@ void xServerListClient::RequestServerId() {
 }
 
 void xServerListClient::RequestServerList() {
-    RequestServerListByType(eServiceType::ServerList);
+    RequestServerListByType(eServiceType::ServerListSlave);
 }
 
 void xServerListClient::RequestServerTest() {

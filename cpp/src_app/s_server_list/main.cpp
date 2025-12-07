@@ -16,8 +16,7 @@ static xNetAddress BindAddress4;
 static xNetAddress ExportBindAddress4;
 static xNetAddress MasterAddress4;
 
-static bool               IsMaster      = false;
-static uint64_t           LocalServerId = 0;
+static bool               IsMaster = false;
 static xServiceInfoByType ServerInfoListArray[(size_t)eServiceType::MAX_TYPE_INDEX];
 
 struct xClientConnectionContext {
@@ -70,16 +69,6 @@ void RemoveServerinfoById(eServiceType ServiceType, uint64_t ServerId) {
     if (LB != List.end() && LB->ServerId == ServerId) {  // found & remove
         List.erase(LB);
         IncreaseServiceTypeVersion(ServiceTypeInfo);
-    }
-}
-
-void RebuildServerListWithSelf() {
-    if (LocalServerId) {  // remove old local server id
-        RemoveServerinfoById(eServiceType::ServerList, LocalServerId);
-    }
-    LocalServerId = ServerIdClient.GetLocalServerId();
-    if (LocalServerId) {
-        RuntimeAssert(InsertServiceInfo(eServiceType::ServerList, LocalServerId, ExportBindAddress4));
     }
 }
 
@@ -170,7 +159,7 @@ static bool OnDownloadServerList(const xTcpServiceClientConnectionHandle & Handl
         Response.ServiceInfoList = ServiceTypeInfo.List;
 
         ServiceTypeInfo.RespSize = WriteMessage(ServiceTypeInfo.RespBuffer, Cmd_DownloadServiceListResp, 0, Response);
-        DEBUG_LOG("OnDownloadServerList updated server list response buffer");
+        DEBUG_LOG("OnDownloadServerList updated server list response buffer, ServiceType=%u, CurrentVersion=%" PRIu32 "", (unsigned)Request.ServiceType, ServiceTypeInfo.Version);
     }
     Handle.PostData(ServiceTypeInfo.RespBuffer, ServiceTypeInfo.RespSize);
     return true;
@@ -230,11 +219,7 @@ int main(int argc, char ** argv) {
 
     X_GUARD(ServerIdClient, ServiceIoContext, ServiceEnv.DefaultLocalServerIdFilePath);
     ServerIdClient.SetServerAddress(ServerIdCenterAddress);
-    ServerIdClient.OnServerIdUpdated = [](uint64_t UpdatedServerId) {
-        Logger->I("update local server id: %" PRIu64 "", UpdatedServerId);
-        RebuildServerListWithSelf();
-        PrintServerInfoListByType(eServiceType::ServerList);
-    };
+    ServerIdClient.OnServerIdUpdated = [](uint64_t UpdatedServerId) { Logger->I("update local server id: %" PRIu64 "", UpdatedServerId); };
 
     InsertServiceInfo(eServiceType::ServerIdCenter, 0, ServerIdCenterAddress);
 

@@ -10,12 +10,12 @@ public:
     void UpdateMasterServierListAddress(const xNetAddress & MasterServierListAddress) { ClientWrapper.UpdateTarget(MasterServierListAddress); }
     void UpdateMyServiceInfo(eServiceType ServiceType, const xServiceInfo & ServiceInfo) {
         assert(ServiceType != eServiceType::ServerIdCenter);
-        MyServiceInfoDirty = true;
+        MyServiceInfoDirty = (MyServiceType != ServiceType) && (MyServiceInfo != ServiceInfo);
         MyServiceType      = ServiceType;
         MyServiceInfo      = ServiceInfo;
     }
     void UpdateMyServerId(uint64_t ServerId) {
-        MyServiceInfoDirty     = (MyServiceType == eServiceType::Unspecified) ? false : true;
+        MyServiceInfoDirty     = (MyServiceType != eServiceType::Unspecified) && (MyServiceInfo.ServerId != ServerId);
         MyServiceInfo.ServerId = ServerId;
     }
 
