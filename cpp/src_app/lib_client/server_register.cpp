@@ -36,19 +36,21 @@ void xServerListRegister::Clean() {
 
 void xServerListRegister::Tick(uint64_t NowMS) {
     ClientWrapper.Tick(NowMS);
-    if (MyServiceInfoDirty) {
-        TryPostRegisterServiceInfo();
+    if (Steal(MyServiceInfoDirty)) {
+        PostRegisterServiceInfo();
     }
 }
 
 void xServerListRegister::OnConnected() {
-    TryPostRegisterServiceInfo();
+    Reset(MyServiceInfoDirty);
+    if (MyServiceType != eServiceType::Unspecified && MyServiceInfo.ServerId) {
+        PostRegisterServiceInfo();
+    }
 }
 
-void xServerListRegister::TryPostRegisterServiceInfo() {
+void xServerListRegister::PostRegisterServiceInfo() {
     auto Request        = xPP_UpdateServiceInfo();
     Request.ServiceType = MyServiceInfo.ServerId ? MyServiceType : eServiceType::Unspecified;
     Request.ServiceInfo = MyServiceInfo;
     ClientWrapper.PostMessage(Cmd_RegisterService, 0, Request);
-    Reset(MyServiceInfoDirty);
 }

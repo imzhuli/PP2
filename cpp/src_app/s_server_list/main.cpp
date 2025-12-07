@@ -170,7 +170,7 @@ static bool OnDownloadServerList(const xTcpServiceClientConnectionHandle & Handl
         Response.ServiceInfoList = ServiceTypeInfo.List;
 
         ServiceTypeInfo.RespSize = WriteMessage(ServiceTypeInfo.RespBuffer, Cmd_DownloadServiceListResp, 0, Response);
-        DEBUG_LOG("Updated server list response buffer: \n%s", HexShow(ServiceTypeInfo.RespBuffer, ServiceTypeInfo.RespSize).c_str());
+        DEBUG_LOG("OnDownloadServerList updated server list response buffer");
     }
     Handle.PostData(ServiceTypeInfo.RespBuffer, ServiceTypeInfo.RespSize);
     return true;
@@ -231,7 +231,7 @@ int main(int argc, char ** argv) {
     X_GUARD(ServerIdClient, ServiceIoContext, ServiceEnv.DefaultLocalServerIdFilePath);
     ServerIdClient.SetServerAddress(ServerIdCenterAddress);
     ServerIdClient.OnServerIdUpdated = [](uint64_t UpdatedServerId) {
-        Logger->I("Update local server id: %" PRIu64 "", UpdatedServerId);
+        Logger->I("update local server id: %" PRIu64 "", UpdatedServerId);
         RebuildServerListWithSelf();
         PrintServerInfoListByType(eServiceType::ServerList);
     };

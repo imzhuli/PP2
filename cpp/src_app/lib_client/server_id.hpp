@@ -12,7 +12,7 @@ public:
     void Tick(uint64_t NowMS);
 
     void     SetServerAddress(const xNetAddress & ServerIdCenterAddress) { ClientWrapper.UpdateTarget(ServerIdCenterAddress); }
-    uint64_t GetLocalServerId() const { return LocalServerId; }
+    uint64_t GetLocalServerId() const { return LocalServerIdDirty ? 0 : LocalServerId; }
 
     std::function<void(uint64_t)> OnServerIdUpdated = Noop<>;
 

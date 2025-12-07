@@ -10,13 +10,13 @@ public:
     void UpdateMasterServierListAddress(const xNetAddress & MasterServierListAddress) { ClientWrapper.UpdateTarget(MasterServierListAddress); }
     void UpdateMyServiceInfo(eServiceType ServiceType, const xServiceInfo & ServiceInfo) {
         assert(ServiceType != eServiceType::ServerIdCenter);
+        MyServiceInfoDirty = true;
         MyServiceType      = ServiceType;
         MyServiceInfo      = ServiceInfo;
-        MyServiceInfoDirty = true;
     }
     void UpdateMyServerId(uint64_t ServerId) {
+        MyServiceInfoDirty     = (MyServiceType == eServiceType::Unspecified) ? false : true;
         MyServiceInfo.ServerId = ServerId;
-        MyServiceInfoDirty     = true;
     }
 
     eServiceType         GetMyServiceType() const { return MyServiceType; }
@@ -26,12 +26,12 @@ public:
 
 private:
     void OnConnected();
-    void TryPostRegisterServiceInfo();
+    void PostRegisterServiceInfo();
 
 private:
     xClientWrapper ClientWrapper;
 
-    eServiceType MyServiceType;
-    xServiceInfo MyServiceInfo;
-    bool         MyServiceInfoDirty;
+    bool         MyServiceInfoDirty = false;
+    eServiceType MyServiceType      = eServiceType::Unspecified;
+    xServiceInfo MyServiceInfo      = {};
 };
