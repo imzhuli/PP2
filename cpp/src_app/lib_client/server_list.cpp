@@ -3,13 +3,7 @@
 #include <pp_protocol/command.hpp>
 #include <pp_protocol/internal/server_list.hpp>
 
-static uint64_t MIN_UPDATE_SERVER_LIST_TICKER_TIMEOUT_MS = 15'000;
-
-static uint64_t MIN_UPDATE_SERVER_ID_CENTER_TIMEOUT_MS                    = 60 * 60'000;
-static uint64_t MIN_UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS                   = 60 * 60'000;
-static uint64_t MIN_UPDATE_RELAY_INFO_DISPATCHER_RELAY_PORT_TIMEOUT_MS    = 10 * 60'000;
-static uint64_t MIN_UPDATE_RELAY_INFO_DISPATCHER_OBSERVER_PORT_TIMEOUT_MS = 10 * 60'000;
-static uint64_t MIN_UPDATE_SERVER_TEST_TIMEOUT_MS                         = 1 * 60'000;
+static constexpr uint64_t MIN_UPDATE_SERVER_LIST_TIMEOUT_MS = 15'000;
 
 bool xServerListClient::Init(xIoContext * ICP, const std::vector<xNetAddress> & InitAddresses) {
     auto ListCopy = InitAddresses;
@@ -37,55 +31,51 @@ bool xServerListClient::Init(xIoContext * ICP, const std::vector<xNetAddress> & 
 }
 
 void xServerListClient::Clean() {
+    Reset(EnabledDownloaders);
     ClientPool.Clean();
 }
 
 void xServerListClient::Tick(uint64_t NowMS) {
     ClientPool.Tick(NowMS);
 
-    auto UpdateServerListTimepoint = NowMS - MIN_UPDATE_SERVER_LIST_TICKER_TIMEOUT_MS;
+    auto UpdateServerListTimepoint = NowMS - MIN_UPDATE_SERVER_LIST_TIMEOUT_MS;
     if (LastTickTimestampMS > UpdateServerListTimepoint) {
         return;
     }
     LastTickTimestampMS = NowMS;
-
-    // request server list:
-    TryRequestServerId();
-    TryRequestServerListSlave();
-    TryRequestRelayInfoDispatcherRelayPort();
-    TryRequestRelayInfoDispatcherObserverPort();
-    //
-    TryRequestServerTest();
+    TryDownloadServerList(NowMS);
 }
 
 //////////
 
 void xServerListClient::OnTargetConnected(xClientConnection & CC) {
-    TryRequestServerId();
-    TryRequestServerListSlave();
-    TryRequestRelayInfoDispatcherRelayPort();
-    TryRequestRelayInfoDispatcherObserverPort();
-    //
-    TryRequestServerTest();
+    TryDownloadServerList(ClientPool.GetTickTimeMS());
 }
 
 void xServerListClient::OnTargetClose(xClientConnection & CC) {
-    X_DEBUG_PRINTF();
+    Pass();
 }
 
 void xServerListClient::OnTargetClean(xClientConnection & CC) {
-    X_DEBUG_PRINTF();
+    Pass();
 }
 
 bool xServerListClient::OnDownloadServiceListResp(ubyte * PayloadPtr, size_t PayloadSize) {
-
-    X_DEBUG_PRINTF();
-
     auto Response = xPP_DownloadServiceListResp();
     if (!Response.Deserialize(PayloadPtr, PayloadSize)) {
         return false;
     }
-    OnServerListUpdated(Response.ServiceType, Response.Version, Response.ServiceInfoList);
+
+    for (auto & D : EnabledDownloaders) {
+        if (D.ServiceType == Response.ServiceType) {
+            if (D.LastVersion == Response.Version) {
+                return true;
+            }
+            D.LastVersion = Response.Version;
+            OnServerListUpdated(Response.ServiceType, Response.Version, Response.ServiceInfoList);
+            return true;
+        }
+    }
     return true;
 }
 
@@ -93,7 +83,6 @@ bool xServerListClient::OnTargetPacket(xClientConnection & CC, xPacketCommandId 
     switch (CommandId) {
         case Cmd_DownloadServiceListResp:
             return OnDownloadServiceListResp(PayloadPtr, PayloadSize);
-
         default:
             break;
     }
@@ -101,80 +90,51 @@ bool xServerListClient::OnTargetPacket(xClientConnection & CC, xPacketCommandId 
     return true;
 }
 
-bool xServerListClient::RequestServerListByType(eServiceType Type) {
+bool xServerListClient::RequestServerListByType(eServiceType Type, xVersion CurrentVersion) {
     auto Request        = xPP_DownloadServiceList();
     Request.ServiceType = Type;
-    Request.LastVersion = ServerListSlaveVersion;
+    Request.LastVersion = CurrentVersion;
     return ClientPool.PostMessage(Cmd_DownloadServiceList, 0, Request);
 }
 
-void xServerListClient::TryRequestServerId() {
-    if (!EnableServerIdCenterDownload) {
-        return;
-    }
-    auto NowMS        = ClientPool.GetTickTimeMS();
-    bool ShouldUpdate = ServerIdCenterRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_ID_CENTER_TIMEOUT_MS;
-    if (!ShouldUpdate) {
-        return;
-    }
-    if (RequestServerListByType(eServiceType::ServerIdCenter)) {
-        ServerIdCenterRequestTimestampMS = NowMS;
-    }
-}
-
-void xServerListClient::TryRequestServerListSlave() {
-    if (!EnableServerListSlaveDownload) {
-        return;
-    }
-    auto NowMS        = ClientPool.GetTickTimeMS();
-    bool ShouldUpdate = ServerListSlaveRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS;
-    if (!ShouldUpdate) {
-        return;
-    }
-    if (RequestServerListByType(eServiceType::ServerListSlave)) {
-        ServerListSlaveRequestTimestampMS = NowMS;
-    }
-}
-
-void xServerListClient::TryRequestRelayInfoDispatcherRelayPort() {
-    if (!EnableRelayInfoDispatcherRelayPortDownload) {
-        return;
-    }
-    auto NowMS        = ClientPool.GetTickTimeMS();
-    bool ShouldUpdate = RelayInfoDispatcherRelayPortRequestTimestampMS < NowMS - MIN_UPDATE_RELAY_INFO_DISPATCHER_RELAY_PORT_TIMEOUT_MS;
-    if (!ShouldUpdate) {
-        return;
-    }
-    if (RequestServerListByType(eServiceType::RelayInfoDispatcher_RelayPort)) {
-        RelayInfoDispatcherRelayPortRequestTimestampMS = NowMS;
-    }
-}
-
-void xServerListClient::TryRequestRelayInfoDispatcherObserverPort() {
-    if (!EnableRelayInfoDispatcherObserverPortDownload) {
-        return;
-    }
-    auto NowMS        = ClientPool.GetTickTimeMS();
-    bool ShouldUpdate = RelayInfoDispatcherObserverPortRequestTimestampMS < NowMS - MIN_UPDATE_RELAY_INFO_DISPATCHER_OBSERVER_PORT_TIMEOUT_MS;
-    if (!ShouldUpdate) {
-        return;
-    }
-    if (RequestServerListByType(eServiceType::RelayInfoDispatcher_ObserverPort)) {
-        RelayInfoDispatcherObserverPortRequestTimestampMS = NowMS;
-    }
-}
-
 //////////
-void xServerListClient::TryRequestServerTest() {
-    if (!EnableServerTestDownload) {
-        return;
+void xServerListClient::EnableDownloader(eServiceType ServiceType, uint64_t RequestTimeoutMS) {
+    assert(ServiceType != eServiceType::Unspecified);
+    auto ND = xDownloader{
+        .ServiceType      = ServiceType,
+        .RequestTimeoutMS = std::max(RequestTimeoutMS, MIN_UPDATE_SERVER_LIST_TIMEOUT_MS),
+    };
+    for (auto & D : EnabledDownloaders) {
+        if (D.ServiceType == ServiceType) {
+            D = ND;
+            return;
+        }
     }
-    auto NowMS        = ClientPool.GetTickTimeMS();
-    bool ShouldUpdate = ServerTestRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_TEST_TIMEOUT_MS;
+    EnabledDownloaders.push_back(ND);
+}
+
+void xServerListClient::DisableDownloader(eServiceType Type) {
+    auto End = EnabledDownloaders.end();
+    for (auto I = EnabledDownloaders.begin(); I != End; ++I) {
+        if (I->ServiceType == Type) {
+            EnabledDownloaders.erase(I);
+            return;
+        }
+    }
+}
+
+void xServerListClient::TryDownloader(xDownloader & Downloader, uint64_t NowMS) {
+    bool ShouldUpdate = Downloader.LastRequestTimestampMS < NowMS - Downloader.RequestTimeoutMS;
     if (!ShouldUpdate) {
         return;
     }
-    if (RequestServerListByType(eServiceType::ServerTest)) {
-        ServerTestRequestTimestampMS = NowMS;
+    if (RequestServerListByType(Downloader.ServiceType, Downloader.LastVersion)) {
+        Downloader.LastRequestTimestampMS = NowMS;
+    }
+}
+
+void xServerListClient::TryDownloadServerList(uint64_t NowMS) {
+    for (auto & D : EnabledDownloaders) {
+        TryDownloader(D, NowMS);
     }
 }
