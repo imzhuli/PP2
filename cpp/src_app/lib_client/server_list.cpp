@@ -9,7 +9,7 @@ static uint64_t MIN_UPDATE_SERVER_ID_CENTER_TIMEOUT_MS                    = 60 *
 static uint64_t MIN_UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS                   = 60 * 60'000;
 static uint64_t MIN_UPDATE_RELAY_INFO_DISPATCHER_RELAY_PORT_TIMEOUT_MS    = 10 * 60'000;
 static uint64_t MIN_UPDATE_RELAY_INFO_DISPATCHER_OBSERVER_PORT_TIMEOUT_MS = 10 * 60'000;
-static uint64_t MIN_UPDATE_SERVER_TEST_SLAVE_TIMEOUT_MS                   = 1 * 60'000;
+static uint64_t MIN_UPDATE_SERVER_TEST_TIMEOUT_MS                         = 1 * 60'000;
 
 bool xServerListClient::Init(xIoContext * ICP, const std::vector<xNetAddress> & InitAddresses) {
     auto ListCopy = InitAddresses;
@@ -43,7 +43,7 @@ void xServerListClient::Clean() {
 void xServerListClient::Tick(uint64_t NowMS) {
     ClientPool.Tick(NowMS);
 
-    bool UpdateServerListTimepoint = NowMS - MIN_UPDATE_SERVER_LIST_TICKER_TIMEOUT_MS;
+    auto UpdateServerListTimepoint = NowMS - MIN_UPDATE_SERVER_LIST_TICKER_TIMEOUT_MS;
     if (LastTickTimestampMS > UpdateServerListTimepoint) {
         return;
     }
@@ -170,7 +170,7 @@ void xServerListClient::TryRequestServerTest() {
         return;
     }
     auto NowMS        = ClientPool.GetTickTimeMS();
-    bool ShouldUpdate = ServerTestRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_TEST_SLAVE_TIMEOUT_MS;
+    bool ShouldUpdate = ServerTestRequestTimestampMS < NowMS - MIN_UPDATE_SERVER_TEST_TIMEOUT_MS;
     if (!ShouldUpdate) {
         return;
     }
