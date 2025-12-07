@@ -96,10 +96,10 @@ using xel::FileToStr;
 using xel::GetTimestampMS;
 using xel::HexShow;
 using xel::HexToStr;
-using xel::Ignore;
 using xel::JoinStr;
 using xel::Md5;
 using xel::Noop;
+using xel::Pass;
 using xel::Pure;
 using xel::RuntimeAssert;
 using xel::Split;
@@ -143,10 +143,6 @@ enum struct eRelayServerType : uint16_t {
     THIRD       = 2,
     STATIC      = 3,
 };
-
-constexpr const struct final {
-    void Tick(uint64_t) const {}
-} DeadTicker;
 
 class xJumpTicker {
 public:
@@ -212,6 +208,8 @@ static inline uint64_t Make64_H16L48(uint16_t H16, uint64_t L48) { return (stati
 // clang-format on
 
 // clang-format off
+
+static inline void Shutdown() { QuickExit(); }
 
 template<typename T>
 std::unique_ptr<T> P2U(T * && Ptr) { return std::unique_ptr<T>(std::move(Ptr)); }

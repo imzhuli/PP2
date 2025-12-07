@@ -9,7 +9,7 @@ static xIoContext      ServiceIoContextInstance;
 static xel::xStdLogger StdLogger;
 static xel::xNonLogger NonLogger;
 
-xRuntimeEnv  RuntimeEnv                 = {};
+xRuntimeEnv  ServiceEnv                 = {};
 xLogger *    Logger                     = &NonLogger;
 xLogger *    AuditLogger                = &NonLogger;
 xLogger *    ConsoleLogger              = &StdLogger;
@@ -20,11 +20,11 @@ xRunState    ServiceRunState            = {};
 
 static void InitLogger() {
     Logger = new xBaseLogger();
-    RuntimeAssert(static_cast<xBaseLogger *>(Logger)->Init(std::string(RuntimeEnv.DefaultLoggerFilePath).c_str()));
+    RuntimeAssert(static_cast<xBaseLogger *>(Logger)->Init(std::string(ServiceEnv.DefaultLoggerFilePath).c_str()));
     Logger->SetLogLevel(eLogLevel::Debug);
 
     AuditLogger = new xBaseLogger();
-    RuntimeAssert(static_cast<xBaseLogger *>(AuditLogger)->Init(std::string(RuntimeEnv.DefaultAuditLoggerFilePath).c_str()));
+    RuntimeAssert(static_cast<xBaseLogger *>(AuditLogger)->Init(std::string(ServiceEnv.DefaultAuditLoggerFilePath).c_str()));
 }
 
 static void CleanLogger() {
@@ -44,7 +44,7 @@ xServiceRuntimeEnvGuard::xServiceRuntimeEnvGuard(int argc, char ** argv, bool En
     auto G = std::lock_guard(EnvMutex);
     RuntimeAssert(!Instance);
 
-    RuntimeEnv = xRuntimeEnv::FromCommandLine(argc, argv);
+    ServiceEnv = xRuntimeEnv::FromCommandLine(argc, argv);
     if (EnableLogger) {
         InitLogger();
     }
@@ -63,7 +63,7 @@ xServiceRuntimeEnvGuard::~xServiceRuntimeEnvGuard() {
     if (EnableLogger) {
         CleanLogger();
     }
-    Reset(RuntimeEnv);
+    Reset(ServiceEnv);
     Reset(Instance);
 }
 

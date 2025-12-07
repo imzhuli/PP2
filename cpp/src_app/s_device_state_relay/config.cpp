@@ -9,7 +9,7 @@ xNetAddress ExportObserverAddress;
 xNetAddress ExportProducerAddress;
 
 void LoadConfig() {
-    auto LC = RuntimeEnv.LoadConfig();
+    auto LC = ServiceEnv.LoadConfig();
     LC.Require(ServerListMasterServiceAddress, "ServerListMasterServiceAddress");
 
     LC.Require(BindObserverAddress, "BindObserverAddress");

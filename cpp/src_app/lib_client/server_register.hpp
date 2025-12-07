@@ -14,13 +14,19 @@ public:
         MyServiceInfo      = ServiceInfo;
         MyServiceInfoDirty = true;
     }
+    void UpdateMyServerId(uint64_t ServerId) {
+        MyServiceInfo.ServerId = ServerId;
+        MyServiceInfoDirty     = true;
+    }
 
     eServiceType         GetMyServiceType() const { return MyServiceType; }
     const xServiceInfo & GetMyServiceInfo() const { return MyServiceInfo; }
 
+    std::function<void(void)> OnError = Shutdown;
+
 private:
     void OnConnected();
-    void PostRegisterServiceInfo();
+    void TryPostRegisterServiceInfo();
 
 private:
     xClientWrapper ClientWrapper;

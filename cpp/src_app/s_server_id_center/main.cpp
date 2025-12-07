@@ -13,13 +13,13 @@ static xNetAddress      BindAddress4;
 static xTcpService      TcpService;
 
 static bool OnClientPacket(const xTcpServiceClientConnectionHandle & Handle, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
+    if (CommandId != Cmd_AcquireServerId) {
+        Logger->E("Unrecognized command");
+        return false;
+    }
     auto & ServerId = Handle->UserContext.U64;
     if (ServerId) {
         Logger->E("Multiple server id request");
-        return false;
-    }
-    if (CommandId != Cmd_AcquireServerId) {
-        Logger->E("Unrecognized command");
         return false;
     }
     auto Req = xPP_AcquireServerId();
@@ -29,9 +29,6 @@ static bool OnClientPacket(const xTcpServiceClientConnectionHandle & Handle, xPa
     }
 
     ServerId = ServerIdManager.RegainServerId(Req.PreviousServerId);
-    if (!ServerId) {
-        Logger->I("Regain server id failed, invalid previous server id, or server id indexes conflit");
-    }
     Logger->I("ServerId %" PRIu64 " -> %" PRIu64 "", Req.PreviousServerId, ServerId);
 
     auto Resp             = xPP_AcquireServerIdResp();
@@ -52,7 +49,7 @@ static void OnClientClose(const xTcpServiceClientConnectionHandle & Handle) {
 int main(int argc, char ** argv) {
 
     auto SEG = xServiceRuntimeEnvGuard(argc, argv);
-    auto CL  = xConfigLoader(RuntimeEnv.DefaultConfigFilePath);
+    auto CL  = xConfigLoader(ServiceEnv.DefaultConfigFilePath);
     CL.Require(BindAddress4, "BindAddress4");
 
     TcpService.OnClientPacket = OnClientPacket;

@@ -8,7 +8,24 @@ bool xServerListRegister::Init(xel::xIoContext * IC) {
         return false;
     }
     ClientWrapper.OnConnected    = Delegate(&xServerListRegister::OnConnected, this);
-    ClientWrapper.OnDisconnected = []() { cerr << "Disconnected" << endl; };
+    ClientWrapper.OnDisconnected = []() {};
+    ClientWrapper.OnPacket       = [this](xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
+        if (CommandId != Cmd_RegisterServiceResp) {
+            OnError();
+            return false;
+        }
+        auto Resp = xPP_UpdateServiceInfoResp();
+        if (!Resp.Deserialize(PayloadPtr, PayloadSize)) {
+            OnError();
+            return false;
+        }
+
+        if (!Resp.Accepted) {
+            OnError();
+            return false;
+        }
+        return true;
+    };
 
     return true;
 }
@@ -19,20 +36,19 @@ void xServerListRegister::Clean() {
 
 void xServerListRegister::Tick(uint64_t NowMS) {
     ClientWrapper.Tick(NowMS);
-    if (Steal(MyServiceInfoDirty)) {
-        PostRegisterServiceInfo();
+    if (MyServiceInfoDirty) {
+        TryPostRegisterServiceInfo();
     }
 }
 
 void xServerListRegister::OnConnected() {
-    PostRegisterServiceInfo();
+    TryPostRegisterServiceInfo();
 }
 
-void xServerListRegister::PostRegisterServiceInfo() {
+void xServerListRegister::TryPostRegisterServiceInfo() {
     auto Request        = xPP_UpdateServiceInfo();
-    Request.ServiceType = MyServiceType;
+    Request.ServiceType = MyServiceInfo.ServerId ? MyServiceType : eServiceType::Unspecified;
     Request.ServiceInfo = MyServiceInfo;
     ClientWrapper.PostMessage(Cmd_RegisterService, 0, Request);
-
     Reset(MyServiceInfoDirty);
 }

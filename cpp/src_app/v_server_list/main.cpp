@@ -6,9 +6,11 @@
 httplib::Server svr;
 
 void Init() {
+    svr.Get("/hi", [](const httplib::Request &, httplib::Response & res) { res.set_content("Hello World!", "text/plain"); });
 }
 
 void MainLoop() {
+    svr.listen("0.0.0.0", 8080);
 }
 
 void Clean() {

@@ -31,11 +31,10 @@ struct xClientConnectionContext {
 
 static void IncreaseServiceTypeVersion(xServiceInfoByType & Type) {
     if (!Steal(Type.Dirty, true)) {
-        DEBUG_LOG("old value: %u", (unsigned)Type.Version);
         if (!++Type.Version) {
             ++Type.Version;
         }
-        DEBUG_LOG("new value: %u", (unsigned)Type.Version);
+        Logger->I("update service type version: type=%u, version=%" PRIu32 "", (unsigned)(&Type - ServerInfoListArray), Type.Version);
     }
 }
 
@@ -111,7 +110,7 @@ static void TryRemovePreviousServiceInfo(const xTcpServiceClientConnectionHandle
     if (!PreviousInfo) {
         return;
     }
-    DEBUG_LOG("Type=%u, ServerId=%" PRIu64 "", (unsigned)PreviousInfo->Type, PreviousInfo->Info.ServerId);
+    Logger->I("RemovePreviousServiceInfo Type=%u, ServerId=%" PRIu64 "", (unsigned)PreviousInfo->Type, PreviousInfo->Info.ServerId);
     RemoveServerinfoById(PreviousInfo->Type, PreviousInfo->Info.ServerId);
     delete PreviousInfo;
 }
@@ -127,6 +126,11 @@ static bool OnRegisterServer(const xTcpServiceClientConnectionHandle & Handle, u
     if (Request.ServiceType == eServiceType::ServerIdCenter) {
         Logger->E("Register server id center is now allowed");
         return false;
+    }
+
+    if (Request.ServiceType == eServiceType::Unspecified) {
+        Logger->I("Clear service info only");
+        return true;
     }
 
     auto Inserted = InsertServiceInfo(Request.ServiceType, Request.ServiceInfo.ServerId, Request.ServiceInfo.Address);
@@ -198,7 +202,7 @@ void OnClientClean(const xTcpServiceClientConnectionHandle & H) {
 int main(int argc, char ** argv) {
     X_VAR xServiceRuntimeEnvGuard(argc, argv);
 
-    auto CL = RuntimeEnv.LoadConfig();
+    auto CL = ServiceEnv.LoadConfig();
     CL.Require(BindAddress4, "BindAddress4");
     CL.Require(ServerIdCenterAddress, "ServerIdCenterAddress");
     CL.Require(ExportBindAddress4, "ExportBindAddress4");
@@ -224,7 +228,7 @@ int main(int argc, char ** argv) {
     TcpService.OnClientClean     = OnClientClean;
     TcpService.OnClientPacket    = OnClientPacket;
 
-    X_GUARD(ServerIdClient, ServiceIoContext, RuntimeEnv.DefaultLocalServerIdFilePath);
+    X_GUARD(ServerIdClient, ServiceIoContext, ServiceEnv.DefaultLocalServerIdFilePath);
     ServerIdClient.SetServerAddress(ServerIdCenterAddress);
     ServerIdClient.OnServerIdUpdated = [](uint64_t UpdatedServerId) {
         Logger->I("Update local server id: %" PRIu64 "", UpdatedServerId);

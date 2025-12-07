@@ -36,7 +36,7 @@ public:
 
     template <typename... tRArgs, typename... tArgs>
     bool Execute(const std::tuple<tRArgs &...> & R, tArgs &&... Args) {
-        return ExecuteAndGetIndirect(Ignore, {}, R, xInBind(std::forward<tArgs>(Args))...);
+        return ExecuteAndGetIndirect(Pass, {}, R, xInBind(std::forward<tArgs>(Args))...);
     }
 
     template <typename... tRArgs, typename... tArgs>

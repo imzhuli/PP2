@@ -2,8 +2,8 @@
 
 xNetAddress MasterServerListServiceAddress;
 xNetAddress IncomeBindAddress4;
-xNetAddress ExportIncomeBindAddress4;
 xNetAddress OutputBindAddress4;
+xNetAddress ExportIncomeBindAddress4;
 xNetAddress ExportOutputBindAddress4;
 
 xTcpService IncomeService;
@@ -12,10 +12,15 @@ xTcpService OutputService;
 int main(int argc, char ** argv) {
 
     X_VAR xServiceRuntimeEnvGuard(argc, argv);
-    auto  LC = RuntimeEnv.LoadConfig();
+    auto  LC = ServiceEnv.LoadConfig();
+
     LC.Require(MasterServerListServiceAddress, "MasterServerListServiceAddress");
+
     LC.Require(IncomeBindAddress4, "IncomeBindAddress4");
     LC.Require(OutputBindAddress4, "OutputBindAddress4");
+
+    LC.Require(ExportIncomeBindAddress4, "ExportIncomeBindAddress4");
+    LC.Require(ExportOutputBindAddress4, "ExportOutputBindAddress4");
 
     X_GUARD(IncomeService, ServiceIoContext, IncomeBindAddress4, 10'0000);
     X_GUARD(OutputService, ServiceIoContext, OutputBindAddress4, 10'0000);
