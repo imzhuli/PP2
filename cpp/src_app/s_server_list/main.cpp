@@ -193,7 +193,7 @@ void OnClientClean(const xTcpServiceClientConnectionHandle & H) {
 int main(int argc, char ** argv) {
     X_VAR xServiceRuntimeEnvGuard(argc, argv);
 
-    auto CL = ServiceEnv.LoadConfig();
+    auto CL = ServiceEnvironment.LoadConfig();
     CL.Require(BindAddress4, "BindAddress4");
     CL.Require(ServerIdCenterAddress, "ServerIdCenterAddress");
     CL.Require(ExportBindAddress4, "ExportBindAddress4");
@@ -219,7 +219,7 @@ int main(int argc, char ** argv) {
     TcpService.OnClientClean     = OnClientClean;
     TcpService.OnClientPacket    = OnClientPacket;
 
-    X_GUARD(ServerIdClient, ServiceIoContext, ServiceEnv.DefaultLocalServerIdFilePath);
+    X_GUARD(ServerIdClient, ServiceIoContext, ServiceEnvironment.DefaultLocalServerIdFilePath);
     ServerIdClient.SetServerAddress(ServerIdCenterAddress);
     ServerIdClient.OnServerIdUpdated = [](uint64_t UpdatedServerId) { Logger->I("update local server id: %" PRIu64 "", UpdatedServerId); };
 

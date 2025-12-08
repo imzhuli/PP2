@@ -63,6 +63,7 @@ set(target_list
 	s_config_center
 	s_device_state_relay
 	s_relay_info_dispatcher
+	s_relay
 
 	############ tests:
 	t_lang

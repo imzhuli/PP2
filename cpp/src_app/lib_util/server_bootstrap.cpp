@@ -3,7 +3,7 @@
 #include <pp_common/service_runtime.hpp>
 
 bool xServerBootstrap::Init() {
-    RuntimeAssert(ServerIdClient.Init(ServiceIoContext, ServiceEnv.DefaultLocalServerIdFilePath));
+    RuntimeAssert(ServerIdClient.Init(ServiceIoContext, ServiceEnvironment.DefaultLocalServerIdFilePath));
     ServerIdClient.OnServerIdUpdated = Delegate(&xServerBootstrap::InternalOnServerIdUpdated, this);
     return true;
 }

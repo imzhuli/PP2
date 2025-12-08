@@ -49,7 +49,7 @@ static void OnClientClose(const xTcpServiceClientConnectionHandle & Handle) {
 int main(int argc, char ** argv) {
 
     auto SEG = xServiceRuntimeEnvGuard(argc, argv);
-    auto CL  = xConfigLoader(ServiceEnv.DefaultConfigFilePath);
+    auto CL  = xConfigLoader(ServiceEnvironment.DefaultConfigFilePath);
     CL.Require(BindAddress4, "BindAddress4");
 
     TcpService.OnClientPacket = OnClientPacket;

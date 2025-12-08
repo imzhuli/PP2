@@ -2,7 +2,7 @@
 #include "./_.hpp"
 #include "./runtime_env.hpp"
 
-extern xRuntimeEnv  ServiceEnv;
+extern xRuntimeEnv  ServiceEnvironment;
 extern xLogger *    Logger;
 extern xLogger *    AuditLogger;
 extern xLogger *    ConsoleLogger;

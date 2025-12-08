@@ -16,7 +16,7 @@ xServerBootstrap Bootstrap;
 int main(int argc, char ** argv) {
 
     X_VAR xServiceRuntimeEnvGuard(argc, argv);
-    auto  LC = ServiceEnv.LoadConfig();
+    auto  LC = ServiceEnvironment.LoadConfig();
 
     LC.Require(MasterServerListServerAddress, "MasterServerListServerAddress");
 
