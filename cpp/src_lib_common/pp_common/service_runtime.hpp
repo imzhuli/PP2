@@ -11,9 +11,9 @@ extern uint64_t     ServiceIoLoopOnceTimeoutMS;
 extern xTicker      ServiceTicker;
 extern xRunState    ServiceRunState;
 
-struct xServiceRuntimeEnvGuard final : xNonCopyable {
-    xServiceRuntimeEnvGuard(int argc, char ** argv, bool EnableDefaultLogger = true);
-    ~xServiceRuntimeEnvGuard();
+struct xServiceEnvironmentGuard final : xNonCopyable {
+    xServiceEnvironmentGuard(int argc, char ** argv, bool EnableDefaultLogger = true);
+    ~xServiceEnvironmentGuard();
 
 private:
     const bool EnableLogger;

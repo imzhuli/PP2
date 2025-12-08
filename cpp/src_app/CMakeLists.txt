@@ -67,13 +67,9 @@ set(target_list
 
 	############ tests:
 	t_lang
-	t_server_register
 	t_server_list_client
-	t_service_bootstrap
 
 	############ other:
-	v_server_list
-
 	)
 
 

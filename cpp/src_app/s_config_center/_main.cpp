@@ -73,7 +73,7 @@ void OnTerminalChallenge(const xUdpServiceChannelHandle & Handle, xPacketCommand
 }
 
 int main(int argc, char ** argv) {
-    X_VAR xServiceRuntimeEnvGuard(argc, argv);
+    X_VAR xServiceEnvironmentGuard(argc, argv);
     X_COND_GUARD(BindAddress4, Service4, ServiceIoContext, BindAddress4);
     X_COND_GUARD(BindAddress6, Service6, ServiceIoContext, BindAddress6);
 

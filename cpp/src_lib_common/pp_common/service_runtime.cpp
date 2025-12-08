@@ -37,10 +37,10 @@ static void CleanLogger() {
     delete Steal(Logger, &NonLogger);
 }
 
-static auto Instance = (xServiceRuntimeEnvGuard *){};
+static auto Instance = (xServiceEnvironmentGuard *){};
 static auto EnvMutex = std::mutex();
 
-xServiceRuntimeEnvGuard::xServiceRuntimeEnvGuard(int argc, char ** argv, bool EnableDefaultLogger) : EnableLogger(EnableDefaultLogger) {
+xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv, bool EnableDefaultLogger) : EnableLogger(EnableDefaultLogger) {
     auto G = std::lock_guard(EnvMutex);
     RuntimeAssert(!Instance);
 
@@ -54,7 +54,7 @@ xServiceRuntimeEnvGuard::xServiceRuntimeEnvGuard(int argc, char ** argv, bool En
     Instance = this;
 }
 
-xServiceRuntimeEnvGuard::~xServiceRuntimeEnvGuard() {
+xServiceEnvironmentGuard::~xServiceEnvironmentGuard() {
     auto G = std::lock_guard(EnvMutex);
     RuntimeAssert(this == Instance);
 

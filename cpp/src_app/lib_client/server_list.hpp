@@ -33,8 +33,8 @@ public:
         E ? EnableDownloader(eServiceType::DeviceStateRelay_RelayPort, MIN_UPDATE_DEVICE_STATE_RELAY_TIMEOUT_MS) : DisableDownloader(eServiceType::DeviceStateRelay_RelayPort);
     }
     void EnableDeviceStateRelayObserverPortUpdate(bool E) {  //
-        E ? EnableDownloader(eServiceType::DeviceStateRelay_DispatcherPort, MIN_UPDATE_DEVICE_STATE_RELAY_TIMEOUT_MS)
-          : DisableDownloader(eServiceType::DeviceStateRelay_DispatcherPort);
+        E ? EnableDownloader(eServiceType::DeviceStateRelay_ObserverPort, MIN_UPDATE_DEVICE_STATE_RELAY_TIMEOUT_MS)
+          : DisableDownloader(eServiceType::DeviceStateRelay_ObserverPort);
     }
 
     //

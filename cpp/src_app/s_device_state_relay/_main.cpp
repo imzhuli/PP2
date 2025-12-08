@@ -1,6 +1,5 @@
-#include "./config.hpp"
-#include "./income.hpp"
-#include "./output.hpp"
+#include "../lib_util/server_bootstrap.hpp"
+#include "./relay.hpp"
 
 #include <pp_common/_.hpp>
 #include <pp_common/service_runtime.hpp>
@@ -8,61 +7,44 @@
 
 using namespace xel;
 
-class xObserverService;
-class xProducerService;
+static xNetAddress MasterServerListServerAddress;
+static xNetAddress BindInputAddress4;
+static xNetAddress BindOutputAddress4;
+static xNetAddress ExportInputAddress4;
+static xNetAddress ExportOutputAddress4;
 
-static std::vector<std::unique_ptr<xTcpServiceClientConnectionHandle>> Connections;
-static xTcpService                                                     OS;  // observer
-static xTcpService                                                     PS;  // producer
+static xServerBootstrap Bootstrap;
 
-static void DispatchData(const void * DataPtr, size_t DataSize) {
-    // DEBUG_LOG("Dispatching data:\n%s", HexShow(DataPtr, DataSize).c_str());
-    for (auto & H : Connections) {
-        DEBUG_LOG("ToConnection:%" PRIx64 "", H->GetConnectionId());
-        H->PostData(DataPtr, DataSize);
-    }
+static void LoadConfig() {
+    auto LC = ServiceEnvironment.LoadConfig();
+    LC.Require(MasterServerListServerAddress, "MasterServerListServerAddress");
+
+    LC.Require(BindInputAddress4, "BindInputAddress4");
+    LC.Require(BindOutputAddress4, "BindOutputAddress4");
+    LC.Require(ExportInputAddress4, "ExportInputAddress4");
+    LC.Require(ExportOutputAddress4, "ExportOutputAddress4");
+
+    RuntimeAssert(BindInputAddress4.Is4() && BindInputAddress4.Port);
+    RuntimeAssert(BindOutputAddress4.Is4() && BindOutputAddress4.Port);
+    RuntimeAssert(ExportInputAddress4.Is4() && ExportInputAddress4.Port);
+    RuntimeAssert(ExportOutputAddress4.Is4() && ExportOutputAddress4.Port);
 }
 
-static auto ServiceGuard = xScopeGuard(
-    [] {
-        OS.OnClientConnected = [](const xTcpServiceClientConnectionHandle & H) { Connections.push_back(std::make_unique<xTcpServiceClientConnectionHandle>(H)); };
-        OS.OnClientClose     = [](const xTcpServiceClientConnectionHandle & H) {
-            auto I = Connections.begin();
-            auto E = Connections.end();
-            auto T = H.operator->();
-            while (I != E) {
-                if (I->get()->operator->() == T) {
-                    Connections.erase(I);
-                    break;
-                }
-                ++I;
-            }
-        };
-        PS.OnClientPacket = [](const xTcpServiceClientConnectionHandle Handle, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
-            switch (CommandId) {
-                case Cmd_DSR_DS_DeviceUpdate: {
-                    ubyte  B[MaxPacketSize];
-                    size_t RS = BuildPacket(B, CommandId, 0, PayloadPtr, PayloadSize);
-                    assert(RS);
-                    DispatchData(B, RS);
-                } break;
-                default: {
-                    DEBUG_LOG("invalid command");
-                    Pass();
-                } break;
-            }
-            return true;
-        };
-    },
-    xPass()
-);
-
 int main(int argc, char ** argv) {
-    X_VAR xServiceRuntimeEnvGuard(argc, argv);
+    X_VAR xServiceEnvironmentGuard(argc, argv);
     LoadConfig();
 
+    X_GUARD(Bootstrap);
+    Bootstrap.SetMasterServerListServerAddress(MasterServerListServerAddress);
+    Bootstrap.SetServerRegister({
+        { eServiceType::DeviceStateRelay_RelayPort, ExportInputAddress4 },
+        { eServiceType::DeviceStateRelay_ObserverPort, ExportOutputAddress4 },
+    });
+
+    X_VAR xScopeGuard([] { InitRelayService(BindInputAddress4, BindOutputAddress4); }, CleanRelayService);
+
     while (true) {
-        ServiceUpdateOnce();
+        ServiceUpdateOnce(Bootstrap, RelayTicker);
     }
 
     return 0;

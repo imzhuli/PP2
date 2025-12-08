@@ -6,13 +6,15 @@
 xServerListClient SLC;
 
 int main(int argc, char ** argv) {
-    X_VAR xServiceRuntimeEnvGuard(argc, argv, false);
+    X_VAR xServiceEnvironmentGuard(argc, argv, false);
 
     X_GUARD(SLC, ServiceIoContext, std::vector{ xNetAddress::Parse("127.0.0.1:10200") });
     SLC.EnableServerIdCenterUpdate(true);
     SLC.EnableServerListSlaveUpdate(true);
     SLC.EnableRelayInfoDispatcherRelayPortUpdate(true);
     SLC.EnableRelayInfoDispatcherObserverPortUpdate(true);
+    SLC.EnableDeviceStateRelayRelayPortUpdate(true);
+    SLC.EnableDeviceStateRelayObserverPortUpdate(true);
     SLC.EnableServerTestUpdate(true);
 
     SLC.OnServerListUpdated = [](eServiceType T, xVersion V, const std::vector<xServiceInfo> & List) {

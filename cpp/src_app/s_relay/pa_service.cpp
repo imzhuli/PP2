@@ -16,4 +16,5 @@ void CleanPAService() {
 }
 
 void PAServiceTicker(uint64_t NowMS) {
+    TickAll(NowMS, PAService);
 }

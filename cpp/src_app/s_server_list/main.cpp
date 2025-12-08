@@ -181,17 +181,13 @@ void OnClientConnected(const xTcpServiceClientConnectionHandle & H) {
     DEBUG_LOG();
 }
 
-void OnClientClose(const xTcpServiceClientConnectionHandle & H) {
-    DEBUG_LOG();
-}
-
 void OnClientClean(const xTcpServiceClientConnectionHandle & H) {
     DEBUG_LOG();
     TryRemovePreviousServiceInfo(H);
 }
 
 int main(int argc, char ** argv) {
-    X_VAR xServiceRuntimeEnvGuard(argc, argv);
+    X_VAR xServiceEnvironmentGuard(argc, argv);
 
     auto CL = ServiceEnvironment.LoadConfig();
     CL.Require(BindAddress4, "BindAddress4");
@@ -215,7 +211,6 @@ int main(int argc, char ** argv) {
 
     X_GUARD(TcpService, ServiceIoContext, BindAddress4, 4000);
     TcpService.OnClientConnected = OnClientConnected;
-    TcpService.OnClientClose     = OnClientClose;
     TcpService.OnClientClean     = OnClientClean;
     TcpService.OnClientPacket    = OnClientPacket;
 

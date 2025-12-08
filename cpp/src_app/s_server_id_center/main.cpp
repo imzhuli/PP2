@@ -38,7 +38,7 @@ static bool OnClientPacket(const xTcpServiceClientConnectionHandle & Handle, xPa
     return true;
 }
 
-static void OnClientClose(const xTcpServiceClientConnectionHandle & Handle) {
+static void OnClientClean(const xTcpServiceClientConnectionHandle & Handle) {
     auto & ServerId = Handle->UserContext.U64;
     if (ServerId) {
         Logger->I("Releasing ServerId: %" PRIu64 "", ServerId);
@@ -48,12 +48,12 @@ static void OnClientClose(const xTcpServiceClientConnectionHandle & Handle) {
 
 int main(int argc, char ** argv) {
 
-    auto SEG = xServiceRuntimeEnvGuard(argc, argv);
+    auto SEG = xServiceEnvironmentGuard(argc, argv);
     auto CL  = xConfigLoader(ServiceEnvironment.DefaultConfigFilePath);
     CL.Require(BindAddress4, "BindAddress4");
 
     TcpService.OnClientPacket = OnClientPacket;
-    TcpService.OnClientClose  = OnClientClose;
+    TcpService.OnClientClean  = OnClientClean;
     X_GUARD(ServerIdManager);
 
     RuntimeAssert(BindAddress4.Is4() && BindAddress4.Port, "ipv4 support only");

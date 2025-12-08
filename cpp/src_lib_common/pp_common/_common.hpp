@@ -22,8 +22,8 @@ enum struct eServiceType : uint16_t {  // used for service list, one program can
     RelayInfoDispatcher_RelayPort    = 3,
     RelayInfoDispatcher_ObserverPort = 4,
 
-    DeviceStateRelay_RelayPort      = 5,
-    DeviceStateRelay_DispatcherPort = 6,
+    DeviceStateRelay_RelayPort    = 5,
+    DeviceStateRelay_ObserverPort = 6,
 
     ServerTest     = 255,
     MAX_TYPE_INDEX = 256,
