@@ -3,10 +3,9 @@
 #include <pp_common/service_runtime.hpp>
 
 static xel::xClientPool SelfReportClientPool;
-static xel::xClientPool
+static xel::xClientPool DeviceReportClientPool;
 
-    void
-    InitDeviceService(const xNetAddress & BindAddress) {
+void InitDeviceService(const xNetAddress & BindAddress) {
 }
 
 void CleanDeviceService() {
