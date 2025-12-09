@@ -3,12 +3,12 @@
 
 using xServerListConnectionContext = struct {
     eServiceType Type;
-    xServiceInfo Info;
+    xServerInfo  Info;
 };
 
 using xServiceInfoByType = struct {
-    xVersion                  Version = 1;
-    std::vector<xServiceInfo> List;
+    xVersion                 Version = 1;
+    std::vector<xServerInfo> List;
 
     bool   Dirty = true;
     ubyte  RespBuffer[MaxPacketSize];

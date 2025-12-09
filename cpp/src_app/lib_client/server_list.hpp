@@ -42,7 +42,7 @@ public:
         E ? EnableDownloader(eServiceType::ServerTest, MIN_UPDATE_SERVER_TEST_TIMEOUT_MS) : DisableDownloader(eServiceType::ServerTest);
     }
 
-    using xOnServerListUpdated = std::function<void(eServiceType, xVersion, const std::vector<xServiceInfo> &)>;
+    using xOnServerListUpdated = std::function<void(eServiceType, xVersion, const std::vector<xServerInfo> &)>;
 
     xOnServerListUpdated OnServerListUpdated = Noop<>;
 

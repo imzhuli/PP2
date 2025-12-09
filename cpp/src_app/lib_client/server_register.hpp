@@ -8,7 +8,7 @@ public:
     void Tick(uint64_t NowMS);
 
     void UpdateMasterServierListAddress(const xNetAddress & MasterServierListAddress) { ClientWrapper.UpdateTarget(MasterServierListAddress); }
-    void UpdateMyServiceInfo(eServiceType ServiceType, const xServiceInfo & ServiceInfo) {
+    void UpdateMyServiceInfo(eServiceType ServiceType, const xServerInfo & ServiceInfo) {
         assert(ServiceType != eServiceType::ServerIdCenter);
         MyServiceInfoDirty = (MyServiceType != ServiceType) && (MyServiceInfo != ServiceInfo);
         MyServiceType      = ServiceType;
@@ -19,8 +19,8 @@ public:
         MyServiceInfo.ServerId = ServerId;
     }
 
-    eServiceType         GetMyServiceType() const { return MyServiceType; }
-    const xServiceInfo & GetMyServiceInfo() const { return MyServiceInfo; }
+    eServiceType        GetMyServiceType() const { return MyServiceType; }
+    const xServerInfo & GetMyServiceInfo() const { return MyServiceInfo; }
 
     std::function<void(void)> OnError = Shutdown;
 
@@ -33,5 +33,5 @@ private:
 
     bool         MyServiceInfoDirty = false;
     eServiceType MyServiceType      = eServiceType::Unspecified;
-    xServiceInfo MyServiceInfo      = {};
+    xServerInfo  MyServiceInfo      = {};
 };

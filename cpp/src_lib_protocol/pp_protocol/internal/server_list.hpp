@@ -16,7 +16,7 @@ public:
     }
 
     eServiceType ServiceType;
-    xServiceInfo ServiceInfo;
+    xServerInfo  ServiceInfo;
 };
 
 struct xPP_UpdateServiceInfoResp : public xBinaryMessage {  // from proxy_access to relay server
@@ -57,7 +57,7 @@ public:
         }
     }
 
-    eServiceType              ServiceType;
-    xVersion                  Version;
-    std::vector<xServiceInfo> ServiceInfoList;
+    eServiceType             ServiceType;
+    xVersion                 Version;
+    std::vector<xServerInfo> ServiceInfoList;
 };

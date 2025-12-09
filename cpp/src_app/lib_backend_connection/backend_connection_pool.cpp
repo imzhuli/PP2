@@ -28,7 +28,7 @@ uint64_t xBackendConnectionPool::AddServer(const xNetAddress & Address, const st
         ++TotalAddingServerConflict;
         return 0;
     }
-    auto Sid = xClientPool::AddServer(Address);
+    auto Sid = xIndexId(xClientPool::AddServer(Address));
     if (!Sid) {
         return 0;
     }
@@ -64,7 +64,7 @@ void xBackendConnectionPool::RemoveServer(const xNetAddress & Address) {
 }
 
 void xBackendConnectionPool::OnTargetConnectedCallback(const xClientPoolConnectionHandle & CC) {
-    auto   Sid = CC.GetConnectionId();
+    auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();
     auto & Ctx = ContextList[Idx];
 
@@ -88,7 +88,7 @@ bool xBackendConnectionPool::OnTargetPacketCallback(
         return OnCmdBackendChallengeResp(CC, CommandId, RequestId, PayloadPtr, PayloadSize);
     }
 
-    auto   Sid = CC.GetConnectionId();
+    auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();
     auto & Ctx = ContextList[Idx];
     if (!Ctx.IsChallengeReady) {
@@ -100,7 +100,7 @@ bool xBackendConnectionPool::OnTargetPacketCallback(
 }
 
 void xBackendConnectionPool::OnTargetCloseCallback(const xClientPoolConnectionHandle & CC) {
-    auto   Sid = CC.GetConnectionId();
+    auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();
     auto & Ctx = ContextList[Idx];
     Reset(Ctx.IsChallengeReady);
@@ -109,7 +109,7 @@ void xBackendConnectionPool::OnTargetCloseCallback(const xClientPoolConnectionHa
 bool xBackendConnectionPool::OnCmdBackendChallengeResp(
     const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize
 ) {
-    auto   Sid = CC.GetConnectionId();
+    auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();
     auto & Ctx = ContextList[Idx];
 

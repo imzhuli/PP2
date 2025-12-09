@@ -17,7 +17,7 @@ int main(int argc, char ** argv) {
     SLC.EnableDeviceStateRelayObserverPortUpdate(true);
     SLC.EnableServerTestUpdate(true);
 
-    SLC.OnServerListUpdated = [](eServiceType T, xVersion V, const std::vector<xServiceInfo> & List) {
+    SLC.OnServerListUpdated = [](eServiceType T, xVersion V, const std::vector<xServerInfo> & List) {
         cout << "on server list updated: type=" << (unsigned)T << ", version=" << V << endl;
         for (const auto & Item : List) {
             cout << "server_id=" << Item.ServerId << ", server_address=" << Item.Address.ToString() << endl;

@@ -19,12 +19,12 @@ public:
     void SetMasterServerListServerAddress(const xNetAddress & Address);
     void SetServerRegister(const std::vector<xServerRegisterInfo> & RL);
 
-    using xOnServerListUpdated = std::function<void(eServiceType, xVersion, const std::vector<xServiceInfo> &)>;
+    using xOnServerListUpdated = std::function<void(eServiceType, xVersion, const std::vector<xServerInfo> &)>;
     xOnServerListUpdated OnServerListUpdated;
 
 private:
     void ReleaseAllRegisters();
-    void InternalOnServerListUpdated(eServiceType, xVersion, const std::vector<xServiceInfo> &);
+    void InternalOnServerListUpdated(eServiceType, xVersion, const std::vector<xServerInfo> &);
     void InternalOnServerIdUpdated(uint64_t NewId);
 
 private:

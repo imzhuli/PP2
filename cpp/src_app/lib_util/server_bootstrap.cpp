@@ -64,7 +64,7 @@ void xServerBootstrap::ReleaseAllRegisters() {
     Reset(LocalRegisterList);
 }
 
-void xServerBootstrap::InternalOnServerListUpdated(eServiceType Type, xVersion Version, const std::vector<xServiceInfo> & ServerList) {
+void xServerBootstrap::InternalOnServerListUpdated(eServiceType Type, xVersion Version, const std::vector<xServerInfo> & ServerList) {
     if (Type == eServiceType::ServerIdCenter) {
         if (ServerList.empty()) {
             ServerIdClient.SetServerAddress({});

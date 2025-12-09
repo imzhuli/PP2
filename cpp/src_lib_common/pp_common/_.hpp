@@ -129,12 +129,12 @@ using xAccountId    = uint64_t;
 using xTerminalId   = uint64_t;
 using xConnectionId = uint64_t;
 
-struct xServiceInfo {
-    uint64_t    ServerId = {};
+struct xServerInfo {
+    xServerId   ServerId = {};
     xNetAddress Address  = {};
 
-    std::strong_ordering operator<=>(const xServiceInfo &) const = default;
-    static bool          LessById(const xServiceInfo & LHS, const xServiceInfo & RHS) { return LHS.ServerId < RHS.ServerId; }
+    std::strong_ordering operator<=>(const xServerInfo &) const = default;
+    static bool          LessById(const xServerInfo & LHS, const xServerInfo & RHS) { return LHS.ServerId < RHS.ServerId; }
 };
 
 enum struct eRelayServerType : uint16_t {

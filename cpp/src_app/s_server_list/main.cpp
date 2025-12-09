@@ -46,10 +46,10 @@ bool InsertServiceInfo(eServiceType ServiceType, uint64_t ServerId, const xNetAd
         Logger->E("Invalid service id: 0");
         return false;
     }
-    auto   InsertNode      = xServiceInfo{ ServerId, ServiceAddress };
+    auto   InsertNode      = xServerInfo{ ServerId, ServiceAddress };
     auto & ServiceTypeInfo = ServerInfoListArray[(size_t)ServiceType];
     auto & List            = ServiceTypeInfo.List;
-    auto   LB              = std::lower_bound(List.begin(), List.end(), InsertNode, xServiceInfo::LessById);
+    auto   LB              = std::lower_bound(List.begin(), List.end(), InsertNode, xServerInfo::LessById);
     if (LB != List.end() && LB->ServerId == ServerId) {  // found & refuse
         Logger->E("Found and refuse");
         return false;
@@ -62,10 +62,10 @@ bool InsertServiceInfo(eServiceType ServiceType, uint64_t ServerId, const xNetAd
 }
 
 void RemoveServerinfoById(eServiceType ServiceType, uint64_t ServerId) {
-    auto   FindNode        = xServiceInfo{ ServerId, {} };
+    auto   FindNode        = xServerInfo{ ServerId, {} };
     auto & ServiceTypeInfo = ServerInfoListArray[(size_t)ServiceType];
     auto & List            = ServiceTypeInfo.List;
-    auto   LB              = std::lower_bound(List.begin(), List.end(), FindNode, xServiceInfo::LessById);
+    auto   LB              = std::lower_bound(List.begin(), List.end(), FindNode, xServerInfo::LessById);
     if (LB != List.end() && LB->ServerId == ServerId) {  // found & remove
         List.erase(LB);
         IncreaseServiceTypeVersion(ServiceTypeInfo);

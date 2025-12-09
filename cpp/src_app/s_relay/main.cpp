@@ -35,7 +35,7 @@ int main(int argc, char ** argv) {
     X_GUARD(ServerListClient, ServiceIoContext, std::vector{ MasterServerListServerAddress });
     ServerListClient.EnableDeviceStateRelayRelayPortUpdate(true);
     ServerListClient.EnableRelayInfoDispatcherRelayPortUpdate(true);
-    ServerListClient.OnServerListUpdated = [](eServiceType Type, xVersion Version, const std::vector<xServiceInfo> & List) {
+    ServerListClient.OnServerListUpdated = [](eServiceType Type, xVersion Version, const std::vector<xServerInfo> & List) {
         switch (Type) {
             case eServiceType::DeviceStateRelay_RelayPort:
                 return UpdateDeviceStateRelayServerList(List);

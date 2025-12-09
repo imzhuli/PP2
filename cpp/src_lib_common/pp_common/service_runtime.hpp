@@ -76,8 +76,10 @@ public:
     const uint64_t                          TimeoutMS;
     const std::function<void(uint64_t Now)> Function;
 
-    xTickRunner(auto && F) : xTickRunner(0, std::forward<decltype(F)>(F)) {}
-    xTickRunner(uint64_t TimeoutMS, auto && F) : TimeoutMS(TimeoutMS), Function(std::forward<decltype(F)>(F)) {}
+    xTickRunner(auto && F)
+        : xTickRunner(0, std::forward<decltype(F)>(F)) {}
+    xTickRunner(uint64_t TimeoutMS, auto && F)
+        : TimeoutMS(TimeoutMS), Function(std::forward<decltype(F)>(F)) {}
 
     void Tick(uint64_t NowMS) {
         if (NowMS <= LastRunTimestampMS + TimeoutMS) {
@@ -101,7 +103,7 @@ private:
 
 #define SERVICE_RUNTIME_ASSERT(cond)                                                                 \
     do {                                                                                             \
-        if (!cond) {                                                                                 \
+        if (!(cond)) {                                                                               \
             Logger->F("service assert: %i@%s, condition expression: %s", __LINE__, __FILE__, #cond); \
         }                                                                                            \
     } while (false)
