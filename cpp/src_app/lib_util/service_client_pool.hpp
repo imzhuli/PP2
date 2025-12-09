@@ -18,8 +18,9 @@ public:
 
 private:
     struct xInternalServerInfo final {
-        xServerId ServerId;
-        xIndexId  LocalServerId;
+        xServerId   ServerId;
+        xIndexId    LocalServerId;
+        xNetAddress Address;
 
         bool operator==(const xInternalServerInfo &) const = default;
 

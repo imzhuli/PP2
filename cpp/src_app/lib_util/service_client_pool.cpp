@@ -44,6 +44,11 @@ void xPPClientPool::UpdateServerList(const std::vector<xServerInfo> & ServerInfo
             ++INew;
             continue;
         }
+        // N.ServerId == O.ServerId
+        if (N.Address != O.Address) {  // update server info:
+            TmpRem.push_back(O);
+            TmpAdd.push_back(N);
+        }
         ++IOld;
         ++INew;
     }
@@ -53,24 +58,26 @@ void xPPClientPool::UpdateServerList(const std::vector<xServerInfo> & ServerInfo
     for (; IOld < SortedServerList.size(); ++IOld) {
         TmpRem.push_back(SortedServerList[IOld]);
     }
-    for (const auto & A : TmpAdd) {
-        AddServer(A);
-    }
+    // process Remove first, so that update address only is ok.
     for (const auto & R : TmpRem) {
         RemoveServer(R);
     }
-    TmpAdd.clear();
+    for (const auto & A : TmpAdd) {
+        AddServer(A);
+    }
     TmpRem.clear();
+    TmpAdd.clear();
 }
 
 void xPPClientPool::AddServer(const xServerInfo & ServerInfo) {
     auto Temp = xInternalServerInfo{
         ServerInfo.ServerId,
         0,
+        ServerInfo.Address,
     };
     auto LB = std::lower_bound(SortedServerList.begin(), SortedServerList.end(), Temp, xInternalServerInfo::LessByServerId);
     SERVICE_RUNTIME_ASSERT(LB == SortedServerList.end() || LB->ServerId != Temp.ServerId);
-    SERVICE_RUNTIME_ASSERT(Temp.LocalServerId = ClientPool.AddServer(ServerInfo.Address));
+    SERVICE_RUNTIME_ASSERT((Temp.LocalServerId = ClientPool.AddServer(ServerInfo.Address)));
     auto NewIter = SortedServerList.insert(LB, Temp);
     AuditLogger->I("%p AddServer: id=%" PRIu64 ", connectionId=%" PRIu64 ", Address=%s", this, NewIter->ServerId, NewIter->LocalServerId, ServerInfo.Address.ToString().c_str());
 }
@@ -80,7 +87,7 @@ void xPPClientPool::RemoveServer(const xInternalServerInfo & TargetServerInfo) {
     SERVICE_RUNTIME_ASSERT(LB != SortedServerList.end() && *LB == TargetServerInfo);
     ClientPool.RemoveServer(LB->LocalServerId);
     SortedServerList.erase(LB);
-    AuditLogger->I("%p RemoveServer: id=%" PRIu64 ", connectionId=%" PRIu64 "", this, TargetServerInfo.ServerId, TargetServerInfo.LocalServerId);
+    AuditLogger->I("%p RemoveServer: id=%" PRIu64 ", connectionId=%" PRIu64 ", Address=%s", this, TargetServerInfo.ServerId, TargetServerInfo.LocalServerId, TargetServerInfo.Address.ToString().c_str());
 }
 
 void xPPClientPool::PostMessageByConnectionId(uint64_t ConnectionId, xPacketCommandId CmdId, xPacketRequestId RequestId, xBinaryMessage & Message) {

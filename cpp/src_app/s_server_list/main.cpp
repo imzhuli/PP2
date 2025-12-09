@@ -159,9 +159,9 @@ static bool OnDownloadServerList(const xTcpServiceClientConnectionHandle & Handl
         Response.ServiceInfoList = ServiceTypeInfo.List;
 
         ServiceTypeInfo.RespSize = WriteMessage(ServiceTypeInfo.RespBuffer, Cmd_DownloadServiceListResp, 0, Response);
-        DEBUG_LOG("OnDownloadServerList updated server list response buffer, ServiceType=%u, CurrentVersion=%" PRIu32 "", (unsigned)Request.ServiceType, ServiceTypeInfo.Version);
+        DEBUG_LOG("updated server list response buffer, ServiceType=%u, CurrentVersion=%" PRIu32 "", (unsigned)Request.ServiceType, ServiceTypeInfo.Version);
     } else {
-        DEBUG_LOG("OnDownloadServerList from response buffer, ServiceType=%u, CurrentVersion=%" PRIu32 "", (unsigned)Request.ServiceType, ServiceTypeInfo.Version);
+        DEBUG_LOG("from response buffer, ServiceType=%u, CurrentVersion=%" PRIu32 "", (unsigned)Request.ServiceType, ServiceTypeInfo.Version);
     }
     Handle.PostData(ServiceTypeInfo.RespBuffer, ServiceTypeInfo.RespSize);
     return true;
