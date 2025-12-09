@@ -47,10 +47,10 @@ public:
     xOnServerListUpdated OnServerListUpdated = Noop<>;
 
 private:
-    void OnTargetConnected(xClientConnection & CC);
-    void OnTargetClose(xClientConnection & CC);
-    void OnTargetClean(xClientConnection & CC);
-    bool OnTargetPacket(xClientConnection & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
+    void OnTargetConnected(const xClientPoolConnectionHandle & CC);
+    void OnTargetClose(const xClientPoolConnectionHandle & CC);
+    void OnTargetClean(const xClientPoolConnectionHandle & CC);
+    bool OnTargetPacket(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
 
     bool RequestServerListByType(eServiceType Type, xVersion CurrentVersion);
     bool OnDownloadServiceListResp(ubyte * PayloadPtr, size_t PayloadSize);

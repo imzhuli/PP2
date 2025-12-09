@@ -63,7 +63,7 @@ void xBackendConnectionPool::RemoveServer(const xNetAddress & Address) {
     ++TotalRemovedServer;
 }
 
-void xBackendConnectionPool::OnTargetConnectedCallback(xClientConnection & CC) {
+void xBackendConnectionPool::OnTargetConnectedCallback(const xClientPoolConnectionHandle & CC) {
     auto   Sid = CC.GetConnectionId();
     auto   Idx = Sid.GetIndex();
     auto & Ctx = ContextList[Idx];
@@ -81,7 +81,9 @@ void xBackendConnectionPool::OnTargetConnectedCallback(xClientConnection & CC) {
     // X_DEBUG_PRINTF("Body: %s", StrToHex(Buffer + PacketHeaderSize, RSize - PacketHeaderSize).c_str());
 }
 
-bool xBackendConnectionPool::OnTargetPacketCallback(xClientConnection & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
+bool xBackendConnectionPool::OnTargetPacketCallback(
+    const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize
+) {
     if (CommandId == Cmd_BackendChallengeResp) {
         return OnCmdBackendChallengeResp(CC, CommandId, RequestId, PayloadPtr, PayloadSize);
     }
@@ -97,14 +99,16 @@ bool xBackendConnectionPool::OnTargetPacketCallback(xClientConnection & CC, xPac
     return true;
 }
 
-void xBackendConnectionPool::OnTargetCloseCallback(xClientConnection & CC) {
+void xBackendConnectionPool::OnTargetCloseCallback(const xClientPoolConnectionHandle & CC) {
     auto   Sid = CC.GetConnectionId();
     auto   Idx = Sid.GetIndex();
     auto & Ctx = ContextList[Idx];
     Reset(Ctx.IsChallengeReady);
 }
 
-bool xBackendConnectionPool::OnCmdBackendChallengeResp(xClientConnection & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
+bool xBackendConnectionPool::OnCmdBackendChallengeResp(
+    const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize
+) {
     auto   Sid = CC.GetConnectionId();
     auto   Idx = Sid.GetIndex();
     auto & Ctx = ContextList[Idx];

@@ -35,10 +35,10 @@ public:
     void     RemoveServer(const xNetAddress & Address);
 
 private:
-    void OnTargetConnectedCallback(xClientConnection & CC);
-    void OnTargetCloseCallback(xClientConnection & CC);
-    bool OnTargetPacketCallback(xClientConnection & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
-    bool OnCmdBackendChallengeResp(xClientConnection & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
+    void OnTargetConnectedCallback(const xClientPoolConnectionHandle & CC);
+    void OnTargetCloseCallback(const xClientPoolConnectionHandle & CC);
+    bool OnTargetPacketCallback(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
+    bool OnCmdBackendChallengeResp(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
 
     //
     struct xBackendConnectionContext {

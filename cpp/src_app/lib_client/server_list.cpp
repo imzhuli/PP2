@@ -48,15 +48,15 @@ void xServerListClient::Tick(uint64_t NowMS) {
 
 //////////
 
-void xServerListClient::OnTargetConnected(xClientConnection & CC) {
+void xServerListClient::OnTargetConnected(const xClientPoolConnectionHandle & CC) {
     TryDownloadServerList(ClientPool.GetTickTimeMS());
 }
 
-void xServerListClient::OnTargetClose(xClientConnection & CC) {
+void xServerListClient::OnTargetClose(const xClientPoolConnectionHandle & CC) {
     Pass();
 }
 
-void xServerListClient::OnTargetClean(xClientConnection & CC) {
+void xServerListClient::OnTargetClean(const xClientPoolConnectionHandle & CC) {
     Pass();
 }
 
@@ -79,7 +79,7 @@ bool xServerListClient::OnDownloadServiceListResp(ubyte * PayloadPtr, size_t Pay
     return true;
 }
 
-bool xServerListClient::OnTargetPacket(xClientConnection & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
+bool xServerListClient::OnTargetPacket(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
     switch (CommandId) {
         case Cmd_DownloadServiceListResp:
             return OnDownloadServiceListResp(PayloadPtr, PayloadSize);
