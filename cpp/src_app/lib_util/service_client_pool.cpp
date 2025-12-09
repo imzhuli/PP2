@@ -101,11 +101,11 @@ void xPPClientPool::PostMessage(xPacketCommandId CmdId, xPacketRequestId Request
 }
 
 void xPPClientPool::OnTargetConnected(const xClientPoolConnectionHandle & CC) {
-    AuditLogger->I("OnTargetConnected: Id=" PRIu64 ", Address=%s", CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
+    AuditLogger->I("%p OnTargetConnected: Id=%" PRIu64 ", Address=%s", this, CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
 }
 
 void xPPClientPool::OnTargetClose(const xClientPoolConnectionHandle & CC) {
-    AuditLogger->I("OnTargetClosed: Id=" PRIu64 ", Address=%s", CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
+    AuditLogger->I("%p OnTargetClosed: Id=%" PRIu64 ", Address=%s", this, CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
 }
 
 bool xPPClientPool::OnPacketCallback(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
