@@ -1,4 +1,5 @@
 #include "../lib_client/server_list.hpp"
+#include "../lib_util/server_bootstrap.hpp"
 #include "./context_manager.hpp"
 #include "./device_service.hpp"
 #include "./pa_service.hpp"
@@ -13,7 +14,7 @@ xNetAddress ExportAddressForDevice;
 xNetAddress BindAddressForProxyAccess4;
 xNetAddress ExportAddressForProxyAccess4;
 
-static xServerListClient ServerListClient;
+static xServerBootstrap Bootstrap;
 
 int main(int argc, char ** argv) {
     X_VAR xServiceEnvironmentGuard(argc, argv);
@@ -32,10 +33,10 @@ int main(int argc, char ** argv) {
     X_VAR xScopeGuard([] { InitPAService(BindAddressForProxyAccess4); }, CleanPAService);
     X_VAR xScopeGuard([] { InitContextManager(); }, CleanContextManager);
 
-    X_GUARD(ServerListClient, ServiceIoContext, std::vector{ MasterServerListServerAddress });
-    ServerListClient.EnableDeviceStateRelayRelayPortUpdate(true);
-    ServerListClient.EnableRelayInfoDispatcherRelayPortUpdate(true);
-    ServerListClient.OnServerListUpdated = [](eServiceType Type, xVersion Version, const std::vector<xServerInfo> & List) {
+    X_GUARD(Bootstrap, MasterServerListServerAddress);
+    Bootstrap.EnableDeviceStateRelayRelayPortUpdate(true);
+    Bootstrap.EnableRelayInfoDispatcherRelayPortUpdate(true);
+    Bootstrap.OnServerListUpdated = [](eServiceType Type, xVersion Version, const std::vector<xServerInfo> & List) {
         switch (Type) {
             case eServiceType::DeviceStateRelay_RelayPort:
                 return UpdateDeviceStateRelayServerList(List);
@@ -47,7 +48,7 @@ int main(int argc, char ** argv) {
     };
 
     while (ServiceRunState) {
-        ServiceUpdateOnce(DeviceTicker, PAServiceTicker, ContextTicker, ServerListClient);
+        ServiceUpdateOnce(DeviceTicker, PAServiceTicker, ContextTicker, Bootstrap);
     }
 
     return 0;

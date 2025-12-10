@@ -8,6 +8,7 @@ bool xPPClientPool::Init(size_t MaxConnectionCount) {
     }
     ClientPool.OnTargetConnected = Delegate(&xPPClientPool::OnTargetConnected, this);
     ClientPool.OnTargetClose     = Delegate(&xPPClientPool::OnTargetClose, this);
+    ClientPool.OnTargetClean     = Delegate(&xPPClientPool::OnTargetClean, this);
     ClientPool.OnTargetPacket    = Delegate(&xPPClientPool::OnPacketCallback, this);
 
     TmpAdd.reserve(MaxConnectionCount);
@@ -113,6 +114,10 @@ void xPPClientPool::OnTargetConnected(const xClientPoolConnectionHandle & CC) {
 
 void xPPClientPool::OnTargetClose(const xClientPoolConnectionHandle & CC) {
     AuditLogger->I("%p OnTargetClosed: Id=%" PRIu64 ", Address=%s", this, CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
+}
+
+void xPPClientPool::OnTargetClean(const xClientPoolConnectionHandle & CC) {
+    AuditLogger->I("%p OnTargetClean: Id=%" PRIu64 ", Address=%s", this, CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
 }
 
 bool xPPClientPool::OnPacketCallback(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {

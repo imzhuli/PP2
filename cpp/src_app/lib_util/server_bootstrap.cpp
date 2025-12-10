@@ -2,11 +2,12 @@
 
 #include <pp_common/service_runtime.hpp>
 
-bool xServerBootstrap::Init() {
+bool xServerBootstrap::Init(const xNetAddress & Address) {
     if (!ServerIdClient.Init(ServiceIoContext, ServiceEnvironment.DefaultLocalServerIdFilePath)) {
         return false;
     }
     ServerIdClient.OnServerIdUpdated = Delegate(&xServerBootstrap::InternalOnServerIdUpdated, this);
+    SetMasterServerListServerAddress(Address);
     return true;
 }
 
@@ -74,6 +75,10 @@ void xServerBootstrap::InternalOnServerListUpdated(eServiceType Type, xVersion V
         }
         return;
     }
+    if (Type == eServiceType::ServerListSlave) {
+        Logger->E("unimplemented ServerListSlave support");
+        return Pass();
+    }
     OnServerListUpdated(Type, Version, ServerList);
 }
 
@@ -86,4 +91,5 @@ void xServerBootstrap::InternalOnServerIdUpdated(uint64_t NewId) {
     for (auto & P : LocalRegisterList) {
         P->UpdateMyServerId(NewId);
     }
+    OnServerIdUpdated(NewId);
 }

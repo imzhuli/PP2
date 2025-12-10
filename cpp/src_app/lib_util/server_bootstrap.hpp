@@ -13,16 +13,38 @@ struct xServerRegisterInfo {
 
 class xServerBootstrap {
 public:
-    bool Init();
+    bool Init(const xNetAddress & Address);
     void Clean();
     void Tick(uint64_t);
-    void SetMasterServerListServerAddress(const xNetAddress & Address);
     void SetServerRegister(const std::vector<xServerRegisterInfo> & RL);
 
+    void EnableServerIdCenterUpdate(bool E) {  //
+        ServerListClient.EnableServerIdCenterUpdate(E);
+    }
+    void EnableServerListSlaveUpdate(bool E) {  //
+        ServerListClient.EnableServerListSlaveUpdate(E);
+    }
+    void EnableRelayInfoDispatcherRelayPortUpdate(bool E) {  //
+        ServerListClient.EnableRelayInfoDispatcherRelayPortUpdate(E);
+    }
+    void EnableRelayInfoDispatcherObserverPortUpdate(bool E) {
+        ServerListClient.EnableRelayInfoDispatcherObserverPortUpdate(E);
+    }
+    void EnableDeviceStateRelayRelayPortUpdate(bool E) {  //
+        ServerListClient.EnableDeviceStateRelayRelayPortUpdate(E);
+    }
+    void EnableDeviceStateRelayObserverPortUpdate(bool E) {  //
+        ServerListClient.EnableDeviceStateRelayObserverPortUpdate(E);
+    }
+
     using xOnServerListUpdated = std::function<void(eServiceType, xVersion, const std::vector<xServerInfo> &)>;
-    xOnServerListUpdated OnServerListUpdated;
+    using xOnServerIdUpdated   = std::function<void(uint64_t NewId)>;
+
+    xOnServerIdUpdated   OnServerIdUpdated   = Noop<>;
+    xOnServerListUpdated OnServerListUpdated = Noop<>;
 
 private:
+    void SetMasterServerListServerAddress(const xNetAddress & Address);
     void ReleaseAllRegisters();
     void InternalOnServerListUpdated(eServiceType, xVersion, const std::vector<xServerInfo> &);
     void InternalOnServerIdUpdated(uint64_t NewId);

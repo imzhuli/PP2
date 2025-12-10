@@ -29,8 +29,7 @@ int main(int argc, char ** argv) {
     X_GUARD(IncomeService, ServiceIoContext, BindInputAddress4, 10'0000);
     X_GUARD(OutputService, ServiceIoContext, BindOutputAddress4, 10'0000);
 
-    X_GUARD(Bootstrap);
-    Bootstrap.SetMasterServerListServerAddress(MasterServerListServerAddress);
+    X_GUARD(Bootstrap, MasterServerListServerAddress);
     Bootstrap.SetServerRegister({
         { eServiceType::RelayInfoDispatcher_RelayPort, ExportInputAddress4 },
         { eServiceType::RelayInfoDispatcher_ObserverPort, ExportOutputAddress4 },

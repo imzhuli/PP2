@@ -34,8 +34,7 @@ int main(int argc, char ** argv) {
     X_VAR xServiceEnvironmentGuard(argc, argv);
     LoadConfig();
 
-    X_GUARD(Bootstrap);
-    Bootstrap.SetMasterServerListServerAddress(MasterServerListServerAddress);
+    X_GUARD(Bootstrap, MasterServerListServerAddress);
     Bootstrap.SetServerRegister({
         { eServiceType::DeviceStateRelay_RelayPort, ExportInputAddress4 },
         { eServiceType::DeviceStateRelay_ObserverPort, ExportOutputAddress4 },

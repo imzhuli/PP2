@@ -32,6 +32,7 @@ private:
     bool OnPacketCallback(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
     void OnTargetConnected(const xClientPoolConnectionHandle & CC);
     void OnTargetClose(const xClientPoolConnectionHandle & CC);
+    void OnTargetClean(const xClientPoolConnectionHandle & CC);
 
 private:
     xClientPool                      ClientPool;
