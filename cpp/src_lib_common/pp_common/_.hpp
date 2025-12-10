@@ -137,16 +137,10 @@ struct xServerInfo {
     static bool          LessById(const xServerInfo & LHS, const xServerInfo & RHS) { return LHS.ServerId < RHS.ServerId; }
 };
 
-enum struct eRelayServerType : uint16_t {
-    UNSPECIFIED = 0,
-    DEVICE      = 1,
-    THIRD       = 2,
-    STATIC      = 3,
-};
-
 class xJumpTicker {
 public:
-    xJumpTicker(uint64_t JumpScaleMS = 1) : JumpScaleMS(JumpScaleMS) {}
+    xJumpTicker(uint64_t JumpScaleMS = 1)
+        : JumpScaleMS(JumpScaleMS) {}
 
     inline void Tick(uint64_t NowMS) {
         if (NowMS - JumpScaleMS < LastTickTimestampMS) {

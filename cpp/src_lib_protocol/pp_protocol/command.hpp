@@ -29,11 +29,11 @@ static constexpr const xPacketCommandId CmdProxyBase = 0x02'000;
 // static constexpr const xPacketCommandId Cmd_PostRelayToProxyUdpData  = CmdProxyBase + 0x0A;
 
 // management
-static constexpr const xPacketCommandId Cmd_ManagementBase       = 0x02'100;
-static constexpr const xPacketCommandId Cmd_PostError            = Cmd_ManagementBase + 0x01;
-static constexpr const xPacketCommandId Cmd_PostErrorResp        = Cmd_ManagementBase + 0x02;
-static constexpr const xPacketCommandId Cmd_PostTerminalAudit    = Cmd_ManagementBase + 0x03;
-static constexpr const xPacketCommandId Cmd_PostRelayServerAudit = Cmd_ManagementBase + 0x04;
+// static constexpr const xPacketCommandId Cmd_ManagementBase       = 0x02'100;
+// static constexpr const xPacketCommandId Cmd_PostError            = Cmd_ManagementBase + 0x01;
+// static constexpr const xPacketCommandId Cmd_PostErrorResp        = Cmd_ManagementBase + 0x02;
+// static constexpr const xPacketCommandId Cmd_PostTerminalAudit    = Cmd_ManagementBase + 0x03;
+// static constexpr const xPacketCommandId Cmd_PostRelayServerAudit = Cmd_ManagementBase + 0x04;
 
 // version 2024 from here
 
@@ -101,10 +101,10 @@ static constexpr const xPacketCommandId Cmd_DownloadAuditTargetServerListResp   
 
 ///////////////////////// PP2 server list
 
-static constexpr const xPacketCommandId Cmd_RelayServerHeartBeat      = Cmd_ServerManagementBase + 0x401;
-static constexpr const xPacketCommandId Cmd_RegisterRelayInfoObserver = Cmd_ServerManagementBase + 0x402;
-static constexpr const xPacketCommandId Cmd_BroadcastRelayInfo        = Cmd_ServerManagementBase + 0x403;
-static constexpr const xPacketCommandId Cmd_BroadcastRelayOffline     = Cmd_ServerManagementBase + 0x404;
+static constexpr const xPacketCommandId Cmd_RelayServerHeartBeat = Cmd_ServerManagementBase + 0x401;
+// static constexpr const xPacketCommandId Cmd_RegisterRelayInfoObserver = Cmd_ServerManagementBase + 0x402;
+static constexpr const xPacketCommandId Cmd_BroadcastRelayInfo    = Cmd_ServerManagementBase + 0x403;
+static constexpr const xPacketCommandId Cmd_BroadcastRelayOffline = Cmd_ServerManagementBase + 0x404;
 
 static constexpr const xPacketCommandId Cmd_AuditAccountUsage = Cmd_ServerManagementBase + 0x501;
 static constexpr const xPacketCommandId Cmd_AuditTarget       = Cmd_ServerManagementBase + 0x502;

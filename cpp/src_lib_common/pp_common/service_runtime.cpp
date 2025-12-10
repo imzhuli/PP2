@@ -40,7 +40,8 @@ static void CleanLogger() {
 static auto Instance = (xServiceEnvironmentGuard *){};
 static auto EnvMutex = std::mutex();
 
-xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv, bool EnableDefaultLogger) : EnableLogger(EnableDefaultLogger) {
+xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv)
+    : EnableLogger(true) {
     auto G = std::lock_guard(EnvMutex);
     RuntimeAssert(!Instance);
 
@@ -48,6 +49,33 @@ xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv, bool 
     if (EnableLogger) {
         InitLogger();
     }
+    ServiceIoContext = &ServiceIoContextInstance;
+    RuntimeAssert(ServiceIoContext->Init());
+    RuntimeAssert(ServiceRunState.Start());
+    Instance = this;
+}
+
+xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv, const xServiceNoLogger &)
+    : EnableLogger(false) {
+    auto G = std::lock_guard(EnvMutex);
+    RuntimeAssert(!Instance);
+
+    ServiceEnvironment = xRuntimeEnv::FromCommandLine(argc, argv);
+    ServiceIoContext   = &ServiceIoContextInstance;
+    RuntimeAssert(ServiceIoContext->Init());
+    RuntimeAssert(ServiceRunState.Start());
+    Instance = this;
+}
+
+xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv, const xServiceConsoleLogger &)
+    : EnableLogger(false) {
+    auto G = std::lock_guard(EnvMutex);
+    RuntimeAssert(!Instance);
+
+    ServiceEnvironment = xRuntimeEnv::FromCommandLine(argc, argv);
+    Reset(AuditLogger, &StdLogger);
+    Reset(Logger, &StdLogger);
+
     ServiceIoContext = &ServiceIoContextInstance;
     RuntimeAssert(ServiceIoContext->Init());
     RuntimeAssert(ServiceRunState.Start());
@@ -62,6 +90,9 @@ xServiceEnvironmentGuard::~xServiceEnvironmentGuard() {
     Steal(ServiceIoContext)->Clean();
     if (EnableLogger) {
         CleanLogger();
+    } else {  // maybe console output
+        Reset(AuditLogger, &NonLogger);
+        Reset(Logger, &NonLogger);
     }
     Reset(ServiceEnvironment);
     Reset(Instance);

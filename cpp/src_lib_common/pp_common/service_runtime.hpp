@@ -11,8 +11,13 @@ extern uint64_t     ServiceIoLoopOnceTimeoutMS;
 extern xTicker      ServiceTicker;
 extern xRunState    ServiceRunState;
 
+struct xServiceNoLogger      final {};
+struct xServiceConsoleLogger final {};
+
 struct xServiceEnvironmentGuard final : xNonCopyable {
-    xServiceEnvironmentGuard(int argc, char ** argv, bool EnableDefaultLogger = true);
+    xServiceEnvironmentGuard(int argc, char ** argv);
+    xServiceEnvironmentGuard(int argc, char ** argv, const xServiceNoLogger &);
+    xServiceEnvironmentGuard(int argc, char ** argv, const xServiceConsoleLogger &);
     ~xServiceEnvironmentGuard();
 
 private:
@@ -101,9 +106,9 @@ private:
 #define DEBUG_ADT(...)
 #endif
 
-#define SERVICE_RUNTIME_ASSERT(cond)                                                                 \
-    do {                                                                                             \
-        if (!(cond)) {                                                                               \
-            Logger->F("service assert: %i@%s, condition expression: %s", __LINE__, __FILE__, #cond); \
-        }                                                                                            \
+#define SERVICE_RUNTIME_ASSERT(cond)                                                                      \
+    do {                                                                                                  \
+        if (!(cond)) {                                                                                    \
+            AuditLogger->F("service assert: %i@%s, condition expression: %s", __LINE__, __FILE__, #cond); \
+        }                                                                                                 \
     } while (false)

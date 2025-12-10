@@ -38,7 +38,7 @@ int main(int argc, char ** argv) {
     auto V4Enabled = (bool)BindAddress4;
     auto V6Enabled = (bool)BindAddress6;
     if (!V4Enabled && !V6Enabled) {
-        Logger->F("no available bind address");
+        AuditLogger->F("no available bind address");
     }
 
     TestAddressServer4.OnClientConnected = OnTcpClientConnected;

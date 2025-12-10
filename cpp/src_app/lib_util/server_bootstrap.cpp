@@ -53,7 +53,7 @@ void xServerBootstrap::SetServerRegister(const std::vector<xServerRegisterInfo> 
         RuntimeAssert(P->Init(ServiceIoContext));
         P->UpdateMasterServierListAddress(MasterServerListServerAddress);
         P->UpdateMyServiceInfo(I.ServiceType, { ServerId, I.Address });
-        P->OnError = [] { Logger->F("register server error"); };
+        P->OnError = [] { AuditLogger->F("register server error"); };
         LocalRegisterList.push_back(std::move(P));
     }
 }
@@ -84,7 +84,7 @@ void xServerBootstrap::InternalOnServerListUpdated(eServiceType Type, xVersion V
 
 void xServerBootstrap::InternalOnServerIdUpdated(uint64_t NewId) {
     if (!NewId) {
-        Logger->F("failed to gain valid server id");
+        AuditLogger->F("failed to gain valid server id");
         return;
     }
     Logger->I("OnServerIdUpdated: NewId=%" PRIu64 "", NewId);

@@ -19,6 +19,9 @@ static xNetAddress MasterAddress4;
 static bool               IsMaster = false;
 static xServiceInfoByType ServerInfoListArray[(size_t)eServiceType::MAX_TYPE_INDEX];
 
+static bool     EnableDownload   = false;
+static uint64_t ServiceStartTime = xel::GetTimestampMS();
+
 struct xClientConnectionContext {
     /* if connection is from service*/
     eServiceType ServiceType    = eServiceType::Unspecified;
@@ -144,7 +147,23 @@ static bool OnRegisterServer(const xTcpServiceClientConnectionHandle & Handle, u
     return true;
 }
 
+static void TryEnableDownload() {
+    if (EnableDownload) {
+        return;
+    }
+    auto Now = ServiceTicker();
+    if (Now - ServiceStartTime <= 3 * 60'000) {
+        return;
+    }
+    Logger->I("EnableDownload service list, program init time=%" PRIu64 "", ServiceStartTime);
+    EnableDownload = true;
+}
+
 static bool OnDownloadServerList(const xTcpServiceClientConnectionHandle & Handle, ubyte * PayloadPtr, size_t PayloadSize) {
+    if (!EnableDownload) {
+        return true;
+    }
+
     auto Request = xPP_DownloadServiceList();
     if (!Request.Deserialize(PayloadPtr, PayloadSize)) {
         Logger->E("invalid protocol");
@@ -196,14 +215,8 @@ int main(int argc, char ** argv) {
     CL.Optional(MasterAddress4, "MasterAddress4");
     IsMaster = !(MasterAddress4 && MasterAddress4.Port);
 
-    if (!IsMaster) {
-        Logger->F("Slave mode not implemented");
-        return -1;
-    }
-    if (MasterAddress4 == ExportBindAddress4) {
-        Logger->F("self pointing master server list service");
-        return -1;
-    }
+    SERVICE_RUNTIME_ASSERT(IsMaster);
+    SERVICE_RUNTIME_ASSERT(MasterAddress4 != ExportBindAddress4);  // "self pointing master server list service"
 
     Logger->I(
         "===> Starting service, IsMaster=%s, MyExportAddress=(%s), MasterAddress=(%s)", YN(IsMaster), ExportBindAddress4.ToString().c_str(), MasterAddress4.ToString().c_str()
@@ -222,6 +235,7 @@ int main(int argc, char ** argv) {
 
     while (ServiceRunState) {
         ServiceUpdateOnce(TcpService, ServerIdClient);
+        TryEnableDownload();
     }
 
     return 0;

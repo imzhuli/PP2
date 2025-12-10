@@ -60,8 +60,7 @@ int main(int argc, char ** argv) {
     X_GUARD(TcpService, ServiceIoContext, BindAddress4, MAX_CONNECTION);
 
     while (ServiceRunState) {
-        ServiceUpdateOnce();
-        TcpService.Tick(ServiceTicker());
+        ServiceUpdateOnce(TcpService);
     }
 
     return 0;
