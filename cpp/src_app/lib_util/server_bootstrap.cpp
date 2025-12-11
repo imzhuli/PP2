@@ -36,7 +36,7 @@ void xServerBootstrap::SetMasterServerListServerAddress(const xNetAddress & Addr
     MasterServerListServerAddress = Address;
     if (MasterServerListServerAddress) {
         Logger->I("Update master serverlilst server address: %s", MasterServerListServerAddress.ToString().c_str());
-        RuntimeAssert(ServerListClient.Init(ServiceIoContext, { MasterServerListServerAddress }));
+        SERVICE_RUNTIME_ASSERT(ServerListClient.Init(ServiceIoContext, { MasterServerListServerAddress }));
         ServerListClient.EnableServerIdCenterUpdate(true);
         ServerListClient.OnServerListUpdated = Delegate(&xServerBootstrap::InternalOnServerListUpdated, this);
         for (auto & P : LocalRegisterList) {
@@ -50,7 +50,7 @@ void xServerBootstrap::SetServerRegister(const std::vector<xServerRegisterInfo> 
     auto ServerId = ServerIdClient.GetLocalServerId();
     for (auto & I : RL) {
         auto P = std::make_unique<xServerListRegister>();
-        RuntimeAssert(P->Init(ServiceIoContext));
+        SERVICE_RUNTIME_ASSERT(P->Init(ServiceIoContext));
         P->UpdateMasterServierListAddress(MasterServerListServerAddress);
         P->UpdateMyServiceInfo(I.ServiceType, { ServerId, I.Address });
         P->OnError = [] { AuditLogger->F("register server error"); };
@@ -70,7 +70,7 @@ void xServerBootstrap::InternalOnServerListUpdated(eServiceType Type, xVersion V
         if (ServerList.empty()) {
             ServerIdClient.SetServerAddress({});
         } else {
-            RuntimeAssert(ServerList.size() == 1, "there should be at most 1 ServerIdCenter address");
+            SERVICE_RUNTIME_ASSERT(ServerList.size() == 1);
             ServerIdClient.SetServerAddress(ServerList[0].Address);
         }
         return;

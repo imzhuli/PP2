@@ -3,6 +3,7 @@
 #include "./context_manager.hpp"
 #include "./device_service.hpp"
 #include "./pa_service.hpp"
+#include "report.hpp"
 
 #include <pp_common/service_runtime.hpp>
 
@@ -31,7 +32,8 @@ int main(int argc, char ** argv) {
 
     X_VAR xScopeGuard([] { InitDeviceService(BindAddressForDevice); }, CleanDeviceService);
     X_VAR xScopeGuard([] { InitPAService(BindAddressForProxyAccess4); }, CleanPAService);
-    X_VAR xScopeGuard([] { InitContextManager(); }, CleanContextManager);
+    X_VAR xScopeGuard(InitContextManager, CleanContextManager);
+    X_VAR xScopeGuard(InitRelayReport, CleanRelayReport);
 
     X_GUARD(Bootstrap, MasterServerListServerAddress);
     Bootstrap.EnableDeviceStateRelayRelayPortUpdate(true);

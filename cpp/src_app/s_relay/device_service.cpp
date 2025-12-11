@@ -5,47 +5,38 @@
 #include <pp_common/service_runtime.hpp>
 
 static xPPClientPool DeviceReportClientPool;
-static xPPClientPool SelfReportClientPool;
 
 static std::vector<xServerInfo> DeviceReportServerInfoList;
-static std::vector<xServerInfo> SelfReportServerInfoList;
-
 static std::vector<xServerInfo> TempAddServerInfoList;
 static std::vector<xServerInfo> TempRemoveServerInfoList;
 
+static xTcpService DeviceService;
+
 void InitDeviceService(const xNetAddress & BindAddress) {
-    assert(DeviceReportServerInfoList.empty());
-    assert(SelfReportServerInfoList.empty());
+    SERVICE_RUNTIME_ASSERT(DeviceService.Init(ServiceIoContext, BindAddress, MAX_DEVICE_CONNECTION_ON_RELAY));
 
     RuntimeAssert(DeviceReportClientPool.Init(MAX_DEVICE_STATE_RELAY_SERVER_COUNT));
-    RuntimeAssert(SelfReportClientPool.Init(MAX_RELAY_INFO_DISPATCHER_SERVER_COUNT));
-
+    SERVICE_RUNTIME_ASSERT(DeviceReportServerInfoList.empty());
     DeviceReportServerInfoList.reserve(std::max(MAX_DEVICE_STATE_RELAY_SERVER_COUNT, MAX_RELAY_INFO_DISPATCHER_SERVER_COUNT));
-    SelfReportServerInfoList.reserve(std::max(MAX_DEVICE_STATE_RELAY_SERVER_COUNT, MAX_RELAY_INFO_DISPATCHER_SERVER_COUNT));
 
-    TempAddServerInfoList.reserve(std::max(MAX_DEVICE_STATE_RELAY_SERVER_COUNT, MAX_RELAY_INFO_DISPATCHER_SERVER_COUNT));
-    TempRemoveServerInfoList.reserve(std::max(MAX_DEVICE_STATE_RELAY_SERVER_COUNT, MAX_RELAY_INFO_DISPATCHER_SERVER_COUNT));
+    TempAddServerInfoList.reserve(MAX_DEVICE_STATE_RELAY_SERVER_COUNT);
+    TempRemoveServerInfoList.reserve(MAX_DEVICE_STATE_RELAY_SERVER_COUNT);
 }
 
 void CleanDeviceService() {
     DeviceReportClientPool.Clean();
-    SelfReportClientPool.Clean();
-
     Reset(DeviceReportServerInfoList);
-    Reset(SelfReportServerInfoList);
 
     Reset(TempAddServerInfoList);
     Reset(TempRemoveServerInfoList);
+
+    DeviceService.Clean();
 }
 
 void DeviceTicker(uint64_t NowMS) {
-    TickAll(NowMS, DeviceReportClientPool, SelfReportClientPool);
+    TickAll(NowMS, DeviceReportClientPool);
 }
 
 void UpdateDeviceStateRelayServerList(const std::vector<xServerInfo> & ServerList) {
     DeviceReportClientPool.UpdateServerList(ServerList);
-}
-
-void UpdateRelayInfoDispatcherServerList(const std::vector<xServerInfo> & ServerList) {
-    SelfReportClientPool.UpdateServerList(ServerList);
 }
