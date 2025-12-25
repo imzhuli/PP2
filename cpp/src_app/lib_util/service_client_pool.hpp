@@ -14,7 +14,9 @@ public:
     void PostMessageByHash(uint64_t Hash, xPacketCommandId CmdId, xPacketRequestId RequestId, xBinaryMessage & Message);
     void PostMessage(xPacketCommandId CmdId, xPacketRequestId RequestId, xBinaryMessage & Message);
 
-    xClientPool::xOnTargetPacket OnPacket = Noop<true>;
+    xClientPool::xOnTargetConnected OnServerReady = Noop<>;
+    xClientPool::xOnTargetClean     OnServerClean = Noop<>;
+    xClientPool::xOnTargetPacket    OnPacket      = Noop<true>;
 
 private:
     struct xInternalServerInfo final {
@@ -35,10 +37,10 @@ private:
     void OnTargetClean(const xClientPoolConnectionHandle & CC);
 
 private:
-    xClientPool                      ClientPool;
-    std::vector<xInternalServerInfo> SortedServerList;
+    xClientPool                                   ClientPool;
+    xAutoHolder<std::vector<xInternalServerInfo>> SortedServerList;
 
     // optimization
-    std::vector<xServerInfo>         TmpAdd;
-    std::vector<xInternalServerInfo> TmpRem;
+    xAutoHolder<std::vector<xServerInfo>>         TmpAdd;
+    xAutoHolder<std::vector<xInternalServerInfo>> TmpRem;
 };

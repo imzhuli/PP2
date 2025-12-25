@@ -11,8 +11,8 @@ bool xPPClientPool::Init(size_t MaxConnectionCount) {
     ClientPool.OnTargetClean     = Delegate(&xPPClientPool::OnTargetClean, this);
     ClientPool.OnTargetPacket    = Delegate(&xPPClientPool::OnPacketCallback, this);
 
-    TmpAdd.reserve(MaxConnectionCount);
-    TmpRem.reserve(MaxConnectionCount);
+    TmpAdd->reserve(MaxConnectionCount);
+    TmpRem->reserve(MaxConnectionCount);
     AuditLogger->I("xPPClientPool inited, this=%p", this);
 
     return true;
@@ -20,8 +20,9 @@ bool xPPClientPool::Init(size_t MaxConnectionCount) {
 
 void xPPClientPool::Clean() {
     ClientPool.Clean();
-    Reset(SortedServerList);
-
+    SortedServerList.Reset();
+    TmpAdd.Reset();
+    TmpRem.Reset();
     AuditLogger->I("xPPClientPool cleaned, this=%p", this);
 }
 
@@ -32,42 +33,42 @@ void xPPClientPool::Tick(uint64_t NowMS) {
 void xPPClientPool::UpdateServerList(const std::vector<xServerInfo> & ServerInfoList) {
     size_t IOld = 0;
     size_t INew = 0;
-    while (IOld < SortedServerList.size() && INew < ServerInfoList.size()) {
-        auto & O = SortedServerList[IOld];
+    while (IOld < SortedServerList->size() && INew < ServerInfoList.size()) {
+        auto & O = (*SortedServerList)[IOld];
         auto & N = ServerInfoList[INew];
         if (O.ServerId < N.ServerId) {
-            TmpRem.push_back(O);
+            TmpRem->push_back(O);
             ++IOld;
             continue;
         }
         if (N.ServerId < O.ServerId) {
-            TmpAdd.push_back(N);
+            TmpAdd->push_back(N);
             ++INew;
             continue;
         }
         // N.ServerId == O.ServerId
         if (N.Address != O.Address) {  // update server info:
-            TmpRem.push_back(O);
-            TmpAdd.push_back(N);
+            TmpRem->push_back(O);
+            TmpAdd->push_back(N);
         }
         ++IOld;
         ++INew;
     }
     for (; INew < ServerInfoList.size(); ++INew) {
-        TmpAdd.push_back(ServerInfoList[INew]);
+        TmpAdd->push_back(ServerInfoList[INew]);
     }
-    for (; IOld < SortedServerList.size(); ++IOld) {
-        TmpRem.push_back(SortedServerList[IOld]);
+    for (; IOld < SortedServerList->size(); ++IOld) {
+        TmpRem->push_back((*SortedServerList)[IOld]);
     }
     // process Remove first, so that update address only is ok.
-    for (const auto & R : TmpRem) {
+    for (const auto & R : *TmpRem) {
         RemoveServer(R);
     }
-    for (const auto & A : TmpAdd) {
+    for (const auto & A : *TmpAdd) {
         AddServer(A);
     }
-    TmpRem.clear();
-    TmpAdd.clear();
+    TmpRem->clear();
+    TmpAdd->clear();
 }
 
 void xPPClientPool::AddServer(const xServerInfo & ServerInfo) {
@@ -76,18 +77,18 @@ void xPPClientPool::AddServer(const xServerInfo & ServerInfo) {
         0,
         ServerInfo.Address,
     };
-    auto LB = std::lower_bound(SortedServerList.begin(), SortedServerList.end(), Temp, xInternalServerInfo::LessByServerId);
-    SERVICE_RUNTIME_ASSERT(LB == SortedServerList.end() || LB->ServerId != Temp.ServerId);
+    auto LB = std::lower_bound(SortedServerList->begin(), SortedServerList->end(), Temp, xInternalServerInfo::LessByServerId);
+    SERVICE_RUNTIME_ASSERT(LB == SortedServerList->end() || LB->ServerId != Temp.ServerId);
     SERVICE_RUNTIME_ASSERT((Temp.LocalServerId = ClientPool.AddServer(ServerInfo.Address)));
-    auto NewIter = SortedServerList.insert(LB, Temp);
+    auto NewIter = SortedServerList->insert(LB, Temp);
     AuditLogger->I("%p AddServer: id=%" PRIu64 ", connectionId=%" PRIu64 ", Address=%s", this, NewIter->ServerId, NewIter->LocalServerId, ServerInfo.Address.ToString().c_str());
 }
 
 void xPPClientPool::RemoveServer(const xInternalServerInfo & TargetServerInfo) {
-    auto LB = std::lower_bound(SortedServerList.begin(), SortedServerList.end(), TargetServerInfo, xInternalServerInfo::LessByServerId);
-    SERVICE_RUNTIME_ASSERT(LB != SortedServerList.end() && *LB == TargetServerInfo);
+    auto LB = std::lower_bound(SortedServerList->begin(), SortedServerList->end(), TargetServerInfo, xInternalServerInfo::LessByServerId);
+    SERVICE_RUNTIME_ASSERT(LB != SortedServerList->end() && *LB == TargetServerInfo);
     ClientPool.RemoveServer(LB->LocalServerId);
-    SortedServerList.erase(LB);
+    SortedServerList->erase(LB);
     AuditLogger->I("%p RemoveServer: id=%" PRIu64 ", connectionId=%" PRIu64 ", Address=%s", this, TargetServerInfo.ServerId, TargetServerInfo.LocalServerId, TargetServerInfo.Address.ToString().c_str());
 }
 
@@ -96,11 +97,11 @@ void xPPClientPool::PostMessageByConnectionId(uint64_t ConnectionId, xPacketComm
 }
 
 void xPPClientPool::PostMessageByHash(uint64_t Hash, xPacketCommandId CmdId, xPacketRequestId RequestId, xBinaryMessage & Message) {
-    if (SortedServerList.empty()) {
+    if (SortedServerList->empty()) {
         return;
     }
-    auto   Index     = Hash % SortedServerList.size();
-    auto & ServerRef = SortedServerList[Index];
+    auto   Index     = Hash % SortedServerList->size();
+    auto & ServerRef = (*SortedServerList)[Index];
     ClientPool.PostMessage(ServerRef.LocalServerId, CmdId, RequestId, Message);
 }
 
@@ -110,6 +111,7 @@ void xPPClientPool::PostMessage(xPacketCommandId CmdId, xPacketRequestId Request
 
 void xPPClientPool::OnTargetConnected(const xClientPoolConnectionHandle & CC) {
     AuditLogger->I("%p OnTargetConnected: Id=%" PRIu64 ", Address=%s", this, CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
+    OnServerReady(CC);
 }
 
 void xPPClientPool::OnTargetClose(const xClientPoolConnectionHandle & CC) {
@@ -118,6 +120,7 @@ void xPPClientPool::OnTargetClose(const xClientPoolConnectionHandle & CC) {
 
 void xPPClientPool::OnTargetClean(const xClientPoolConnectionHandle & CC) {
     AuditLogger->I("%p OnTargetClean: Id=%" PRIu64 ", Address=%s", this, CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
+    OnServerClean(CC);
 }
 
 bool xPPClientPool::OnPacketCallback(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {

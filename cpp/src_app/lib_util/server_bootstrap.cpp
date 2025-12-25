@@ -3,6 +3,7 @@
 #include <pp_common/service_runtime.hpp>
 
 bool xServerBootstrap::Init(const xNetAddress & Address) {
+    MostRecentServerId = 0;
     if (!ServerIdClient.Init(ServiceIoContext, ServiceEnvironment.DefaultLocalServerIdFilePath)) {
         return false;
     }
@@ -24,7 +25,7 @@ void xServerBootstrap::Tick(uint64_t NowMS) {
     if (MasterServerListServerAddress) {
         ServerListClient.Tick(NowMS);
     }
-    for (auto & R : LocalRegisterList) {
+    for (auto & R : *LocalRegisterList) {
         R->Tick(NowMS);
     }
 }
@@ -39,7 +40,7 @@ void xServerBootstrap::SetMasterServerListServerAddress(const xNetAddress & Addr
         SERVICE_RUNTIME_ASSERT(ServerListClient.Init(ServiceIoContext, { MasterServerListServerAddress }));
         ServerListClient.EnableServerIdCenterUpdate(true);
         ServerListClient.OnServerListUpdated = Delegate(&xServerBootstrap::InternalOnServerListUpdated, this);
-        for (auto & P : LocalRegisterList) {
+        for (auto & P : *LocalRegisterList) {
             P->UpdateMasterServierListAddress(MasterServerListServerAddress);
         }
     }
@@ -54,15 +55,15 @@ void xServerBootstrap::SetServerRegister(const std::vector<xServerRegisterInfo> 
         P->UpdateMasterServierListAddress(MasterServerListServerAddress);
         P->UpdateMyServiceInfo(I.ServiceType, { ServerId, I.Address });
         P->OnError = [] { AuditLogger->F("register server error"); };
-        LocalRegisterList.push_back(std::move(P));
+        LocalRegisterList->push_back(std::move(P));
     }
 }
 
 void xServerBootstrap::ReleaseAllRegisters() {
-    for (auto & R : LocalRegisterList) {
+    for (auto & R : *LocalRegisterList) {
         R->Clean();
     }
-    Reset(LocalRegisterList);
+    LocalRegisterList.Reset();
 }
 
 void xServerBootstrap::InternalOnServerListUpdated(eServiceType Type, xVersion Version, const std::vector<xServerInfo> & ServerList) {
@@ -83,12 +84,12 @@ void xServerBootstrap::InternalOnServerListUpdated(eServiceType Type, xVersion V
 }
 
 void xServerBootstrap::InternalOnServerIdUpdated(uint64_t NewId) {
-    if (!NewId) {
+    if (!(MostRecentServerId = NewId)) {
         AuditLogger->F("failed to gain valid server id");
         return;
     }
     Logger->I("OnServerIdUpdated: NewId=%" PRIu64 "", NewId);
-    for (auto & P : LocalRegisterList) {
+    for (auto & P : *LocalRegisterList) {
         P->UpdateMyServerId(NewId);
     }
     OnServerIdUpdated(NewId);

@@ -6,7 +6,7 @@
 xServerListClient SLC;
 
 int main(int argc, char ** argv) {
-    X_VAR xServiceEnvironmentGuard(argc, argv, xServiceConsoleLogger());
+    X_VAR xServiceEnvironmentGuard(argc, argv, ServiceConsoleLogger);
 
     X_GUARD(SLC, ServiceIoContext, std::vector{ xNetAddress::Parse("127.0.0.1:10200") });
     SLC.EnableServerIdCenterUpdate(true);

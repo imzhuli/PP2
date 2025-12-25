@@ -48,3 +48,7 @@ bool ValidateAppSign(const std::string & Sign, const std::string & SecretKey, co
 
     return StrToHex(D.Digest, 32) == Segs[1];
 }
+
+uint32_t ExtractIndexFromServerId(uint64_t ServerId) {
+    return High32(ServerId >> 12);
+}

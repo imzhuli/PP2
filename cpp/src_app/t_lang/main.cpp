@@ -5,7 +5,7 @@
 static auto M = xLocalRelayInfoManager();
 
 int main(int argc, char ** argv) {
-    X_VAR xServiceEnvironmentGuard(argc, argv, xServiceConsoleLogger());
+    X_VAR xServiceEnvironmentGuard(argc, argv, ServiceConsoleLogger);
 
     X_GUARD(M);
 

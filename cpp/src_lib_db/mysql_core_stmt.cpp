@@ -34,7 +34,7 @@ bool xMySqlStmt::Init(xMySqlConn & MySqlConn, const std::string & Query) {
 
 void xMySqlStmt::Clean() {
     TestAndClose();
-    Renew(Query);
+    Reset(Query);
     Reset(Conn);
 }
 

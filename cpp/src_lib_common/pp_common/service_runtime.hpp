@@ -11,13 +11,18 @@ extern uint64_t     ServiceIoLoopOnceTimeoutMS;
 extern xTicker      ServiceTicker;
 extern xRunState    ServiceRunState;
 
-struct xServiceNoLogger      final {};
-struct xServiceConsoleLogger final {};
+namespace __pp_common_detail__ {
+    struct xServiceNoLogger      final {};
+    struct xServiceConsoleLogger final {};
+}  // namespace __pp_common_detail__
+
+constexpr const ::__pp_common_detail__::xServiceNoLogger      ServiceNoLogger      = {};
+constexpr const ::__pp_common_detail__::xServiceConsoleLogger ServiceConsoleLogger = {};
 
 struct xServiceEnvironmentGuard final : xNonCopyable {
     xServiceEnvironmentGuard(int argc, char ** argv);
-    xServiceEnvironmentGuard(int argc, char ** argv, const xServiceNoLogger &);
-    xServiceEnvironmentGuard(int argc, char ** argv, const xServiceConsoleLogger &);
+    xServiceEnvironmentGuard(int argc, char ** argv, const decltype(ServiceNoLogger) &);
+    xServiceEnvironmentGuard(int argc, char ** argv, const decltype(ServiceConsoleLogger) &);
     ~xServiceEnvironmentGuard();
 
 private:

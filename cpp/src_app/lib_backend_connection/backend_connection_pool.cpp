@@ -7,7 +7,7 @@ bool xBackendConnectionPool::Init(xIoContext * ICP, size_t MaxConnectionCount) {
     if (!xClientPool::Init(ICP, MaxConnectionCount)) {
         return false;
     }
-    ContextList.resize(MaxConnectionCount);
+    ContextList->resize(MaxConnectionCount);
 
     xClientPool::OnTargetConnected = Delegate(&xBackendConnectionPool::OnTargetConnectedCallback, this);
     xClientPool::OnTargetClose     = Delegate(&xBackendConnectionPool::OnTargetCloseCallback, this);
@@ -17,14 +17,16 @@ bool xBackendConnectionPool::Init(xIoContext * ICP, size_t MaxConnectionCount) {
 
 void xBackendConnectionPool::Clean() {
     xClientPool::Clean();
-    Reset(ContextList);
+    ContextList.Reset();
+    RuntimeAssert(SortedServerList->empty());
+    SortedServerList.Reset();
     ResetLocalAudit();
 }
 
 uint64_t xBackendConnectionPool::AddServer(const xNetAddress & Address, const std::string & AppKey, const std::string & AppSecret) {
     auto CompareTemp = xBackendServerInfo{ Address, 0 };
-    auto Iter        = std::lower_bound(SortedServerList.begin(), SortedServerList.end(), CompareTemp);
-    if (Iter != SortedServerList.end() && *Iter == CompareTemp) {  // found
+    auto Iter        = std::lower_bound(SortedServerList->begin(), SortedServerList->end(), CompareTemp);
+    if (Iter != SortedServerList->end() && *Iter == CompareTemp) {  // found
         ++TotalAddingServerConflict;
         return 0;
     }
@@ -34,39 +36,39 @@ uint64_t xBackendConnectionPool::AddServer(const xNetAddress & Address, const st
     }
 
     auto Index = Sid.GetIndex();
-    assert(Index < ContextList.size());
-    auto & Ctx = ContextList[Index];
+    assert(Index < ContextList->size());
+    auto & Ctx = (*ContextList)[Index];
 
     Ctx.AppKey    = AppKey;
     Ctx.AppSecret = AppSecret;
 
     CompareTemp.ConnectionId = Sid;
-    SortedServerList.insert(Iter, CompareTemp);
+    SortedServerList->insert(Iter, CompareTemp);
 
     ++TotalAddedServer;
     return Sid;
 }
 
 void xBackendConnectionPool::RemoveServer(const xNetAddress & Address) {
-    auto LI = std::lower_bound(SortedServerList.begin(), SortedServerList.end(), xBackendServerInfo{ Address });
-    if (LI == SortedServerList.end() || LI->Address != Address) {
+    auto LI = std::lower_bound(SortedServerList->begin(), SortedServerList->end(), xBackendServerInfo{ Address });
+    if (LI == SortedServerList->end() || LI->Address != Address) {
         ++TotalRemovingServerFailure;
         return;
     }
     auto ConnectionId = LI->ConnectionId;
 
     auto Sid = xIndexId(ConnectionId);
-    Reset(ContextList[Sid.GetIndex()]);
+    Reset((*ContextList)[Sid.GetIndex()]);
     xClientPool::RemoveServer(ConnectionId);
 
-    SortedServerList.erase(LI);
+    SortedServerList->erase(LI);
     ++TotalRemovedServer;
 }
 
 void xBackendConnectionPool::OnTargetConnectedCallback(const xClientPoolConnectionHandle & CC) {
     auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();
-    auto & Ctx = ContextList[Idx];
+    auto & Ctx = (*ContextList)[Idx];
 
     auto challenge           = xBackendChallenge();
     challenge.AppKey         = Ctx.AppKey;
@@ -90,7 +92,7 @@ bool xBackendConnectionPool::OnTargetPacketCallback(
 
     auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();
-    auto & Ctx = ContextList[Idx];
+    auto & Ctx = (*ContextList)[Idx];
     if (!Ctx.IsChallengeReady) {
         return false;
     }
@@ -102,7 +104,7 @@ bool xBackendConnectionPool::OnTargetPacketCallback(
 void xBackendConnectionPool::OnTargetCloseCallback(const xClientPoolConnectionHandle & CC) {
     auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();
-    auto & Ctx = ContextList[Idx];
+    auto & Ctx = (*ContextList)[Idx];
     Reset(Ctx.IsChallengeReady);
 }
 
@@ -111,7 +113,7 @@ bool xBackendConnectionPool::OnCmdBackendChallengeResp(
 ) {
     auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();
-    auto & Ctx = ContextList[Idx];
+    auto & Ctx = (*ContextList)[Idx];
 
     if (Ctx.IsChallengeReady) {
         return false;

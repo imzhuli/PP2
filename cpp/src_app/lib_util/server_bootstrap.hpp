@@ -13,10 +13,11 @@ struct xServerRegisterInfo {
 
 class xServerBootstrap {
 public:
-    bool Init(const xNetAddress & Address);
-    void Clean();
-    void Tick(uint64_t);
-    void SetServerRegister(const std::vector<xServerRegisterInfo> & RL);
+    bool     Init(const xNetAddress & Address);
+    void     Clean();
+    void     Tick(uint64_t);
+    void     SetServerRegister(const std::vector<xServerRegisterInfo> & RL);
+    uint64_t GetServerId() const { return MostRecentServerId; }
 
     void EnableServerIdCenterUpdate(bool E) {  //
         ServerListClient.EnableServerIdCenterUpdate(E);
@@ -50,10 +51,11 @@ private:
     void InternalOnServerIdUpdated(uint64_t NewId);
 
 private:
+    uint64_t    MostRecentServerId;
     xNetAddress ServerIdServiceAddress;
 
-    xNetAddress                                       MasterServerListServerAddress;
-    xServerListClient                                 ServerListClient;
-    xServerIdClient                                   ServerIdClient;
-    std::vector<std::unique_ptr<xServerListRegister>> LocalRegisterList;
+    xNetAddress                                                    MasterServerListServerAddress;
+    xServerListClient                                              ServerListClient;
+    xServerIdClient                                                ServerIdClient;
+    xAutoHolder<std::vector<std::unique_ptr<xServerListRegister>>> LocalRegisterList;
 };

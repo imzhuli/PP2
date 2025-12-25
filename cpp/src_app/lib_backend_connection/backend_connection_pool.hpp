@@ -46,8 +46,8 @@ private:
         std::string AppSecret;
         bool        IsChallengeReady = false;
     };
-    std::vector<xBackendConnectionContext> ContextList;
-    std::vector<xBackendServerInfo>        SortedServerList;
+    xAutoHolder<std::vector<xBackendConnectionContext>> ContextList;
+    xAutoHolder<std::vector<xBackendServerInfo>>        SortedServerList;
 
 private:  // audit
     size_t TotalAddedServer           = 0;

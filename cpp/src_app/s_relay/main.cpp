@@ -2,20 +2,11 @@
 #include "../lib_util/server_bootstrap.hpp"
 #include "./context_manager.hpp"
 #include "./device_service.hpp"
+#include "./global.hpp"
 #include "./pa_service.hpp"
-#include "report.hpp"
+#include "./relay_report.hpp"
 
 #include <pp_common/service_runtime.hpp>
-
-xNetAddress MasterServerListServerAddress;
-
-xNetAddress BindAddressForDevice;
-xNetAddress ExportAddressForDevice;
-
-xNetAddress BindAddressForProxyAccess4;
-xNetAddress ExportAddressForProxyAccess4;
-
-static xServerBootstrap Bootstrap;
 
 int main(int argc, char ** argv) {
     X_VAR xServiceEnvironmentGuard(argc, argv);
@@ -27,8 +18,8 @@ int main(int argc, char ** argv) {
     CL.Require(BindAddressForProxyAccess4, "BindAddressForProxyAccess4");
     CL.Require(ExportAddressForProxyAccess4, "ExportAddressForProxyAccess4");
 
-    RuntimeAssert(BindAddressForProxyAccess4.Is4() && BindAddressForProxyAccess4.Port);
-    RuntimeAssert(ExportAddressForProxyAccess4.Is4() && ExportAddressForProxyAccess4.Port);
+    SERVICE_RUNTIME_ASSERT(BindAddressForProxyAccess4.Is4() && BindAddressForProxyAccess4.Port);
+    SERVICE_RUNTIME_ASSERT(ExportAddressForProxyAccess4.Is4() && ExportAddressForProxyAccess4.Port);
 
     X_VAR xScopeGuard([] { InitDeviceService(BindAddressForDevice); }, CleanDeviceService);
     X_VAR xScopeGuard([] { InitPAService(BindAddressForProxyAccess4); }, CleanPAService);
@@ -50,7 +41,7 @@ int main(int argc, char ** argv) {
     };
 
     while (ServiceRunState) {
-        ServiceUpdateOnce(DeviceTicker, PAServiceTicker, ContextTicker, Bootstrap);
+        ServiceUpdateOnce(DeviceTicker, PAServiceTicker, ContextTicker, TickRelayReport, Bootstrap);
     }
 
     return 0;

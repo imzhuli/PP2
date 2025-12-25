@@ -4,6 +4,7 @@
 #include <core/core_os.hpp>
 #include <core/core_stream.hpp>
 #include <core/core_time.hpp>
+#include <core/core_value_util.hpp>
 #include <core/executable.hpp>
 #include <core/functional.hpp>
 #include <core/indexed_storage.hpp>
@@ -43,6 +44,7 @@ using xel::PacketHeaderSize;
 // type-defs
 using xel::eLogLevel;
 using xel::xAbstract;
+using xel::xAutoHolder;
 using xel::xBaseLogger;
 using xel::xBinaryMessage;
 using xel::xClient;
@@ -202,7 +204,7 @@ static inline uint64_t Make64_H16L48(uint16_t H16, uint64_t L48) { return (stati
 // clang-format on
 
 // clang-format off
-
+// use Shutdown in callback setup, to avoid function overriding issue
 static inline void Shutdown() { QuickExit(); }
 
 template<typename T>
@@ -212,11 +214,14 @@ extern uint32_t HashString(const char * S);
 extern uint32_t HashString(const char * S, size_t Len);
 extern uint32_t HashString(const std::string_view & S);
 
+
 extern std::string AppSign(uint64_t Timestamp, const std::string & SecretKey, const void * DataPtr, size_t Size);
 static inline std::string AppSign(uint64_t Timestamp, const std::string & SecretKey, const std::string_view& V) { return AppSign(Timestamp, SecretKey, V.data(), V.size()); }
 
 extern bool ValidateAppSign(const std::string & Sign, const std::string & SecretKey, const void * DataPtr, size_t Size);
 static inline bool ValidateAppSign(const std::string & Sign, const std::string & SecretKey, const std::string_view& V) { return ValidateAppSign(Sign, SecretKey, V.data(), V.size()); }
+
+extern uint32_t ExtractIndexFromServerId(uint64_t ServerId);
 
 // clang-format on
 inline std::ostream & operator<<(std::ostream & OS, const xNetAddress & Address) {

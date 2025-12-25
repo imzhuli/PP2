@@ -55,11 +55,11 @@ bool xMySqlConn::Init(const std::string & user, const std::string & password, co
     assert(Disconnected);
     assert(!NativeHandle.IsEnabled());
 
-    User     = user;
-    Password = password;
-    Database = database;
-    Host     = host;
-    Port     = port;
+    *User     = user;
+    *Password = password;
+    *Database = database;
+    *Host     = host;
+    *Port     = port;
 
     Tick();  // first attempt,
 
@@ -71,11 +71,11 @@ void xMySqlConn::Clean() {
     if (NativeHandle.IsEnabled()) {
         Close();
     }
-    Renew(User);
-    Renew(Password);
-    Renew(Database);
-    Renew(Host);
-    Renew(Port);
+    User.Reset();
+    Password.Reset();
+    Database.Reset();
+    Host.Reset();
+    Port.Reset();
     GlobalClean();
 }
 
@@ -89,7 +89,7 @@ void xMySqlConn::Open() {
         X_DEBUG_PRINTF("Failed to create new mysql object");
         return;
     }
-    if (!mysql_real_connect(M, Host.c_str(), User.c_str(), Password.c_str(), Database.c_str(), Port, nullptr, 0)) {
+    if (!mysql_real_connect(M, Host->c_str(), User->c_str(), Password->c_str(), Database->c_str(), *Port, nullptr, 0)) {
         X_DEBUG_PRINTF("Failed to connect to mysql server");
         mysql_close(M);
         return;

@@ -101,10 +101,10 @@ static constexpr const xPacketCommandId Cmd_DownloadAuditTargetServerListResp   
 
 ///////////////////////// PP2 server list
 
-static constexpr const xPacketCommandId Cmd_RelayServerHeartBeat = Cmd_ServerManagementBase + 0x401;
-// static constexpr const xPacketCommandId Cmd_RegisterRelayInfoObserver = Cmd_ServerManagementBase + 0x402;
-static constexpr const xPacketCommandId Cmd_BroadcastRelayInfo    = Cmd_ServerManagementBase + 0x403;
-static constexpr const xPacketCommandId Cmd_BroadcastRelayOffline = Cmd_ServerManagementBase + 0x404;
+static constexpr const xPacketCommandId Cmd_RelayInfoRegister         = Cmd_ServerManagementBase + 0x401;
+static constexpr const xPacketCommandId Cmd_RegisterRelayInfoObserver = Cmd_ServerManagementBase + 0x402;
+static constexpr const xPacketCommandId Cmd_BroadcastRelayInfo        = Cmd_ServerManagementBase + 0x403;
+static constexpr const xPacketCommandId Cmd_BroadcastRelayOffline     = Cmd_ServerManagementBase + 0x404;
 
 static constexpr const xPacketCommandId Cmd_AuditAccountUsage = Cmd_ServerManagementBase + 0x501;
 static constexpr const xPacketCommandId Cmd_AuditTarget       = Cmd_ServerManagementBase + 0x502;

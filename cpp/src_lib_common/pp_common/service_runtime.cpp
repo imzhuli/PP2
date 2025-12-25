@@ -55,7 +55,7 @@ xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv)
     Instance = this;
 }
 
-xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv, const xServiceNoLogger &)
+xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv, const decltype(ServiceNoLogger) &)
     : EnableLogger(false) {
     auto G = std::lock_guard(EnvMutex);
     RuntimeAssert(!Instance);
@@ -67,7 +67,7 @@ xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv, const
     Instance = this;
 }
 
-xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv, const xServiceConsoleLogger &)
+xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv, const decltype(ServiceConsoleLogger) &)
     : EnableLogger(false) {
     auto G = std::lock_guard(EnvMutex);
     RuntimeAssert(!Instance);
