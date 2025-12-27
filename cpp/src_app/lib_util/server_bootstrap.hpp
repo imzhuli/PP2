@@ -38,7 +38,7 @@ public:
         ServerListClient.EnableDeviceStateRelayObserverPortUpdate(E);
     }
 
-    using xOnServerListUpdated = std::function<void(eServiceType, xVersion, const std::vector<xServerInfo> &)>;
+    using xOnServerListUpdated = std::function<void(eServiceType, xVersion, std::vector<xServerInfo> &&)>;
     using xOnServerIdUpdated   = std::function<void(uint64_t NewId)>;
 
     xOnServerIdUpdated   OnServerIdUpdated   = Noop<>;
@@ -47,7 +47,7 @@ public:
 private:
     void SetMasterServerListServerAddress(const xNetAddress & Address);
     void ReleaseAllRegisters();
-    void InternalOnServerListUpdated(eServiceType, xVersion, const std::vector<xServerInfo> &);
+    void InternalOnServerListUpdated(eServiceType, xVersion, std::vector<xServerInfo> &&);
     void InternalOnServerIdUpdated(uint64_t NewId);
 
 private:

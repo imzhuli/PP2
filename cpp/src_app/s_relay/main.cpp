@@ -29,7 +29,7 @@ int main(int argc, char ** argv) {
     X_GUARD(Bootstrap, MasterServerListServerAddress);
     Bootstrap.EnableDeviceStateRelayRelayPortUpdate(true);
     Bootstrap.EnableRelayInfoDispatcherRelayPortUpdate(true);
-    Bootstrap.OnServerListUpdated = [](eServiceType Type, xVersion Version, const std::vector<xServerInfo> & List) {
+    Bootstrap.OnServerListUpdated = [](eServiceType Type, xVersion Version, std::vector<xServerInfo> && List) {
         switch (Type) {
             case eServiceType::DeviceStateRelay_RelayPort:
                 return UpdateDeviceStateRelayServerList(List);

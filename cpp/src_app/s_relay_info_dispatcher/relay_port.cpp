@@ -38,7 +38,7 @@ static void OnRelayConnected(const xTcpServiceClientConnectionHandle & H) {
 }
 
 static bool OnRegisterRelayServer(const xTcpServiceClientConnectionHandle & H, ubyte * PL, size_t PS) {
-    auto ServerId = H->UserContext.IX;
+    auto & ServerId = H->UserContext.IX;
     if (ServerId) {  // invalid connection
         Logger->E("OnRegisterRelayServer: multiple ServerInfo");
         return false;
@@ -66,6 +66,7 @@ static bool OnRegisterRelayServer(const xTcpServiceClientConnectionHandle & H, u
     PInfo->RelayServerRuntimeId   = SourceInfo.ServerId;
     PInfo->RelayDevicePortAddress = SourceInfo.DevicePortAddress;
     PInfo->RelayClientPortAddress = SourceInfo.ClientPortAddress;
+    ServerId                      = SourceInfo.ServerId;
 
     AuditLogger->I("New RelayServer added: %" PRIu64 ", DP=%s, DC=%s",  //
                    PInfo->RelayServerRuntimeId,                         //

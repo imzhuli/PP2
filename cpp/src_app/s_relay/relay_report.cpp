@@ -8,8 +8,9 @@
 #include <pp_protocol/internal/relay_info.hpp>
 #include <random>
 
-static xel::xClientWrapper RelayReportClient;
-static std::mt19937        Random32;
+static xel::xClientWrapper      RelayReportClient;
+static std::mt19937             Random32;
+static std::vector<xServerInfo> RelayInfoDispatcherList;
 
 static void PostRelayInfo();
 
@@ -34,9 +35,12 @@ void UpdateRelayInfoDispatcherServerList(const std::vector<xServerInfo> & List) 
         RelayReportClient.UpdateTarget({});
         return;
     }
-    auto Distribution = std::uniform_int_distribution<size_t>(0, List.size() - 1);
-    auto Selected     = Distribution(Random32);
-    RelayReportClient.UpdateTarget(List[Selected].Address);
+    auto   Distribution = std::uniform_int_distribution<size_t>(0, List.size() - 1);
+    auto & Selected     = List[Distribution(Random32)];
+    RelayReportClient.UpdateTarget(Selected.Address);
+
+    AuditLogger->I("Update RelayInfoDispatcher connection, selected dispatcher address: %s", Selected.Address.ToString().c_str());
+    RelayInfoDispatcherList = List;
     return;
 }
 

@@ -66,7 +66,7 @@ void xServerBootstrap::ReleaseAllRegisters() {
     LocalRegisterList.Reset();
 }
 
-void xServerBootstrap::InternalOnServerListUpdated(eServiceType Type, xVersion Version, const std::vector<xServerInfo> & ServerList) {
+void xServerBootstrap::InternalOnServerListUpdated(eServiceType Type, xVersion Version, std::vector<xServerInfo> && ServerList) {
     if (Type == eServiceType::ServerIdCenter) {
         if (ServerList.empty()) {
             ServerIdClient.SetServerAddress({});
@@ -80,7 +80,7 @@ void xServerBootstrap::InternalOnServerListUpdated(eServiceType Type, xVersion V
         Logger->E("unimplemented ServerListSlave support");
         return Pass();
     }
-    OnServerListUpdated(Type, Version, ServerList);
+    OnServerListUpdated(Type, Version, std::move(ServerList));
 }
 
 void xServerBootstrap::InternalOnServerIdUpdated(uint64_t NewId) {

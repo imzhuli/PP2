@@ -72,7 +72,7 @@ bool xServerListClient::OnDownloadServiceListResp(ubyte * PayloadPtr, size_t Pay
                 return true;
             }
             D.LastVersion = Response.Version;
-            OnServerListUpdated(Response.ServiceType, Response.Version, Response.ServiceInfoList);
+            OnServerListUpdated(Response.ServiceType, Response.Version, std::move(Response.ServiceInfoList));
             return true;
         }
     }
