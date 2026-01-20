@@ -15,7 +15,7 @@ void   FreeBinds(void * BindPtr);
 struct xMySqlTimestamp : xNonCopyable {
     static constexpr const size_t RESERVED_MYSQL_TIME_SIZE = 64;
 
-    using xDummy = ::xel::xHolder<xMySqlTimestamp::RESERVED_MYSQL_TIME_SIZE>;
+    using xDummy = ::xel::xDummy<xMySqlTimestamp::RESERVED_MYSQL_TIME_SIZE>;
 
     void * GetDummyObjectAddress();
     size_t GetDummyObjectSize();
