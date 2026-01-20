@@ -26,7 +26,7 @@ int main(int argc, char ** argv) {
     X_VAR xScopeGuard(InitContextManager, CleanContextManager);
     X_VAR xScopeGuard(InitRelayReport, CleanRelayReport);
 
-    X_GUARD(Bootstrap, MasterServerListServerAddress);
+    X_RESOURCE_GUARD(Bootstrap, MasterServerListServerAddress);
     Bootstrap.EnableDeviceStateRelayRelayPortUpdate(true);
     Bootstrap.EnableRelayInfoDispatcherRelayPortUpdate(true);
     Bootstrap.OnServerListUpdated = [](eServiceType Type, xVersion Version, std::vector<xServerInfo> && List) {
@@ -34,7 +34,7 @@ int main(int argc, char ** argv) {
             case eServiceType::DeviceStateRelay_RelayPort:
                 return UpdateDeviceStateRelayServerList(List);
             case eServiceType::RelayInfoDispatcher_RelayPort:
-                return UpdateRelayInfoDispatcherServerList(List);
+                return UpdateRelayInfoDispatcherServerList(std::move(List));
             default:
                 break;
         }

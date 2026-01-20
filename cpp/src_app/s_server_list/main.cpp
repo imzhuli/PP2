@@ -152,7 +152,7 @@ static void TryEnableDownload() {
         return;
     }
     auto Now = ServiceTicker();
-    if (Now - ServiceStartTime <= 3 * 60'000) {
+    if (Now - ServiceStartTime <= 1 * 60'000) {
         return;
     }
     Logger->I("EnableDownload service list, program init time=%" PRIu64 "", ServiceStartTime);
@@ -222,12 +222,12 @@ int main(int argc, char ** argv) {
         "===> Starting service, IsMaster=%s, MyExportAddress=(%s), MasterAddress=(%s)", YN(IsMaster), ExportBindAddress4.ToString().c_str(), MasterAddress4.ToString().c_str()
     );
 
-    X_GUARD(TcpService, ServiceIoContext, BindAddress4, 4000);
+    X_RESOURCE_GUARD(TcpService, ServiceIoContext, BindAddress4, 4000);
     TcpService.OnClientConnected = OnClientConnected;
     TcpService.OnClientClean     = OnClientClean;
     TcpService.OnClientPacket    = OnClientPacket;
 
-    X_GUARD(ServerIdClient, ServiceIoContext, ServiceEnvironment.DefaultLocalServerIdFilePath);
+    X_RESOURCE_GUARD(ServerIdClient, ServiceIoContext, ServiceEnvironment.DefaultLocalServerIdFilePath);
     ServerIdClient.SetServerAddress(ServerIdCenterAddress);
     ServerIdClient.OnServerIdUpdated = [](uint64_t UpdatedServerId) { Logger->I("update local server id: %" PRIu64 "", UpdatedServerId); };
 

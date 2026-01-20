@@ -124,7 +124,8 @@ void xServerListClient::DisableDownloader(eServiceType Type) {
 }
 
 void xServerListClient::TryDownloader(xDownloader & Downloader, uint64_t NowMS) {
-    bool ShouldUpdate = Downloader.LastRequestTimestampMS < NowMS - Downloader.RequestTimeoutMS;
+    auto ShouldUpdate = !Downloader.LastVersion && Downloader.LastRequestTimestampMS < NowMS - MIN_INIT_UPDATE_TIMEOUT_MS;
+    ShouldUpdate      = ShouldUpdate || Downloader.LastRequestTimestampMS < NowMS - Downloader.RequestTimeoutMS;
     if (!ShouldUpdate) {
         return;
     }

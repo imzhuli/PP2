@@ -4,6 +4,7 @@
 
 class xServerListClient {
 private:
+    static constexpr uint64_t MIN_INIT_UPDATE_TIMEOUT_MS                  = 1 * 60'000;
     static constexpr uint64_t MIN_UPDATE_SERVER_ID_CENTER_TIMEOUT_MS      = 60 * 60'000;
     static constexpr uint64_t MIN_UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS     = 60 * 60'000;
     static constexpr uint64_t MIN_UPDATE_RELAY_INFO_DISPATCHER_TIMEOUT_MS = 5 * 60'000;

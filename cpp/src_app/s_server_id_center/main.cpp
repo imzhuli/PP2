@@ -54,10 +54,10 @@ int main(int argc, char ** argv) {
 
     TcpService.OnClientPacket = OnClientPacket;
     TcpService.OnClientClean  = OnClientClean;
-    X_GUARD(ServerIdManager);
+    X_RESOURCE_GUARD(ServerIdManager);
 
     RuntimeAssert(BindAddress4.Is4() && BindAddress4.Port, "ipv4 support only");
-    X_GUARD(TcpService, ServiceIoContext, BindAddress4, MAX_CONNECTION);
+    X_RESOURCE_GUARD(TcpService, ServiceIoContext, BindAddress4, MAX_CONNECTION);
 
     while (ServiceRunState) {
         ServiceUpdateOnce(TcpService);

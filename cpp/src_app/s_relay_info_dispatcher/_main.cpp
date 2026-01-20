@@ -12,7 +12,7 @@ int main(int argc, char ** argv) {
     X_VAR xServiceEnvironmentGuard(argc, argv);
     LoadConfig();
 
-    X_GUARD(Bootstrap, MasterServerListServerAddress);
+    X_RESOURCE_GUARD(Bootstrap, MasterServerListServerAddress);
     Bootstrap.SetServerRegister({
         { eServiceType::RelayInfoDispatcher_RelayPort, RelayPortExportAddress4 },
         { eServiceType::RelayInfoDispatcher_ObserverPort, ObserverExportAddress4 },

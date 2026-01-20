@@ -7,9 +7,9 @@ bool xServerListRegister::Init(xel::xIoContext * IC) {
     if (!ClientWrapper.Init(IC)) {
         return false;
     }
-    ClientWrapper.OnConnected    = Delegate(&xServerListRegister::OnConnected, this);
-    ClientWrapper.OnDisconnected = []() {};
-    ClientWrapper.OnPacket       = [this](xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
+    ClientWrapper.OnServerConnected    = Delegate(&xServerListRegister::OnConnected, this);
+    ClientWrapper.OnServerDisconnected = []() {};
+    ClientWrapper.OnServerPacket       = [this](xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
         if (CommandId != Cmd_RegisterServiceResp) {
             OnError();
             return false;

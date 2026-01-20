@@ -33,8 +33,8 @@ bool xServerIdClient::Init(xIoContext * ICP, uint64_t FirstTryServerId) {
     if (!ClientWrapper.Init(ICP)) {
         return false;
     }
-    ClientWrapper.OnConnected = Delegate(&xServerIdClient::OnServerConnected, this);
-    ClientWrapper.OnPacket    = Delegate(&xServerIdClient::OnServerPacket, this);
+    ClientWrapper.OnServerConnected = Delegate(&xServerIdClient::OnServerConnected, this);
+    ClientWrapper.OnServerPacket    = Delegate(&xServerIdClient::OnServerPacket, this);
 
     LocalServerId             = FirstTryServerId;
     return LocalServerIdDirty = true;
@@ -44,8 +44,8 @@ bool xServerIdClient::Init(xIoContext * ICP, const std::string & LocalServerIdFi
     if (!ClientWrapper.Init(ICP)) {
         return false;
     }
-    ClientWrapper.OnConnected = Delegate(&xServerIdClient::OnServerConnected, this);
-    ClientWrapper.OnPacket    = Delegate(&xServerIdClient::OnServerPacket, this);
+    ClientWrapper.OnServerConnected = Delegate(&xServerIdClient::OnServerConnected, this);
+    ClientWrapper.OnServerPacket    = Delegate(&xServerIdClient::OnServerPacket, this);
 
     this->LocalServerId       = LoadLocalServerId(this->LocalServerIdFilename = LocalServerIdFilename);
     return LocalServerIdDirty = true;
