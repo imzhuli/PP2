@@ -17,7 +17,7 @@ static xUdpService TestAddressUdpServer6;
 int main(int argc, char ** argv) {
 
     auto REG = xServiceEnvironmentGuard(argc, argv);
-    auto CL  = ServiceEnvironment.LoadConfig();
+    auto CL  = ServiceLoadConfig();
 
     auto BindAddress4 = xNetAddress();
     auto BindAddress6 = xNetAddress();

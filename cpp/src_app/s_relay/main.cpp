@@ -10,7 +10,7 @@
 
 int main(int argc, char ** argv) {
     X_VAR xServiceEnvironmentGuard(argc, argv);
-    auto  CL = ServiceEnvironment.LoadConfig();
+    auto  CL = ServiceLoadConfig();
 
     CL.Require(MasterServerListServerAddress, "MasterServerListServerAddress");
     CL.Require(BindAddressForDevice, "BindAddressForDevice");

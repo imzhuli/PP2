@@ -16,7 +16,7 @@ static xNetAddress ExportOutputAddress4;
 static xServerBootstrap Bootstrap;
 
 static void LoadConfig() {
-    auto LC = ServiceEnvironment.LoadConfig();
+    auto LC = ServiceLoadConfig();
     LC.Require(MasterServerListServerAddress, "MasterServerListServerAddress");
 
     LC.Require(BindInputAddress4, "BindInputAddress4");

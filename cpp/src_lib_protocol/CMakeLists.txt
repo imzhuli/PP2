@@ -12,6 +12,7 @@ include_directories(
 aux_source_directory("./pp_protocol"                        SRC)
 aux_source_directory("./pp_protocol/_backend"               SRC)
 aux_source_directory("./pp_protocol/_backend/json"          SRC)
+aux_source_directory("./pp_protocol/detail"                 SRC)
 aux_source_directory("./pp_protocol/device"                 SRC)
 aux_source_directory("./pp_protocol/internal"               SRC)
 

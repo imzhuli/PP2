@@ -96,6 +96,7 @@ using xel::Delegate;
 using xel::FileToLines;
 using xel::FileToStr;
 using xel::GetTimestampMS;
+using xel::GetUnixTimestamp;
 using xel::HexShow;
 using xel::HexToStr;
 using xel::JoinStr;
@@ -137,26 +138,6 @@ struct xServerInfo {
 
     std::strong_ordering operator<=>(const xServerInfo &) const = default;
     static bool          LessById(const xServerInfo & LHS, const xServerInfo & RHS) { return LHS.ServerId < RHS.ServerId; }
-};
-
-class xJumpTicker {
-public:
-    xJumpTicker(uint64_t JumpScaleMS = 1)
-        : JumpScaleMS(JumpScaleMS) {}
-
-    inline void Tick(uint64_t NowMS) {
-        if (NowMS - JumpScaleMS < LastTickTimestampMS) {
-            return;
-        }
-        LastTickTimestampMS = NowMS;
-        OnTick(NowMS);
-    }
-
-    std::function<void(uint64_t)> OnTick = Noop<>;
-
-private:
-    const uint64_t JumpScaleMS         = 0;
-    uint64_t       LastTickTimestampMS = 0;
 };
 
 namespace __pp_common_detail__ {

@@ -7,7 +7,7 @@ xNetAddress RelayPortExportAddress4;
 xNetAddress ObserverExportAddress4;
 
 void LoadConfig() {
-    auto CL = ServiceEnvironment.LoadConfig();
+    auto CL = ServiceLoadConfig();
     CL.Require(MasterServerListServerAddress, "MasterServerListServerAddress");
     CL.Require(RelayPortBindAddress4, "RelayPortBindAddress4");
     CL.Require(ObserverPortBindAddress4, "ObserverPortBindAddress4");

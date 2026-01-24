@@ -40,6 +40,10 @@ static void CleanLogger() {
 static auto Instance = (xServiceEnvironmentGuard *){};
 static auto EnvMutex = std::mutex();
 
+void AssertServiceEnviromentReady() {
+    RuntimeAssert(Instance);
+}
+
 xServiceEnvironmentGuard::xServiceEnvironmentGuard(int argc, char ** argv)
     : EnableLogger(true) {
     auto G = std::lock_guard(EnvMutex);

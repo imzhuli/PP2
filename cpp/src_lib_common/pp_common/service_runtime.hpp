@@ -29,6 +29,12 @@ private:
     const bool EnableLogger;
 };
 
+extern void AssertServiceEnviromentReady();
+inline auto ServiceLoadConfig() {
+    AssertServiceEnviromentReady();
+    return ServiceEnvironment.LoadConfig();
+}
+
 template <typename... tTickerObserver>
 void ServiceUpdateOnce(tTickerObserver &&... Observers) {
     ServiceTicker.Update();

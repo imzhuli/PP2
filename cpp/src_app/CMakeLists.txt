@@ -62,8 +62,10 @@ set(target_list
 	s_address_test
 	s_config_center
 	s_device_state_relay
-	s_relay_info_dispatcher
 	s_relay
+	s_relay_id_client
+	s_relay_id_manager
+	s_relay_info_dispatcher
 
 	############ tests:
 	t_lang

@@ -208,7 +208,7 @@ void OnClientClean(const xTcpServiceClientConnectionHandle & H) {
 int main(int argc, char ** argv) {
     X_VAR xServiceEnvironmentGuard(argc, argv);
 
-    auto CL = ServiceEnvironment.LoadConfig();
+    auto CL = ServiceLoadConfig();
     CL.Require(BindAddress4, "BindAddress4");
     CL.Require(ServerIdCenterAddress, "ServerIdCenterAddress");
     CL.Require(ExportBindAddress4, "ExportBindAddress4");

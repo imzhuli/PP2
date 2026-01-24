@@ -18,6 +18,11 @@ static constexpr const xPacketCommandId Cmd_BackendChallengeResp      = Cmd_Back
 static constexpr const xPacketCommandId Cmd_BackendAuthByUserPass     = Cmd_BackendBase + 0x201;
 static constexpr const xPacketCommandId Cmd_BackendAuthByUserPassResp = Cmd_BackendBase + 0x202;
 
+//
+static constexpr const xPacketCommandId Cmd_RelayServerManagementBase = 0x01'000;
+static constexpr const xPacketCommandId Cmd_AcquireRelayServerId      = Cmd_RelayServerManagementBase + 0x01;
+static constexpr const xPacketCommandId Cmd_AcquireRelayServerIdResp  = Cmd_RelayServerManagementBase + 0x02;
+
 // server management:
 static constexpr const xPacketCommandId Cmd_ServerManagementBase    = 0x05'000;
 static constexpr const xPacketCommandId Cmd_AcquireServerId         = Cmd_ServerManagementBase + 0x101;
