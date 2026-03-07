@@ -11,6 +11,7 @@ include_directories(
 aux_source_directory("./pp_common"                      SRC)
 aux_source_directory("./pp_common/lang"                 SRC)
 aux_source_directory("./pp_common/ipdb"                 SRC)
+aux_source_directory("./pp_common/relay"                SRC)
 
 add_library(${libname} ${SRC})
 target_compile_definitions(${libname} PRIVATE X_OPTION_STATIC)

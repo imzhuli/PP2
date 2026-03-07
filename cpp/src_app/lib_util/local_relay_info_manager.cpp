@@ -1,69 +1,72 @@
 #include "./local_relay_info_manager.hpp"
 
+#include <pp_common/relay/relay_id.hpp>
+
 bool xLocalRelayInfoManager::Init() {
-    LocalRelayInfoMap = new (std::nothrow) xLocalRelayInfo[xObjectIdManager::MaxObjectId + 1];
-    return LocalRelayInfoMap;
+    TotalLocalRelayInfoMap = new (std::nothrow) xLocalRelayInfoList[3];
+    if (!TotalLocalRelayInfoMap) {
+        return false;
+    }
+    return true;
 }
 
 void xLocalRelayInfoManager::Clean() {
-    delete[] Steal(LocalRelayInfoMap);
+    delete[] Steal(TotalLocalRelayInfoMap);
 }
 
-bool xLocalRelayInfoManager::AddRelayInfo(const xExportRelayServerInfo & RelayServerInfo, uint64_t SourceId) {
-    auto Index = xIndexId(RelayServerInfo.ServerId);
-    if (!Index || Index > xObjectIdManager::MaxObjectId) {
+bool xLocalRelayInfoManager::AddRelayInfo(const xAbstractRelayServerInfo & RelayServerInfo, uint64_t SourceId) {
+    auto Type  = GetRelayServerTypeFromId(RelayServerInfo.Id);
+    auto Index = GetRelayServerIndexFromId(RelayServerInfo.Id);
+    if (IsUnspecified(Type) || !Index) {
         Logger->E("InsertRelayInfo invalid server id");
         return false;
     }
+    auto   List = TotalLocalRelayInfoMap[(size_t)Type - 1];
+    auto & Ref  = List[Index];
 
-    SERVICE_RUNTIME_ASSERT(!Reentry);
-    X_VAR xValueGuard(Reentry, true);
-
-    auto & Ref       = LocalRelayInfoMap[Index];
-    auto   Unchanged = (RelayServerInfo == Ref.RelayServerInfo);
+    auto Unchanged = (RelayServerInfo == Ref.RelayServerInfo);
     if (Unchanged) {
-        Ref.SourceId = SourceId;
         return true;
     }
 
-    auto RemoveFirst = Ref.RelayServerInfo.ServerId;  // old value exists
+    auto RemoveFirst = Ref.RelayServerInfo.Id;  // old value exists
     if (RemoveFirst) {
-        OnRemoveRelayInfo(Ref.RelayServerInfo, Ref.SourceId);
+        OnRemoveRelayInfo(Ref.RelayServerInfo);
     }
 
     Ref.RelayServerInfo = RelayServerInfo;
-    Ref.SourceId        = SourceId;
     OnAddRelayInfo(Ref.RelayServerInfo);
     return true;
 }
 
 void xLocalRelayInfoManager::RemoveRelayInfo(uint64_t RelayServerId) {
-    auto Index = xIndexId(RelayServerId);
-    if (!Index || Index > xObjectIdManager::MaxObjectId) {
-        Logger->E("InsertRelayInfo invalid server id");
+    auto Type  = GetRelayServerTypeFromId(RelayServerId);
+    auto Index = GetRelayServerIndexFromId(RelayServerId);
+    if (IsUnspecified(Type) || !Index) {
+        Logger->E("RemoveRelayInfo: invalid relay server id");
         return;
     }
-    auto & Ref = LocalRelayInfoMap[Index];
-    if (Ref.RelayServerInfo.ServerId != RelayServerId) {
-        Logger->E("ServerId mismatch");
+    auto   List = TotalLocalRelayInfoMap[(size_t)Type - 1];
+    auto & Ref  = List[Index];
+    if (Ref.RelayServerInfo.Id != RelayServerId) {
+        Logger->E("RemoveRelayInfo: ServerId mismatch");
         return;
     }
 
-    SERVICE_RUNTIME_ASSERT(!Reentry);
-    X_VAR xValueGuard(Reentry, true);
-
-    OnRemoveRelayInfo(Ref.RelayServerInfo, Ref.SourceId);
+    OnRemoveRelayInfo(Ref.RelayServerInfo);
     Reset(Ref);
 }
 
 auto xLocalRelayInfoManager::GetLocalRelayInfo(uint64_t RelayServerId) const -> const xLocalRelayInfo * {
-    auto Index = xIndexId(RelayServerId);
-    if (!Index || Index > xObjectIdManager::MaxObjectId) {
-        Logger->E("InsertRelayInfo invalid server id");
+    auto Type  = GetRelayServerTypeFromId(RelayServerId);
+    auto Index = GetRelayServerIndexFromId(RelayServerId);
+    if (IsUnspecified(Type) || !Index) {
+        Logger->E("GetLocalRelayInfo: invalid relay server id");
         return nullptr;
     }
-    auto & Ref = LocalRelayInfoMap[Index];
-    if (!Ref.RelayServerInfo.ServerId) {
+    auto   List = TotalLocalRelayInfoMap[(size_t)Type - 1];
+    auto & Ref  = List[Index];
+    if (!Ref.RelayServerInfo.Id) {
         return nullptr;
     }
     return &Ref;

@@ -1,6 +1,15 @@
 #pragma once
 #include <pp_common/_.hpp>
 
+// xPacketCommandId
+#define PPP_MAKE_RESP(RequestName) static constexpr const xPacketCommandId RequestName##Resp = (RequestName | Cmd_Resp_Flag)
+
+static constexpr const xPacketCommandId Cmd_PPP_Base  = 0x01'000;
+static constexpr const xPacketCommandId Cmd_Resp_Flag = 0x00'800;
+
+static constexpr const xPacketCommandId Cmd_DeviceGetV6AddressKey = Cmd_PPP_Base + 0x01;
+PPP_MAKE_RESP(Cmd_DeviceGetV6AddressKey);
+
 // backend base:
 static constexpr const xPacketCommandId Cmd_BackendBase           = 0x04'000;
 static constexpr const xPacketCommandId Cmd_AuditTerminalInfo     = Cmd_BackendBase + 0x01;  // 旧版, 弃用

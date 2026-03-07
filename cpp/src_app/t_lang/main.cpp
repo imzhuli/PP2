@@ -9,11 +9,11 @@ int main(int argc, char ** argv) {
 
     X_RESOURCE_GUARD(M);
 
-    M.OnAddRelayInfo = [](const xExportRelayServerInfo & RelayServerInfo) {
-        M.RemoveRelayInfo(RelayServerInfo.ServerId);
+    M.OnAddRelayInfo = [](const xAbstractRelayServerInfo & RelayServerInfo) {
+        M.RemoveRelayInfo(RelayServerInfo.Id);
     };
 
-    M.AddRelayInfo({ .ServerId = 1 }, 1);
+    M.AddRelayInfo({ .Id = 1 }, 1);
 
     return 0;
 }

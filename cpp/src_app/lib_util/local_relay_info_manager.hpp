@@ -5,25 +5,26 @@
 class xLocalRelayInfoManager {
 private:
     struct xLocalRelayInfo {
-        uint64_t               SourceId;  // where the relay_info came from
-        xExportRelayServerInfo RelayServerInfo;
+        xAbstractRelayServerInfo RelayServerInfo;
     };
 
 public:
     bool Init();
     void Clean();
 
-    bool AddRelayInfo(const xExportRelayServerInfo & RelayServerInfo, uint64_t SourceId);
+    bool AddRelayInfo(const xAbstractRelayServerInfo & RelayServerInfo, uint64_t SourceId);
     void RemoveRelayInfo(uint64_t RelayServerId);
     auto GetLocalRelayInfo(uint64_t RelayServerId) const -> const xLocalRelayInfo *;
 
-    using xOnAddRelayInfo    = std::function<void(const xExportRelayServerInfo & RelayServerInfo)>;
-    using xOnRemoveRelayInfo = std::function<void(const xExportRelayServerInfo & RelayServerInfo, uint64_t LastInfoSourceId)>;
+    using xOnAddRelayInfo    = std::function<void(const xAbstractRelayServerInfo & RelayServerInfo)>;
+    using xOnRemoveRelayInfo = std::function<void(const xAbstractRelayServerInfo & RelayServerInfo)>;
 
     xOnAddRelayInfo    OnAddRelayInfo    = Noop<>;
     xOnRemoveRelayInfo OnRemoveRelayInfo = Noop<>;
 
 private:
-    xLocalRelayInfo * LocalRelayInfoMap = nullptr;
-    bool              Reentry           = false;
+    static constexpr const size_t SingleTypeRelayInfoListSize = xObjectIdManager::MaxObjectId + 1;
+    using xLocalRelayInfoList                                 = xLocalRelayInfo[SingleTypeRelayInfoListSize];
+
+    xLocalRelayInfoList * TotalLocalRelayInfoMap = nullptr;
 };

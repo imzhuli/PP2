@@ -11,7 +11,7 @@ struct xPP_RelayInfoRegister : public xel::xBinaryMessage {
         R(ExportRelayServerInfo.ServerId, ExportRelayServerInfo.DevicePortAddress, ExportRelayServerInfo.ClientPortAddress);
     }
 
-    xExportRelayServerInfo ExportRelayServerInfo;
+    xAbstractRelayServerInfo ExportRelayServerInfo;
 };
 
 struct xPP_BroadcastRelayInfo : public xBinaryMessage {  // from proxy_access to relay server
@@ -23,5 +23,5 @@ struct xPP_BroadcastRelayInfo : public xBinaryMessage {  // from proxy_access to
         R(ExportRelayServerInfo.ServerId, ExportRelayServerInfo.DevicePortAddress, ExportRelayServerInfo.ClientPortAddress);
     }
 
-    xExportRelayServerInfo ExportRelayServerInfo;
+    xAbstractRelayServerInfo ExportRelayServerInfo;
 };

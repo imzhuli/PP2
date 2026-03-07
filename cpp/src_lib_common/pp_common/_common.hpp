@@ -30,18 +30,30 @@ enum struct eServiceType : uint16_t {  // used for service list, one program can
     MAX_TYPE_INDEX = 256,
 };
 
-enum struct eRelayServerType : uint16_t {
+enum struct eRelayServerType : uint8_t {
     UNSPECIFIED = 0,
     DEVICE      = 1,
-    THIRD       = 2,
-    STATIC      = 3,
+    STATIC      = 2,
+    THIRD       = 3,
+    RELAY_TYPE_COUNT,
 };
 
-struct xExportRelayServerInfo {
-    uint64_t         ServerId;
-    eRelayServerType ServerType;
+inline bool IsUnspecified(eRelayServerType Type) {
+    return Type != eRelayServerType::UNSPECIFIED;
+}
+
+struct xAbstractDeviceInfo {
+    uint64_t    RelayServerId;
+    uint64_t    DeviceId;
+    xNetAddress DeviceAddress4;
+    xNetAddress DeviceAddress6;
+};
+
+struct xAbstractRelayServerInfo {
+    eRelayServerType Type;
+    uint64_t         Id;
     xNetAddress      DevicePortAddress;
     xNetAddress      ClientPortAddress;
 
-    std::strong_ordering operator<=>(const xExportRelayServerInfo &) const = default;
+    std::strong_ordering operator<=>(const xAbstractRelayServerInfo &) const = default;
 };
