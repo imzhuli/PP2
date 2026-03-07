@@ -4,7 +4,11 @@
 
 class xLocalRelayInfoManager {
 private:
-    struct xLocalRelayInfo {
+    struct xTimeoutListNode : xListNode {
+        uint64_t LastUpdateTimestampMS = 0;
+    };
+    using xTimeoutList = xList<xTimeoutListNode>;
+    struct xLocalRelayInfo : xTimeoutListNode {
         xAbstractRelayServerInfo RelayServerInfo;
     };
 
@@ -12,7 +16,7 @@ public:
     bool Init();
     void Clean();
 
-    bool AddRelayInfo(const xAbstractRelayServerInfo & RelayServerInfo, uint64_t SourceId);
+    bool AddRelayInfo(const xAbstractRelayServerInfo & RelayServerInfo);
     void RemoveRelayInfo(uint64_t RelayServerId);
     auto GetLocalRelayInfo(uint64_t RelayServerId) const -> const xLocalRelayInfo *;
 
@@ -23,8 +27,14 @@ public:
     xOnRemoveRelayInfo OnRemoveRelayInfo = Noop<>;
 
 private:
+    void ResetLocalRelayInfoNode(xLocalRelayInfo & RelayInfo);
+
+private:
     static constexpr const size_t SingleTypeRelayInfoListSize = xObjectIdManager::MaxObjectId + 1;
     using xLocalRelayInfoList                                 = xLocalRelayInfo[SingleTypeRelayInfoListSize];
 
     xLocalRelayInfoList * TotalLocalRelayInfoMap = nullptr;
+    xTimeoutList          TimeoutRelayInfoList;
+
+    xNoReentry NoReentry;
 };

@@ -14,7 +14,9 @@ void xLocalRelayInfoManager::Clean() {
     delete[] Steal(TotalLocalRelayInfoMap);
 }
 
-bool xLocalRelayInfoManager::AddRelayInfo(const xAbstractRelayServerInfo & RelayServerInfo, uint64_t SourceId) {
+bool xLocalRelayInfoManager::AddRelayInfo(const xAbstractRelayServerInfo & RelayServerInfo) {
+    X_VAR NoReentry.Scope();
+
     auto Type  = GetRelayServerTypeFromId(RelayServerInfo.Id);
     auto Index = GetRelayServerIndexFromId(RelayServerInfo.Id);
     if (IsUnspecified(Type) || !Index) {
@@ -40,6 +42,8 @@ bool xLocalRelayInfoManager::AddRelayInfo(const xAbstractRelayServerInfo & Relay
 }
 
 void xLocalRelayInfoManager::RemoveRelayInfo(uint64_t RelayServerId) {
+    X_VAR NoReentry.Scope();
+
     auto Type  = GetRelayServerTypeFromId(RelayServerId);
     auto Index = GetRelayServerIndexFromId(RelayServerId);
     if (IsUnspecified(Type) || !Index) {
@@ -54,7 +58,7 @@ void xLocalRelayInfoManager::RemoveRelayInfo(uint64_t RelayServerId) {
     }
 
     OnRemoveRelayInfo(Ref.RelayServerInfo);
-    Reset(Ref);
+    ResetLocalRelayInfoNode(Ref);
 }
 
 auto xLocalRelayInfoManager::GetLocalRelayInfo(uint64_t RelayServerId) const -> const xLocalRelayInfo * {
@@ -70,4 +74,9 @@ auto xLocalRelayInfoManager::GetLocalRelayInfo(uint64_t RelayServerId) const -> 
         return nullptr;
     }
     return &Ref;
+}
+
+void xLocalRelayInfoManager::ResetLocalRelayInfoNode(xLocalRelayInfo & RelayInfo) {
+    xTimeoutList::Remove(RelayInfo);
+    Reset(RelayInfo);
 }

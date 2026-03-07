@@ -64,6 +64,7 @@ using xel::xMd5Result;
 using xel::xMemoryPool;
 using xel::xMemoryPoolOptions;
 using xel::xNetAddress;
+using xel::xNoReentry;
 using xel::xObjectIdManager;
 using xel::xObjectIdManagerMini;
 using xel::xOptional;
@@ -205,6 +206,7 @@ static inline bool ValidateAppSign(const std::string & Sign, const std::string &
 extern uint32_t ExtractIndexFromServerId(uint64_t ServerId);
 
 // clang-format on
+
 inline std::ostream & operator<<(std::ostream & OS, const xNetAddress & Address) {
     OS << Address.ToString();
     return OS;

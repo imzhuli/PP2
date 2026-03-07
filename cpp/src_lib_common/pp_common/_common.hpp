@@ -39,7 +39,7 @@ enum struct eRelayServerType : uint8_t {
 };
 
 inline bool IsUnspecified(eRelayServerType Type) {
-    return Type != eRelayServerType::UNSPECIFIED;
+    return Type == eRelayServerType::UNSPECIFIED;
 }
 
 struct xAbstractDeviceInfo {
