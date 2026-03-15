@@ -173,6 +173,43 @@ inline void TickAll(uint64_t NowMS, T &&... All) {
     __pp_common_detail__::__TickAll__(NowMS, std::forward<T>(All)...);
 }
 
+class xPPNone {};
+class xPPObjectBase;
+class xPPObjectManagerBase;
+template <typename T>
+class xPPObjectHandle;
+
+struct xPPObjectBase {
+protected:
+    friend class xPPObjectManagerBase;
+    template <typename T>
+    friend class xPPObjectHandle;
+
+    uint64_t               Id      = 0;
+    xPPObjectManagerBase * Manager = nullptr;
+};
+
+struct xPPObjectManagerBase {
+    virtual xPPObjectBase * GetObjectById(uint64_t Id) = 0;
+};
+
+template <typename T>
+class xPPObjectHandle final : std::enable_if_t<std::is_convertible_v<xPPObjectBase *, T *>, xPPNone> {
+public:
+    xPPObjectHandle(T * O)
+        : Object(O), ObjectId(O->Id), Manager(O->Manager) {}
+
+    inline uint64_t GetObjectId() const { return ObjectId; }
+    inline bool     IsValid() const { return Manager->GetObjectById(ObjectId) == Object; }
+
+    T * operator->() const { return Object; }
+
+private:
+    T *                    Object   = nullptr;
+    uint64_t               ObjectId = 0;
+    xPPObjectManagerBase * Manager  = nullptr;
+};
+
 // clang-format off
 
 static inline uint32_t High32(uint64_t U) { return (uint32_t)(U >> 32); }

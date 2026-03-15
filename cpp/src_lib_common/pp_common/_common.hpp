@@ -50,10 +50,8 @@ struct xAbstractDeviceInfo {
 };
 
 struct xAbstractRelayServerInfo {
-    eRelayServerType Type;
-    uint64_t         Id;
-    xNetAddress      DevicePortAddress;
-    xNetAddress      ClientPortAddress;
+    uint64_t Id;
+    uint8_t  GroupId;
 
     std::strong_ordering operator<=>(const xAbstractRelayServerInfo &) const = default;
 };

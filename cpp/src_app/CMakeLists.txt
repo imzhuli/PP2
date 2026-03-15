@@ -33,6 +33,7 @@ endif()
 
 aux_source_directory("./lib_backend_connection"      LIB_SRC)
 aux_source_directory("./lib_client"                  LIB_SRC)
+aux_source_directory("./lib_component"               LIB_SRC)
 aux_source_directory("./lib_util"                    LIB_SRC)
 
 add_library(server ${LIB_SRC})

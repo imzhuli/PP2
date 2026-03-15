@@ -10,12 +10,12 @@ static xel::xUdpService      Address6ChallengeService;
 static xCC_IpLocationManager IpLocationManager;
 
 static void OnUdpPacket(const xUdpServiceChannelHandle & Handle, xPacketCommandId CommandId, xPacketRequestId, ubyte *, size_t) {
-    if (CommandId != Cmd_DV_RL_AddressChallenge) {
+    if (CommandId != Cmd_DV_CC_GetAddressKey) {
         return;
     }
     auto Push    = xPP_DeviceAddress6ChallengeResp();
     Push.Address = Handle.GetRemoteAddress().Ip();
-    Handle.PostMessage(Cmd_DV_RL_AddressPush, 0, Push);
+    Handle.PostMessage(Cmd_DV_CC_GetAddressKeyResp, 0, Push);
 }
 
 int main(int argc, char ** argv) {
