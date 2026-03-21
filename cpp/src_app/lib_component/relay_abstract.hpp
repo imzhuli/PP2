@@ -2,7 +2,15 @@
 #include <pp_common/_common.hpp>
 #include <pp_common/device.hpp>
 
-struct xRelayAbstractConnection {
+struct xRelayAbstractDevice;
+struct xRelayAbstractConnection;
+struct xRelayAbstractUdpChannel;
+
+struct xRelayLifeCycleNode : xListNode {};
+
+struct xRelayAbstractConnection : xRelayLifeCycleNode{
+    xRelayAbstractDevice * Owner = nullptr;
+
     virtual bool IsOpen() const                                                                             = 0;
     virtual bool IsConnected() const                                                                        = 0;
     virtual bool IsClosing() const                                                                          = 0;
@@ -13,7 +21,9 @@ struct xRelayAbstractConnection {
     virtual void SetDownloadSpeedLimit(size_t Limit) {};
 };
 
-struct xRelayAbstractUdpChannel {
+struct xRelayAbstractUdpChannel : xRelayLifeCycleNode {
+    xRelayAbstractDevice * Owner = nullptr;
+
     virtual void PostData(const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) = 0;
 };
 
@@ -26,3 +36,4 @@ struct xRelayAbstractDevice {
     virtual uint64_t CreateUdpChannel()                                                  = 0;
     virtual void     DestroyUdpChannel(uint64_t ChannelId)                               = 0;
 };
+
