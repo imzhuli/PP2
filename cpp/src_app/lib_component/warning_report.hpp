@@ -14,6 +14,7 @@ private:
 public:
     bool Init(const xNetAddress & Remote);
     void Clean();
+    void Tick(uint64_t NowMS);
     void SetupWarning(size_t Index, size_t Threshold, uint64_t TimeoutMS);
     void Warn(size_t Index);
 

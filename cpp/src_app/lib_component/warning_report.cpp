@@ -17,6 +17,10 @@ void xRemoteWarning::Clean() {
     Client.Clean();
 }
 
+void xRemoteWarning::Tick(uint64_t NowMS) {
+    Client.Tick(NowMS);
+}
+
 void xRemoteWarning::Warn(size_t Index) {
     X_RUNTIME_ASSERT(Index <= MAX_WARNING);
     auto & W   = Warnings[Index];
@@ -42,6 +46,7 @@ void xRemoteWarning::SetupWarning(size_t Index, size_t Threshold, uint64_t Timeo
 }
 
 void xRemoteWarning::DoWarn(const xWarning & W) {
-    if (Client.IsOpen()) {
+    if (!Client.IsOpen()) {
+        return;
     }
 }
