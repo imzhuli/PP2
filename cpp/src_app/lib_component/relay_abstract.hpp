@@ -6,7 +6,9 @@ struct xRelayAbstractDevice;
 struct xRelayAbstractConnection;
 struct xRelayAbstractUdpChannel;
 
-struct xRelayLifeCycleNode : xListNode {};
+struct xRelayLifeCycleNode : xListNode {
+    uint64_t Id = 0;
+};
 
 struct xRelayAbstractConnection : xRelayLifeCycleNode{
     xRelayAbstractDevice * Owner = nullptr;

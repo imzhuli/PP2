@@ -5,7 +5,6 @@ class xRelayLocalBindingConnection;
 class xRelayLocalBindingDevice;
 
 struct xRelayLocalBindingConnection final : xel::xTcpConnection {
-    
     xRelayLocalBindingDevice * Owner = nullptr;
 };
 
@@ -27,3 +26,7 @@ private:
 private:
     xNetAddress BindAddress;
 };
+
+extern xRelayLocalBindingDevice *              CreateLocalBindingDevice(const xNetAddress & LocalBindingAddress);
+extern void                                    ReleaseLocalBindingDevice(xRelayLocalBindingDevice * Device);
+extern std::vector<xRelayLocalBindingDevice *> GetLoadLocalBindingDeviceList();

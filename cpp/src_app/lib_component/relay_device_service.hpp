@@ -3,6 +3,8 @@
 #include "./relay_local_binding_device.hpp"
 #include "./relay_remote_device.hpp"
 
+extern xel::xIndexedStorage<xRelayAbstractDevice *> DeviceIdManager;
+
 extern void EnableRelayRemoteDeviceService(const xel::xNetAddress & BindAddress);
 extern void DisableRelayRemoteDeviceService();
 
@@ -12,6 +14,3 @@ extern std::function<void()> RelayOnRemoteDeviceRemoved;
 
 extern void EnableRelayLocalBindingDeviceService(const char * LocalBindingFilename);
 extern void DisableRelayLocaBindinglDeviceService();
-
-extern xRelayLocalBindingDevice * CreateLocalBindingDevice(const xNetAddress & LocalBindingAddress);
-extern void                       ReleaseLocalBindingDevice(xRelayLocalBindingDevice * Device);
