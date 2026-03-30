@@ -4,8 +4,8 @@
 
 std::string xBackendChallenge::Sign(const std::string & Source) {
     auto r1 = xel::Md5(Source.data(), Source.size());
-    auto r2 = xel::Md5(r1.Data(), r1.Size());
-    return StrToHexLower(r2.Data(), r2.Size());
+    auto r2 = xel::Md5(r1.Data, sizeof(r1.Data));
+    return StrToHexLower(r2.Data, sizeof(r2.Data));
 }
 
 std::string xBackendChallenge::GenerateChallengeString(const std::string & AppSecret) const {

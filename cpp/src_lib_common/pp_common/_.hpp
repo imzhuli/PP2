@@ -15,6 +15,7 @@
 #include <core/optional.hpp>
 #include <core/string.hpp>
 #include <crypto/base64.hpp>
+#include <crypto/hmac.hpp>
 #include <crypto/md5.hpp>
 #include <network/net_address.hpp>
 #include <network/tcp_connection.hpp>
@@ -53,6 +54,7 @@ using xel::xClientPoolConnectionHandle;
 using xel::xClientWrapper;
 using xel::xCommandLine;
 using xel::xConfigLoader;
+using xel::xHmacSha256Result;
 using xel::xIndexedStorage;
 using xel::xIndexId;
 using xel::xIndexIdPool;

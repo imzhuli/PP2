@@ -60,6 +60,8 @@ set(target_list
 	s_server_id_center
 	s_server_list
 	s_config_center
+	
+	s_local_proxy_relay
 
 	#s_device_state_relay
 	#s_relay
@@ -70,6 +72,7 @@ set(target_list
 	############ tests:
 	t_lang
 	t_relay_id
+	t_sign
 	#t_server_list_client
 
 	############ other:

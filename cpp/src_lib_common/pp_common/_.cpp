@@ -30,7 +30,7 @@ std::string AppSign(uint64_t Timestamp, const std::string & SecretKey, const voi
     auto TS     = std::to_string(Timestamp);
     auto Source = StaicSignSalt + TS + SecretKey + std::string((const char *)DataPtr, Size);
     auto D      = xel::Sha256(Source.data(), Source.size());
-    return TS + ":" + StrToHex(D.Digest, 32);
+    return TS + ":" + StrToHex(D.Data, sizeof(D.Data));
 }
 
 bool ValidateAppSign(const std::string & Sign, const std::string & SecretKey, const void * DataPtr, size_t Size) {
@@ -46,7 +46,7 @@ bool ValidateAppSign(const std::string & Sign, const std::string & SecretKey, co
     auto Source = StaicSignSalt + Segs[0] + SecretKey + std::string((const char *)DataPtr, Size);
     auto D      = xel::Sha256(Source.data(), Source.size());
 
-    return StrToHex(D.Digest, 32) == Segs[1];
+    return StrToHex(D.Data, sizeof(D.Data)) == Segs[1];
 }
 
 uint32_t ExtractIndexFromServerId(uint64_t ServerId) {

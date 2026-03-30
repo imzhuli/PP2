@@ -28,7 +28,7 @@ static uint32_t GenerateHighBits(eRelayServerType Type, uint32_t Id) {
     auto CS = xel::Md5(W.Origin(), W.Offset());
     // printf("%s\n", xel::StrToHex(W.Origin(), W.Offset()).c_str());
     // printf("%s\n", xel::StrToHex(CS.Data(), CS.Size()).c_str());
-    auto R = xel::xStreamReader(CS.Data());
+    auto R = xel::xStreamReader(CS.Data);
 
     uint32_t UT = uint32_t(0x80 | uint8_t(Type)) << 24;
     uint32_t UC = R.R4L() & 0x00FF0000;
@@ -59,7 +59,7 @@ static bool ValidateHighBits(uint64_t FullId) {
     // printf("%s\n", xel::StrToHex(W.Origin(), W.Offset()).c_str());
     // printf("%s\n", xel::StrToHex(CS.Data(), CS.Size()).c_str());
 
-    auto R = xel::xStreamReader(CS.Data());
+    auto R = xel::xStreamReader(CS.Data);
     return (R.R4L() & 0x00FF0000) == (HB & 0x00FF0000);
 }
 

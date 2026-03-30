@@ -1,17 +1,27 @@
 #pragma once
-#include <pp_common/queue.hpp>
+#include <core/memory_pool.hpp>
+#include <pp_common/_common.hpp>
 
 using xPPMessage = uint32_t;
 
-struct xLocalMessage {
-    xPPMessage Message = 0;
+struct xMessageNode : xListNode {};
+
+struct xLocalMessage : xMessageNode {
+    xPPMessage     Message = 0;
     xel::xVariable P1;
     xel::xVariable P2;
 };
 
-using xLocalMessageQueue = xFixedSizeArrayQueue<xLocalMessage>;
+extern xLocalMessage * AllocLocalMessage();
+extern void            ReleaseLocalMessage(xLocalMessage * Message);
+extern void            PushMessage(xLocalMessage * Message);
+extern xLocalMessage * PopMessage();
 
-constexpr const xPPMessage LMQ_CreateTcpConnection        = 0x01;
-constexpr const xPPMessage LMQ_DestroyTcpConnection       = 0x02;
-constexpr const xPPMessage LMQ_CreateTcpConnectionResult  = 0x03;
+extern xLocalMessage * MT_AllocLocalMessage();
+extern void            MT_ReleaseLocalMessage(xLocalMessage * Message);
+extern void            MT_PushMessage(xLocalMessage * Message);
+extern xLocalMessage * MT_PopMessage();
 
+constexpr const xPPMessage LMQ_CreateTcpConnection       = 0x01;
+constexpr const xPPMessage LMQ_DestroyTcpConnection      = 0x02;
+constexpr const xPPMessage LMQ_CreateTcpConnectionResult = 0x03;
