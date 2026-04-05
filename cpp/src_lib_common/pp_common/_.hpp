@@ -251,8 +251,9 @@ inline std::ostream & operator<<(std::ostream & OS, const xNetAddress & Address)
     return OS;
 }
 
-#define X_AT_EXIT(exit)      auto X_CONCAT_FORCE_EXPAND(__X_AtExit__, __LINE__) = ::xel::xScopeGuard(exit);
-#define X_SCOPE(entry, exit) auto X_CONCAT_FORCE_EXPAND(__X_Scope__, __LINE__) = ::xel::xScopeGuard(entry, exit);
+#define X_THREAD(...)                                                              \
+    auto X_CONCAT_FORCE_EXPAND(__X_Thread__, __LINE__) = std::thread(__VA_ARGS__); \
+    X_SCOPE_GUARD([&] { X_CONCAT_FORCE_EXPAND(__X_Thread__, __LINE__).join(); })
 
 #ifndef NDEBUG
 #define X_MAYBE_UNUSED [[maybe_unused]]

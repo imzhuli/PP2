@@ -15,13 +15,13 @@ static bool            RemoteDeviceServerEnabled = false;
 
 static bool LocalBindingeviceServerEnabled = false;
 
-static auto DeviceIdManagerGuard = xel::xResourceGuard(DeviceIdManager, MAX_RELAY_REMOTE_DEVICE_PER_PROCESS + MAX_RELAY_LOCAL_BINDING_DEVICE_PER_PROCESS);
+static auto DeviceIdManager      = xIndexedStorage<xRelayAbstractDevice *>();
+static auto DeviceIdManagerGuard = xResourceGuard(DeviceIdManager, MAX_RELAY_REMOTE_DEVICE_PER_PROCESS + MAX_RELAY_LOCAL_BINDING_DEVICE_PER_PROCESS);
 static auto UnitChecker          = xInstantRun([] {
     X_RUNTIME_ASSERT(DeviceIdManagerGuard);
 });
 
 ////////////////
-xel::xIndexedStorage<xRelayAbstractDevice *> DeviceIdManager;
 
 ////////////////// RelayRemoteDeviceService
 
@@ -54,4 +54,15 @@ void EnableRelayLocalBindingDeviceService(const char * LocalBindingFilename) {
 void DisableRelayLocaBindinglDeviceService() {
     X_RUNTIME_ASSERT(LocalBindingeviceServerEnabled);
     LocalBindingeviceServerEnabled = false;
+}
+
+///////////////////////
+
+uint64_t AcquireDeviceId(xRelayAbstractDevice * Device) {
+    return DeviceIdManager.Acquire(Device);
+}
+
+void ReleaseDeviceId(uint64_t Id) {
+    assert(DeviceIdManager.Check(Id));
+    DeviceIdManager.Release(Id);
 }

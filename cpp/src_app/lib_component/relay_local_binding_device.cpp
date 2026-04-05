@@ -4,6 +4,9 @@
 
 #include <pp_common/service_runtime.hpp>
 
+class xLocalBindingConnection : public xel::xTcpConnection {
+};
+
 bool xRelayLocalBindingDevice::Init(const xNetAddress & LocalDevice) {
     assert(ServiceRunState);
     assert(LocalDevice && !LocalDevice.Port);
@@ -16,29 +19,40 @@ void xRelayLocalBindingDevice::Clean() {
 }
 
 xRelayLocalBindingDevice * CreateLocalBindingDevice(const xNetAddress & LocalBindingAddress) {
-    auto Id = DeviceIdManager.Acquire();
-    if (!Id) {
-        return nullptr;
-    }
     auto Device = new xRelayLocalBindingDevice();
     if (!Device->Init(LocalBindingAddress)) {
-        DeviceIdManager.Release(Id);
         return nullptr;
     }
-    Device->DeviceId    = Id;
-    DeviceIdManager[Id] = Device;
+    if (!(Device->DeviceId = AcquireDeviceId(Device))) {
+        Device->Clean();
+        delete Device;
+        return nullptr;
+    }
     return Device;
 }
 
 void ReleaseLocalBindingDevice(xRelayLocalBindingDevice * Device) {
-#ifndef NDEBUG
-    X_RUNTIME_ASSERT(Device && Device->DeviceId);
-    auto PPD = DeviceIdManager.CheckAndGet(Device->DeviceId);
-    X_RUNTIME_ASSERT(PPD && *PPD == Device);
-#endif
-    DeviceIdManager.Release(Device->DeviceId);
+    ReleaseDeviceId(Device->DeviceId);
     Device->Clean();
     delete Device;
+}
+
+uint64_t xRelayLocalBindingDevice::CreateConnection(const std::string & TargetHostname, uint16_t Port) {
+    return 0;
+}
+
+uint64_t xRelayLocalBindingDevice::CreateConnection(const xel::xNetAddress & TargetAddress) {
+    return 0;
+}
+
+void xRelayLocalBindingDevice::DestroyConnection(uint64_t ConnectionId) {
+}
+
+uint64_t xRelayLocalBindingDevice::CreateUdpChannel() {
+    return 0;
+}
+
+void xRelayLocalBindingDevice::DestroyUdpChannel(uint64_t ChannelId) {
 }
 
 std::vector<xRelayLocalBindingDevice *> GetLoadLocalBindingDeviceList();

@@ -18,6 +18,8 @@ link_directories(
 message(STATUS ${LIBRARY_OUTPUT_PATH})
 set(LOCAL_PP_LIBRARIES ppprotocol ppdb ppcommon)
 
+set(LOCAL_3RD_LIBRARIES ${LOCAL_3RD_LIBRARIES} libcares.a)
+
 # enable specific macors by system type:
 if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 	set(PLATFORM_LIBRARIES ws2_32 Mswsock)
@@ -60,6 +62,8 @@ set(target_list
 	s_server_id_center
 	s_server_list
 	s_config_center
+	s_dispatcher
+    s_dns
 	
 	s_local_proxy_relay
 
@@ -70,8 +74,10 @@ set(target_list
 	#s_relay_info_dispatcher
 
 	############ tests:
+    t_dns_client
 	t_lang
 	t_relay_id
+	t_relay_local
 	t_sign
 	#t_server_list_client
 

@@ -27,9 +27,6 @@ int main(int argc, char ** argv) {
 
     Daemonize();
 
-    X_COND_GUARD(BindAddress4, GetRelayService4, ServiceIoContext, BindAddress4);
-    X_COND_GUARD(BindAddress6, Address6ChallengeService, ServiceIoContext, BindAddress6);
-
     Address6ChallengeService.OnPacketCallback = &OnUdpPacket;
 
     while (ServiceRunState) {

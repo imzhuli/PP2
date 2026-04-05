@@ -17,11 +17,6 @@ extern void            ReleaseLocalMessage(xLocalMessage * Message);
 extern void            PushMessage(xLocalMessage * Message);
 extern xLocalMessage * PopMessage();
 
-extern xLocalMessage * MT_AllocLocalMessage();
-extern void            MT_ReleaseLocalMessage(xLocalMessage * Message);
-extern void            MT_PushMessage(xLocalMessage * Message);
-extern xLocalMessage * MT_PopMessage();
-
 constexpr const xPPMessage LMQ_CreateTcpConnection       = 0x01;
 constexpr const xPPMessage LMQ_DestroyTcpConnection      = 0x02;
 constexpr const xPPMessage LMQ_CreateTcpConnectionResult = 0x03;
