@@ -69,7 +69,7 @@ static void DispatchPacket(const xTcpServiceClientConnectionHandle & SourceHandl
 
     auto Iter = CommandDispatcherMap.find(CmdId);
     if (Iter == CommandDispatcherMap.end()) {
-        DEBUG_LOG("no dispatcher");
+        ++audit::RequestMappingOverflow;
         return;
     }
     auto & Dispatcher = Iter->second;
@@ -102,7 +102,7 @@ static void DispatchPacket(const xTcpServiceClientConnectionHandle & SourceHandl
     if (Dispatcher.RequireResponse) {
         auto ReplacedRequestId = SourceRequestMap.Acquire(SourceHandle, RequestId);
         if (!ReplacedRequestId) {
-            ++audit::RequestMappingOverflow;
+            ++audit::NoConsumerFound;
             return;
         }
         xPacketHeader::PatchRequestId(DataBuffer, ReplacedRequestId);
