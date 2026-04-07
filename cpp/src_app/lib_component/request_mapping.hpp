@@ -21,13 +21,14 @@ public:
     };
 
 public:
-    bool Init(size_t MaxRequest, uint64_t RequestTimeoutMS = 2'000);
+    bool Init(size_t MaxRequest, uint64_t RequestTimeoutMS = 1'000);
     void Clean();
     void Tick(uint64_t NowMS);
     void Tick() { Tick(xel::GetTimestampMS()); }
 
     uint64_t       Acquire(xTcpServiceClientConnectionHandle SourceHandle, uint64_t SourceRequestId);
     xSourceRequest GetAndRelease(uint64_t RequestId);
+    void           Release(uint64_t RequestId);
 
     const xAudit & GetAudit() const { return Audit; }
 

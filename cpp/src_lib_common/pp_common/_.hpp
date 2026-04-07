@@ -22,10 +22,10 @@
 #include <network/tcp_server.hpp>
 #include <network/udp_channel.hpp>
 #include <object/object.hpp>
-#include <server_arch/client.hpp>
-#include <server_arch/client_pool.hpp>
-#include <server_arch/client_wrapper.hpp>
 #include <server_arch/message.hpp>
+#include <server_arch/tcp_client.hpp>
+#include <server_arch/tcp_client_pool.hpp>
+#include <server_arch/tcp_client_wrapper.hpp>
 #include <server_arch/tcp_service.hpp>
 #include <server_arch/udp_service.hpp>
 
@@ -48,10 +48,6 @@ using xel::xAbstract;
 using xel::xAutoHolder;
 using xel::xBaseLogger;
 using xel::xBinaryMessage;
-using xel::xClient;
-using xel::xClientPool;
-using xel::xClientPoolConnectionHandle;
-using xel::xClientWrapper;
 using xel::xCommandLine;
 using xel::xConfigLoader;
 using xel::xHmacSha256Result;
@@ -80,6 +76,10 @@ using xel::xScopeGuard;
 using xel::xSocket;
 using xel::xStreamReader;
 using xel::xStreamWriter;
+using xel::xTcpClient;
+using xel::xTcpClientPool;
+using xel::xTcpClientPoolConnectionHandle;
+using xel::xTcpClientWrapper;
 using xel::xTcpConnection;
 using xel::xTcpServer;
 using xel::xTcpService;

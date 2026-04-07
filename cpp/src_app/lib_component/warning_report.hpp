@@ -24,6 +24,6 @@ protected:
 private:
     static constexpr const size_t MAX_WARNING = 1023;
 
-    xClient  Client;
-    xWarning Warnings[MAX_WARNING + 1];
+    xTcpClient Client;
+    xWarning   Warnings[MAX_WARNING + 1];
 };

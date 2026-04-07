@@ -1,7 +1,6 @@
 #pragma once
 #include <map>
 #include <pp_common/_.hpp>
-#include <server_arch/client_pool.hpp>
 
 struct xBackendServerInfo {
     xNetAddress Address;
@@ -14,13 +13,13 @@ inline bool operator==(const xBackendServerInfo & lhs, const xBackendServerInfo 
     return lhs.Address == rhs.Address;
 }
 
-class xBackendConnectionPool : protected xClientPool {
+class xBackendConnectionPool : protected xTcpClientPool {
 
 public:
     bool Init(xIoContext * ICP, size_t MaxConnectionCount);
     void Clean();
-    using xClientPool::PostMessage;
-    using xClientPool::Tick;
+    using xTcpClientPool::PostMessage;
+    using xTcpClientPool::Tick;
 
     std::string GetLocalAudit();
     void        ResetLocalAudit();
@@ -35,10 +34,10 @@ public:
     void     RemoveServer(const xNetAddress & Address);
 
 private:
-    void OnTargetConnectedCallback(const xClientPoolConnectionHandle & CC);
-    void OnTargetCloseCallback(const xClientPoolConnectionHandle & CC);
-    bool OnTargetPacketCallback(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
-    bool OnCmdBackendChallengeResp(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
+    void OnTargetConnectedCallback(const xTcpClientPoolConnectionHandle & CC);
+    void OnTargetCloseCallback(const xTcpClientPoolConnectionHandle & CC);
+    bool OnTargetPacketCallback(const xTcpClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
+    bool OnCmdBackendChallengeResp(const xTcpClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
 
     //
     struct xBackendConnectionContext {

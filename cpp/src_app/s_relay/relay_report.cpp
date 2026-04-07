@@ -8,8 +8,8 @@
 #include <pp_protocol/internal/relay_info.hpp>
 #include <random>
 
-static xel::xClientWrapper RelayReportClient;
-static std::mt19937_64     Random64;
+static xel::xTcpClientWrapper RelayReportClient;
+static std::mt19937_64        Random64;
 
 static std::vector<xServerInfo> RelayInfoDispatcherList;
 static uint64_t                 SelectedRelayInfoServerId = 0;

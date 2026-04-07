@@ -15,6 +15,6 @@ private:
     bool OnServerPacket(xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
 
 private:
-    xClient  Client;
-    uint64_t PreviousRelayServerId = 0;
+    xTcpClient Client;
+    uint64_t   PreviousRelayServerId = 0;
 };

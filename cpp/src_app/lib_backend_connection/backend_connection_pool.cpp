@@ -4,19 +4,19 @@
 #include <pp_protocol/command.hpp>
 
 bool xBackendConnectionPool::Init(xIoContext * ICP, size_t MaxConnectionCount) {
-    if (!xClientPool::Init(ICP, MaxConnectionCount)) {
+    if (!xTcpClientPool::Init(ICP, MaxConnectionCount)) {
         return false;
     }
     ContextList->resize(MaxConnectionCount);
 
-    xClientPool::OnTargetConnected = Delegate(&xBackendConnectionPool::OnTargetConnectedCallback, this);
-    xClientPool::OnTargetClose     = Delegate(&xBackendConnectionPool::OnTargetCloseCallback, this);
-    xClientPool::OnTargetPacket    = Delegate(&xBackendConnectionPool::OnTargetPacketCallback, this);
+    xTcpClientPool::OnTargetConnected = Delegate(&xBackendConnectionPool::OnTargetConnectedCallback, this);
+    xTcpClientPool::OnTargetClose     = Delegate(&xBackendConnectionPool::OnTargetCloseCallback, this);
+    xTcpClientPool::OnTargetPacket    = Delegate(&xBackendConnectionPool::OnTargetPacketCallback, this);
     return true;
 }
 
 void xBackendConnectionPool::Clean() {
-    xClientPool::Clean();
+    xTcpClientPool::Clean();
     ContextList.Reset();
     RuntimeAssert(SortedServerList->empty());
     SortedServerList.Reset();
@@ -30,7 +30,7 @@ uint64_t xBackendConnectionPool::AddServer(const xNetAddress & Address, const st
         ++TotalAddingServerConflict;
         return 0;
     }
-    auto Sid = xIndexId(xClientPool::AddServer(Address));
+    auto Sid = xIndexId(xTcpClientPool::AddServer(Address));
     if (!Sid) {
         return 0;
     }
@@ -59,13 +59,13 @@ void xBackendConnectionPool::RemoveServer(const xNetAddress & Address) {
 
     auto Sid = xIndexId(ConnectionId);
     Reset((*ContextList)[Sid.GetIndex()]);
-    xClientPool::RemoveServer(ConnectionId);
+    xTcpClientPool::RemoveServer(ConnectionId);
 
     SortedServerList->erase(LI);
     ++TotalRemovedServer;
 }
 
-void xBackendConnectionPool::OnTargetConnectedCallback(const xClientPoolConnectionHandle & CC) {
+void xBackendConnectionPool::OnTargetConnectedCallback(const xTcpClientPoolConnectionHandle & CC) {
     auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();
     auto & Ctx = (*ContextList)[Idx];
@@ -84,7 +84,7 @@ void xBackendConnectionPool::OnTargetConnectedCallback(const xClientPoolConnecti
 }
 
 bool xBackendConnectionPool::OnTargetPacketCallback(
-    const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize
+    const xTcpClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize
 ) {
     if (CommandId == Cmd_BackendChallengeResp) {
         return OnCmdBackendChallengeResp(CC, CommandId, RequestId, PayloadPtr, PayloadSize);
@@ -101,7 +101,7 @@ bool xBackendConnectionPool::OnTargetPacketCallback(
     return true;
 }
 
-void xBackendConnectionPool::OnTargetCloseCallback(const xClientPoolConnectionHandle & CC) {
+void xBackendConnectionPool::OnTargetCloseCallback(const xTcpClientPoolConnectionHandle & CC) {
     auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();
     auto & Ctx = (*ContextList)[Idx];
@@ -109,7 +109,7 @@ void xBackendConnectionPool::OnTargetCloseCallback(const xClientPoolConnectionHa
 }
 
 bool xBackendConnectionPool::OnCmdBackendChallengeResp(
-    const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize
+    const xTcpClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize
 ) {
     auto   Sid = xIndexId(CC.GetConnectionId());
     auto   Idx = Sid.GetIndex();

@@ -1,6 +1,5 @@
 #pragma once
 #include <pp_common/_.hpp>
-#include <server_arch/client_pool.hpp>
 
 class xPPClientPool final {
 
@@ -14,9 +13,9 @@ public:
     void PostMessageByHash(uint64_t Hash, xPacketCommandId CmdId, xPacketRequestId RequestId, xBinaryMessage & Message);
     void PostMessage(xPacketCommandId CmdId, xPacketRequestId RequestId, xBinaryMessage & Message);
 
-    xClientPool::xOnTargetConnected OnServerReady = Noop<>;
-    xClientPool::xOnTargetClean     OnServerClean = Noop<>;
-    xClientPool::xOnTargetPacket    OnPacket      = Noop<true>;
+    xTcpClientPool::xOnTargetConnected OnServerReady = Noop<>;
+    xTcpClientPool::xOnTargetClean     OnServerClean = Noop<>;
+    xTcpClientPool::xOnTargetPacket    OnPacket      = Noop<true>;
 
 private:
     struct xInternalServerInfo final {
@@ -31,13 +30,13 @@ private:
 
     void AddServer(const xServerInfo & ServerInfo);
     void RemoveServer(const xInternalServerInfo & TargetServerInfo);
-    bool OnPacketCallback(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
-    void OnTargetConnected(const xClientPoolConnectionHandle & CC);
-    void OnTargetClose(const xClientPoolConnectionHandle & CC);
-    void OnTargetClean(const xClientPoolConnectionHandle & CC);
+    bool OnPacketCallback(const xTcpClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
+    void OnTargetConnected(const xTcpClientPoolConnectionHandle & CC);
+    void OnTargetClose(const xTcpClientPoolConnectionHandle & CC);
+    void OnTargetClean(const xTcpClientPoolConnectionHandle & CC);
 
 private:
-    xClientPool                                   ClientPool;
+    xTcpClientPool                                ClientPool;
     xAutoHolder<std::vector<xInternalServerInfo>> SortedServerList;
 
     // optimization

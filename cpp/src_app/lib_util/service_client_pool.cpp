@@ -109,20 +109,20 @@ void xPPClientPool::PostMessage(xPacketCommandId CmdId, xPacketRequestId Request
     ClientPool.PostMessage(CmdId, RequestId, Message);
 }
 
-void xPPClientPool::OnTargetConnected(const xClientPoolConnectionHandle & CC) {
+void xPPClientPool::OnTargetConnected(const xTcpClientPoolConnectionHandle & CC) {
     AuditLogger->I("%p OnTargetConnected: Id=%" PRIu64 ", Address=%s", this, CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
     OnServerReady(CC);
 }
 
-void xPPClientPool::OnTargetClose(const xClientPoolConnectionHandle & CC) {
+void xPPClientPool::OnTargetClose(const xTcpClientPoolConnectionHandle & CC) {
     AuditLogger->I("%p OnTargetClosed: Id=%" PRIu64 ", Address=%s", this, CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
 }
 
-void xPPClientPool::OnTargetClean(const xClientPoolConnectionHandle & CC) {
+void xPPClientPool::OnTargetClean(const xTcpClientPoolConnectionHandle & CC) {
     AuditLogger->I("%p OnTargetClean: Id=%" PRIu64 ", Address=%s", this, CC.GetConnectionId(), CC.GetTargetAddress().ToString().c_str());
     OnServerClean(CC);
 }
 
-bool xPPClientPool::OnPacketCallback(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
+bool xPPClientPool::OnPacketCallback(const xTcpClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
     return OnPacket(CC, CommandId, RequestId, PayloadPtr, PayloadSize);
 }

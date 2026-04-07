@@ -3,7 +3,7 @@
 
 using xAuditId = uint64_t;
 
-struct xClientAuthResult {
+struct xTcpClientAuthResult {
     xAuditId    AuditId;
     xCountryId  CountryId;
     xStateId    StateId;

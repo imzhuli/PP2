@@ -60,3 +60,9 @@ xTcpServiceRequestMap::xSourceRequest xTcpServiceRequestMap::GetAndRelease(uint6
     --Audit.TotalRequestCount;
     return Ret;
 }
+
+void xTcpServiceRequestMap::Release(uint64_t RequestId) {
+    assert(SourceRequestPool.Check(RequestId));
+    SourceRequestPool.Release(RequestId);
+    --Audit.TotalRequestCount;
+}

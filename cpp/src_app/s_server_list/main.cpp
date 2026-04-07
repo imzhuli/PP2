@@ -22,7 +22,7 @@ static xServiceInfoByType ServerInfoListArray[(size_t)eServiceType::MAX_TYPE_IND
 static bool     EnableDownload   = false;
 static uint64_t ServiceStartTime = xel::GetTimestampMS();
 
-struct xClientConnectionContext {
+struct xTcpClientConnectionContext {
     /* if connection is from service*/
     eServiceType ServiceType    = eServiceType::Unspecified;
     uint64_t     ServiceId      = 0;

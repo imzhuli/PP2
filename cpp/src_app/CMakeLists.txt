@@ -75,11 +75,17 @@ set(target_list
 
 	############ tests:
     t_dns_client
+
+
+	t_echo_client	
+	t_echo_server
+
 	t_lang
 	t_relay_id
 	t_relay_local
 	t_sign
 	#t_server_list_client
+
 
 	############ other:
 	)

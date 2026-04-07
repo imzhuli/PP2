@@ -21,8 +21,8 @@ private:
     bool OnServerPacket(xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
 
 private:
-    xClientWrapper ClientWrapper;
-    uint64_t       LocalServerId      = 0;
-    bool           LocalServerIdDirty = false;
-    std::string    LocalServerIdFilename;
+    xTcpClientWrapper ClientWrapper;
+    uint64_t          LocalServerId      = 0;
+    bool              LocalServerIdDirty = false;
+    std::string       LocalServerIdFilename;
 };

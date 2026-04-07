@@ -49,17 +49,17 @@ public:
     xOnServerListUpdated OnServerListUpdated = Noop<>;
 
 private:
-    void OnTargetConnected(const xClientPoolConnectionHandle & CC);
-    void OnTargetClose(const xClientPoolConnectionHandle & CC);
-    void OnTargetClean(const xClientPoolConnectionHandle & CC);
-    bool OnTargetPacket(const xClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
+    void OnTargetConnected(const xTcpClientPoolConnectionHandle & CC);
+    void OnTargetClose(const xTcpClientPoolConnectionHandle & CC);
+    void OnTargetClean(const xTcpClientPoolConnectionHandle & CC);
+    bool OnTargetPacket(const xTcpClientPoolConnectionHandle & CC, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
 
     bool RequestServerListByType(eServiceType Type, xVersion CurrentVersion);
     bool OnDownloadServiceListResp(ubyte * PayloadPtr, size_t PayloadSize);
 
 private:
-    xel::xClientPool ClientPool;
-    uint64_t         LastTickTimestampMS = 0;
+    xel::xTcpClientPool ClientPool;
+    uint64_t            LastTickTimestampMS = 0;
 
     struct xDownloader {
         eServiceType ServiceType            = eServiceType::Unspecified;

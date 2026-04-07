@@ -30,7 +30,7 @@ private:
     void PostRegisterServiceInfo();
 
 private:
-    xClientWrapper ClientWrapper;
+    xTcpClientWrapper ClientWrapper;
 
     bool         MyServiceInfoDirty = false;
     eServiceType MyServiceType      = eServiceType::Unspecified;
