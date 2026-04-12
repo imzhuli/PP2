@@ -8,15 +8,14 @@ import xsetup
 cwd = os.getcwd()
 unzip_dir = f"{cwd}/_3rd_build"
 
-src_file = f"{cwd}/_3rd_source/url-3.0.0.tgz"
-unzipped_src_dir = f"{unzip_dir}/url-3.0.0"
+src_file = f"{cwd}/_3rd_source/skyr_url-3.0.0.tgz"
+unzipped_src_dir = f"{unzip_dir}/skyr_url-3.0.0"
 install_dir = f"{cwd}/_3rd_installed"
-
 
 def build():
     try:
         file = tarfile.open(src_file)
-        file.extractall(unzip_dir)
+        file.extractall(unzipped_src_dir)
     except Exception as e:
         print(e)
         return False

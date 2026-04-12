@@ -4,7 +4,7 @@ CompileFlags:
 Diagnostics:
   UnusedIncludes: None  
   Suppress:
-    -: *
+    - "*"
   
 InlayHints:
   Enabled: No
