@@ -1,4 +1,6 @@
 #pragma once
+#include "./pa_future.hpp"
+
 #include <pp_common/_common.hpp>
 #include <pp_common/device.hpp>
 

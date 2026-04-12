@@ -1,4 +1,6 @@
 #pragma once
+#include "./pa_future.hpp"
+
 #include <pp_common/_common.hpp>
 #include <pp_common/device.hpp>
 
@@ -10,7 +12,7 @@ struct xRelayLifeCycleNode : xListNode {
     uint64_t Id = 0;
 };
 
-struct xRelayAbstractConnection : xRelayLifeCycleNode{
+struct xRelayAbstractConnection : xRelayLifeCycleNode {
     xRelayAbstractDevice * Owner = nullptr;
 
     virtual bool IsOpen() const                                                                             = 0;
@@ -39,3 +41,7 @@ struct xRelayAbstractDevice {
     virtual void     DestroyUdpChannel(uint64_t ChannelId)                               = 0;
 };
 
+struct xRelayAbstractLocalBindingService : xAbstract {
+    virtual bool CreateConnection(uint64_t DeviceId, uint64_t PASideConnectionId, const xFutureHandle & Future);
+    virtual void DestroyConnection(uint64_t ConnectionId);
+};

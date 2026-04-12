@@ -2,7 +2,9 @@ CompileFlags:
   CompilationDatabase: ./_build/    
 
 Diagnostics:
-  UnusedIncludes: None
+  UnusedIncludes: None  
+  Suppress:
+    -: *
   
 InlayHints:
   Enabled: No
