@@ -1,9 +1,27 @@
 #pragma once
-#include "./pa_future.hpp"
-
 #include <pp_common/_common.hpp>
+#include <pp_common/_region.hpp>
 
-class xAuthAbstract : xAbstract {
-public:
-    virtual bool Validate(const std::string_view Account, const std::string_view Pass, xPA_AuthFeature & Future) = 0;
+// external
+struct xPA_AuthFeature;
+
+//
+struct xAuthResult;
+class xAuthAbstract;
+
+struct xAuthResult {
+    xCountryId  CountryId;
+    xNetAddress ProxyAccessAddress;
+    bool        EnableUdp;
+    uint32_t    BandwithLimit;
+    uint32_t    ConnectionLimit;
+    uint64_t    ExpireTime;
 };
+
+class xAuthAbstractService : xAbstract {
+public:
+    virtual void Validate(const std::string_view Account, const std::string_view Pass, xPA_AuthFeature & Future) = 0;
+    virtual void ReleaseAuthResult(uint64_t ResultId)                                                            = 0;
+};
+
+extern std::string CombineAccountPass(std::string_view AccountView, std::string_view PassView);

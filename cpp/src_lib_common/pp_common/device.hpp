@@ -1,10 +1,10 @@
 #pragma once
 #include "./_.hpp"
 
-struct xDeviceId final {
+struct xDeviceLocator final {
     uint64_t             RelayServerRuntimeId;
     uint64_t             RelayServerSideDeviceId;
-    std::strong_ordering operator<=>(const xDeviceId &) const = default;
+    std::strong_ordering operator<=>(const xDeviceLocator &) const = default;
 };
 
 using xDeviceFlag              = uint32_t;

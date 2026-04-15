@@ -245,11 +245,8 @@ static inline bool ValidateAppSign(const std::string & Sign, const std::string &
 extern uint32_t ExtractIndexFromServerId(uint64_t ServerId);
 
 // clang-format on
-
-inline std::ostream & operator<<(std::ostream & OS, const xNetAddress & Address) {
-    OS << Address.ToString();
-    return OS;
-}
+extern std::string    ToLower(const std::string & Src);
+extern std::ostream & operator<<(std::ostream & OS, const xNetAddress & Address);
 
 #define X_THREAD(...)                                                              \
     auto X_CONCAT_FORCE_EXPAND(__X_Thread__, __LINE__) = std::thread(__VA_ARGS__); \

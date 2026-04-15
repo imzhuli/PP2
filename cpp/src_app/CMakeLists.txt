@@ -82,7 +82,6 @@ set(target_list
 
 	t_lang
 	t_relay_id
-	t_relay_local
 	t_sign
 	#t_server_list_client
 

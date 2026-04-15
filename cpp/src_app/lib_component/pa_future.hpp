@@ -1,8 +1,22 @@
 #pragma once
+#include "./auth_abstract.hpp"
+
+#include <expected>
 #include <pp_common/future.hpp>
 
 struct xPA_AuthFeature final : xFutureBase {
+    enum struct eErrorCode : uint16_t {
+        OK      = 0,
+        NO_DATA = 1,
+        OOM     = 2,
+    };
+    using xResult = std::expected<xel::xIndexId /* ResultId */, eErrorCode>;
+
     uint64_t AuthRequestId = 0;
+    xResult  Result        = std::unexpected(eErrorCode::NO_DATA);
+};
+
+struct xPA_AcquireDeviceFuture final : xFutureBase {
 };
 
 struct xPA_CreateRelayTcpConnectionFeature final : xFutureBase {

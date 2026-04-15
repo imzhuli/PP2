@@ -4,7 +4,18 @@
 
 static constexpr const char * StaicSignSalt = "!#@SFas098xc()*&";
 
-#define O(x) OS << #x << "=" << (x) << ' '
+std::string ToLower(const std::string & Src) {
+    auto Dst = Src;
+    for (auto & C : Dst) {
+        C = tolower(C);
+    }
+    return Dst;
+}
+
+std::ostream & operator<<(std::ostream & OS, const xNetAddress & Address) {
+    OS << Address.ToString();
+    return OS;
+}
 
 uint32_t HashString(const char * S) {
     uint32_t H = 0;

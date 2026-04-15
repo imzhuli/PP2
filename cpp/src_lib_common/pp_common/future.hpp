@@ -19,36 +19,35 @@ public:
 struct xFutureBase : xFutureNode {
     xFutureManager * Manager  = {};
     uint64_t         FutureId = {};
-    bool             HasValue = {};
+    bool             IsReady  = {};
 
     bool SetReady() {
-        assert(!HasValue && !xListNode::IsLinked(*this));
+        assert(!IsReady && !xListNode::IsLinked(*this));
         Manager->GetReadyFutureList().AddTail(*this);
-        return HasValue = true;
+        return IsReady = true;
     }
 };
 
 struct xFutureHandle final {
-    xFutureManager * Manager  = nullptr;
-    xFutureBase *    Future   = nullptr;
-    uint64_t         FutureId = 0;
-
+public:
     xFutureHandle() = default;
-    xFutureHandle(xFutureBase * Future)
-        : Manager(Future->Manager), Future(Future), FutureId(Future->FutureId) {
+    xFutureHandle(xFutureBase & FutureRef)
+        : Manager(FutureRef.Manager), FutureId(FutureRef.FutureId) {
+        assert(Manager && FutureId);
     }
-    xFutureHandle(xFutureManager * Manager, xFutureBase * Future, uint64_t FutureId)
-        : Manager(Manager), Future(Future), FutureId(FutureId) {
+    xFutureHandle(xFutureManager * Manager, uint64_t FutureId)
+        : Manager(Manager), FutureId(FutureId) {
+        assert(Manager && FutureId);
+    }
+    operator bool() const { return Manager && FutureId; }
+
+    template <typename T = xFutureHandle>
+    T * Get() const {
+        assert(bool(*this));
+        return static_cast<T *>(Manager->GetFuture(FutureId));
     }
 
-    bool IsValid() {
-        assert(Manager && Future && FutureId);
-        return Manager->GetFuture(FutureId) == Future;
-    }
-
-    xFutureBase * operator->() const { return Future; }
-    xFutureBase & operator*() const {
-        assert(Future);
-        return *Future;
-    }
+private:
+    xFutureManager * Manager  = nullptr;
+    uint64_t         FutureId = 0;
 };

@@ -4,44 +4,21 @@
 #include <pp_common/_common.hpp>
 #include <pp_common/device.hpp>
 
-struct xRelayAbstractDevice;
 struct xRelayAbstractConnection;
 struct xRelayAbstractUdpChannel;
 
-struct xRelayLifeCycleNode : xListNode {
-    uint64_t Id = 0;
+struct xRelayCreateConnectionFuture final : xFutureBase {
+    uint64_t RelaySideConnectionId = 0;
+};
+struct xRelayCreateUdpChannelFuture final : xFutureBase {
+    uint64_t RelaySideChannelId = 0;
 };
 
-struct xRelayAbstractConnection : xRelayLifeCycleNode {
-    xRelayAbstractDevice * Owner = nullptr;
-
-    virtual bool IsOpen() const                                                                             = 0;
-    virtual bool IsConnected() const                                                                        = 0;
-    virtual bool IsClosing() const                                                                          = 0;
-    virtual bool IsClosed() const                                                                           = 0;
-    virtual void PostData(const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) = 0;
-
-    virtual void SetUploadSpeedLimit(size_t Limit) {};
-    virtual void SetDownloadSpeedLimit(size_t Limit) {};
-};
-
-struct xRelayAbstractUdpChannel : xRelayLifeCycleNode {
-    xRelayAbstractDevice * Owner = nullptr;
-
-    virtual void PostData(const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) = 0;
-};
-
-struct xRelayAbstractDevice {
-    uint64_t DeviceId = 0;
-
-    virtual uint64_t CreateConnection(const std::string & TargetHostname, uint16_t Port) = 0;
-    virtual uint64_t CreateConnection(const xel::xNetAddress & TargetAddress)            = 0;
-    virtual void     DestroyConnection(uint64_t ConnectionId)                            = 0;
-    virtual uint64_t CreateUdpChannel()                                                  = 0;
-    virtual void     DestroyUdpChannel(uint64_t ChannelId)                               = 0;
-};
-
-struct xRelayAbstractLocalBindingService : xAbstract {
-    virtual bool CreateConnection(uint64_t DeviceId, uint64_t PASideConnectionId, const xFutureHandle & Future);
-    virtual void DestroyConnection(uint64_t ConnectionId);
+struct xRelayAbstractService
+    : xAbstract
+    , xNonCopyable {
+    virtual void CreateConnection(uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) = 0;
+    virtual void DeferDestroyConnection(uint64_t ConnectionId)                                                                                              = 0;
+    virtual void PostData(uint64_t ConnectionlId, const void * Payload, size_t PayloadSize)                                                                 = 0;
+    virtual void PostData(uint64_t UdpChannelId, const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize)                          = 0;  // udp channel
 };

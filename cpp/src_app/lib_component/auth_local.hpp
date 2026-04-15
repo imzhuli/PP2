@@ -4,12 +4,19 @@
 #include <filesystem>
 #include <pp_common/_common.hpp>
 
-class xAuthLocalService final : public xAuthAbstract {
+struct xAuthLocalRecord final {
+    xCountryId CountryId = 0;
+    bool       EnableUdp = false;
+};
+using xAuthLocalMap = std::unordered_map<std::string, xAuthLocalRecord>;
+
+class xAuthLocalService final : public xAuthAbstractService {
 public:
     bool Init(const char * auth_dir);
     void Clean();
 
-    bool Validate(const std::string_view Account, const std::string_view Pass, xPA_AuthFeature & Future) override;
+    void Validate(const std::string_view Account, const std::string_view Pass, xPA_AuthFeature & Future) override;
+    void ReleaseAuthResult(uint64_t ResultId) override;
 
 private:
     void ReloadAuthFile();
@@ -18,4 +25,7 @@ private:
     std::filesystem::path AuthFileDir;
     std::thread           ReloadAuthFileThread;
     xel::xRunState        RunState;
+
+    xel::xIndexedStorage<xAuthResult> ResultPool;
+    xAuthLocalMap                     AuthLocalMap;
 };
