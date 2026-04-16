@@ -32,21 +32,26 @@ using xRelayLocalDeviceUdpChannelTimeoutList = xList<xRelayLocalDeviceUdpChannel
 struct xRelayLocalDeviceUdpChannel final
     : xRelayLocalDeviceUdpChannelTimeoutNode
     , xUdpChannel {
-    uint64_t DeviceId   = 0;
-    uint64_t ChannelId  = 0;
+    uint64_t DeviceId     = 0;
+    uint64_t UdpChannelId = 0;
+    uint64_t PASideUdpChannelId;
     bool     DeleteMark = false;
 };
 
 class xRelayLocalBindingService final
     : xRelayAbstractService
-    , xTcpConnection::iListener {
+    , xTcpConnection::iListener
+    , xUdpChannel::iListener {
 
 public:
     bool Init(const std::vector<std::pair<xNetAddress, xNetAddress>> & BindAddressPairList);
     void Clean();
+    void Tick(uint64_t NowMS);
 
     void CreateConnection(uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) override;
+    void CreateUdpChannel(uint64_t DeviceId, uint64_t PASideUdpChannelId, xRelayCreateUdpChannelFuture & Future) override;
     void DeferDestroyConnection(uint64_t ConnectionId) override;
+    void DeferDestroyUdpChannel(uint64_t UdpChannelId) override;
     void PostData(uint64_t ConnectionId, const void * Payload, size_t PayloadSize) override;
     void PostData(uint64_t UdpChannelId, const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) override;
 
@@ -55,7 +60,11 @@ private:
     void DestroyLocalDeviceList();
     auto GetDevice(uint64_t DeviceId) const -> const xRelayLocalDevice *;
     void KeepAlive(xRelayLocalDeviceConnection * Connection);
+    void KeepAlive(xRelayLocalDeviceUdpChannel * UdpChannel);
     void DeferDestroyConnection(xRelayLocalDeviceConnection * Connection);
+    void DeferDestroyUdpChannel(xRelayLocalDeviceUdpChannel * UdpChannel);
+    void DeferDestroyIdleConnections();
+    void DeferDestroyIdleUdpChannels();
     void DestroyAllConnections();
     void DestroyAllUdpChannels();
 
@@ -65,6 +74,9 @@ private:  // listener
     void   OnFlush(xTcpConnection * TcpConnectionPtr) override {}
     size_t OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) override {
         return DataSize;
+    }
+    void OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override {
+        Pure();
     }
 
 private:
@@ -78,8 +90,8 @@ private:
 
     xRelayLocalDeviceConnectionTimeoutList ConnectionEstablishTimeoutList;
     xRelayLocalDeviceConnectionTimeoutList ConnectionIdleTimeoutList;
-    xRelayLocalDeviceConnectionTimeoutList ConnectionIdleKillList;
+    xRelayLocalDeviceConnectionTimeoutList ConnectionKillList;
 
-    xRelayLocalDeviceUdpChannelTimeoutList UdpChannelTimeoutList;
+    xRelayLocalDeviceUdpChannelTimeoutList UdpChannelIdleTimeoutList;
     xRelayLocalDeviceUdpChannelTimeoutList UdpChannelKillList;
 };

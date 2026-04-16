@@ -1,5 +1,7 @@
 #pragma once
+#include "./device_abstract.hpp"
 #include "./pa_abstract.hpp"
+#include "./relay_abstract.hpp"
 
 class xProxyClientConnection final : public xProxyAbastractClientConnection {
 };
@@ -26,5 +28,6 @@ class xProxyLocalRelayConnection final : public xProxyAbstractRelayConnection {
 class xProxyLocalRelayService final {
 public:
 private:
-    xIndexedStorage<xProxyLocalRelayConnection *> LocalRelayPool;
+    xDeviceAbstractService * DeviceService = nullptr;
+    xRelayAbstractService *  RelayService  = nullptr;
 };

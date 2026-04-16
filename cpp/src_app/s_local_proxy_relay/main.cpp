@@ -1,5 +1,5 @@
 #include "../lib_component/auth_local.hpp"
-#include "../lib_component/pa_local.hpp"
+#include "../lib_component/pa_local_relay_service.hpp"
 #include "../lib_component/relay_local_device_service.hpp"
 
 #include <pp_common/service_runtime.hpp>
