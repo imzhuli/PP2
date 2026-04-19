@@ -28,6 +28,28 @@ struct xFutureBase : xFutureNode {
     }
 };
 
+template <typename T>
+    requires std::is_base_of_v<xFutureBase, T>
+class xFutureManagerBase
+    : public xFutureManager {
+public:
+    bool Init(size_t PoolSize) { return FuturePool.Init(PoolSize); };
+    void Clean() { FuturePool.Clean(); }
+
+    auto GetFuture(uint64_t FutureId) -> xFutureBase * override { return FuturePool.CheckAndGet(FutureId); }
+    auto GetReadyFutureList() -> xFutureList & override { return FutureList; }
+    bool ReleaseFuture(uint64_t FutureId) { return FuturePool.CheckAndRelease(FutureId); }
+    void ReleaseFuture(T * Future) {
+        assert(Future);
+        assert(Future == GetFuture(Future->FutureId));
+        FuturePool.Release(Future->FutureId);
+    }
+
+private:
+    xel::xIndexedStorage<T> FuturePool;
+    xFutureList             FutureList;
+};
+
 struct xFutureHandle final {
 public:
     xFutureHandle() = default;

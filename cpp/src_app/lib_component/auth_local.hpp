@@ -15,7 +15,7 @@ public:
     bool Init(const char * auth_dir);
     void Clean();
 
-    void Validate(const std::string_view Account, const std::string_view Pass, xPA_AuthFeature & Future) override;
+    void Validate(const std::string_view Account, const std::string_view Pass, xPA_AuthFuture & Future) override;
     void ReleaseAuthResult(uint64_t ResultId) override;
 
 private:

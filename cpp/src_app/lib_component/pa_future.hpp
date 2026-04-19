@@ -4,7 +4,7 @@
 #include <expected>
 #include <pp_common/future.hpp>
 
-struct xPA_AuthFeature final : xFutureBase {
+struct xPA_AuthFuture final : xFutureBase {
     enum struct eErrorCode : uint16_t {
         OK      = 0,
         NO_DATA = 1,
@@ -19,10 +19,10 @@ struct xPA_AuthFeature final : xFutureBase {
 struct xPA_AcquireDeviceFuture final : xFutureBase {
 };
 
-struct xPA_CreateRelayTcpConnectionFeature final : xFutureBase {
+struct xPA_CreateDeviceConnectionFuture final : xFutureBase {
     uint64_t RelaySideConnectionId = 0;
 };
 
-struct xPA_CreateRelayUdpChannelFeature final : xFutureBase {
+struct xPA_CreateDeviceUdpChannelFuture final : xFutureBase {
     uint64_t RelaySideChannelId = 0;
 };
