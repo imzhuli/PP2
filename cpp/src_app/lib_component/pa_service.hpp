@@ -14,7 +14,7 @@ class xPA_ClientConnection : xTcpConnection {
 class xPA_CreateRelayTcpConnectionFutureManager : public xFutureManager {
 };
 
-class xPA_Service
+class xProxyAccessService final
     : xTcpServer::iListener
     , xTcpConnection::iListener
     , xUdpChannel::iListener {
@@ -35,18 +35,15 @@ protected:  // override:
 protected:
     void ClearTimeoutFuture();
 
-    virtual void ReleaseAuthFuture(uint64_t FutureId);
-    virtual void ReleaseCreateRelayTcpConnectionFuture(uint64_t FutureId);
-
 private:
     xTicker                                    LocalTicker;
     xTcpServer                                 TcpServer;
     xel::xIndexedStorage<xPA_ClientConnection> ClientConnectionPool;
 
-    xFutureManagerBase<xPA_AuthFuture>                   AuthFutureManager;
-    xFutureManagerBase<xPA_AcquireDeviceFuture>          AcquireDeviceFutureManager;
-    xFutureManagerBase<xPA_CreateDeviceConnectionFuture> CreateDeviceConnectionFutureManager;
-    xFutureManagerBase<xPA_CreateDeviceUdpChannelFuture> CreateDeviceUdpChannelFutureManager;
+    xFuturePoolManager<xPA_AuthFuture>                   AuthFutureManager;
+    xFuturePoolManager<xPA_AcquireDeviceFuture>          AcquireDeviceFutureManager;
+    xFuturePoolManager<xPA_CreateDeviceConnectionFuture> CreateDeviceConnectionFutureManager;
+    xFuturePoolManager<xPA_CreateDeviceUdpChannelFuture> CreateDeviceUdpChannelFutureManager;
 
     xDeviceAbstractService * DeviceService;
 

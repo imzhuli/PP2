@@ -2,31 +2,64 @@
 
 #include <pp_common/service_runtime.hpp>
 
-static constexpr const uint64_t PA_FUTURE_TIMEOUT_MS     = 1'000;
-static constexpr const size_t   PA_MAX_CLIENT_CONNECTION = 10'0000;
+static constexpr const uint64_t PA_FUTURE_TIMEOUT_MS             = 1'000;
+static constexpr const size_t   PA_MAX_CLIENT_CONNECTION         = 20'0000;
+static constexpr const size_t   PA_MAX_CLIENT_REQUEST_PER_SECOND = 5'0000;
 
-bool xPA_Service::Init(const xNetAddress & BindAddress) {
+bool xProxyAccessService::Init(const xNetAddress & BindAddress) {
     RuntimeAssert(ServiceRunState);
     if (ClientConnectionPool.Init(PA_MAX_CLIENT_CONNECTION)) {
         return false;
     }
+    auto ClientConnectionPoolCleaner = xScopeCleaner(AuthFutureManager);
+
     if (!TcpServer.Init(ServiceIoContext, BindAddress, this)) {
-        ClientConnectionPool.Clean();
         return false;
     }
+    auto TcpServerCleaner = xScopeCleaner(TcpServer);
+
+    if (!AuthFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
+        return false;
+    }
+    auto AuthFutureManagerCleaner = xScopeCleaner(AuthFutureManager);
+
+    if (!AcquireDeviceFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
+        return false;
+    }
+    auto AcquireDeviceFutureManagerCleaner = xScopeCleaner(AcquireDeviceFutureManager);
+
+    if (!CreateDeviceConnectionFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
+        return false;
+    }
+    auto CreateDeviceConnectionFutureManagerCleaner = xScopeCleaner(CreateDeviceConnectionFutureManager);
+
+    if (!CreateDeviceUdpChannelFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
+        return false;
+    }
+    auto CreateDeviceUdpChannelFutureManagerCleaner = xScopeCleaner(CreateDeviceUdpChannelFutureManager);
+
+    ClientConnectionPoolCleaner.Dismiss();
+    TcpServerCleaner.Dismiss();
+    AuthFutureManagerCleaner.Dismiss();
+    CreateDeviceConnectionFutureManagerCleaner.Dismiss();
+    CreateDeviceUdpChannelFutureManagerCleaner.Dismiss();
+
     return true;
 }
 
-void xPA_Service::Clean() {
+void xProxyAccessService::Clean() {
+    AuthFutureManager.Clean();
+    CreateDeviceConnectionFutureManager.Clean();
+    CreateDeviceUdpChannelFutureManager.Clean();
     TcpServer.Clean();
     ClientConnectionPool.Clean();
 }
 
-void xPA_Service::Tick(uint64_t NowMS) {
+void xProxyAccessService::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
 }
 
-void xPA_Service::ClearTimeoutFuture() {
+void xProxyAccessService::ClearTimeoutFuture() {
     auto KillTimepoint = LocalTicker() - PA_FUTURE_TIMEOUT_MS;
     auto Cond          = [this, KillTimepoint](const xFutureNode & F) {
         return F.StartTimestampMS <= KillTimepoint;
@@ -43,8 +76,25 @@ void xPA_Service::ClearTimeoutFuture() {
 }
 
 // tcp server listener:
-void xPA_Service::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) {
+void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) {
 }
 
-// void xPA_Service::OnConnected(xTcpConnection * TcpConnectionPtr) override;
-// void xPA_Service::OnPeerClose(xTcpConnection * TcpConnectionPtr) override;
+void xProxyAccessService::OnConnected(xTcpConnection * TcpConnectionPtr) {
+    Unreachable();
+}
+
+void xProxyAccessService::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
+    Todo(__FILE__);
+}
+
+void xProxyAccessService::OnFlush(xTcpConnection * TcpConnectionPtr) {
+    Pass();  // speed control
+}
+
+size_t xProxyAccessService::OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) {
+    return DataSize;
+}
+
+void xProxyAccessService::OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
+    Pass();
+}

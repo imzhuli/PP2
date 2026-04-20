@@ -13,7 +13,7 @@ using xFutureList = xList<xFutureNode>;
 class xFutureManager : xAbstract {
 public:
     virtual auto GetFuture(uint64_t FutureId) -> xFutureBase * = 0;
-    virtual auto GetReadyFutureList() -> xFutureList &;
+    virtual auto GetReadyFutureList() -> xFutureList &         = 0;
 };
 
 struct xFutureBase : xFutureNode {
@@ -30,7 +30,7 @@ struct xFutureBase : xFutureNode {
 
 template <typename T>
     requires std::is_base_of_v<xFutureBase, T>
-class xFutureManagerBase
+class xFuturePoolManager
     : public xFutureManager {
 public:
     bool Init(size_t PoolSize) { return FuturePool.Init(PoolSize); };
