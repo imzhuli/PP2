@@ -1,14 +1,8 @@
 #pragma once
-#include "./pa_future.hpp"
-
 #include <pp_common/_common.hpp>
 #include <pp_common/device.hpp>
 
-struct xProxyAbastractClientConnection {
-    virtual void OnConnected() = 0;
-    virtual void OnData()      = 0;
-    virtual void OnClose()     = 0;
-};
+struct xPA_ClientConnection;
 
 struct xProxyAbstractRelayConnection {
     uint64_t ConnectionId;

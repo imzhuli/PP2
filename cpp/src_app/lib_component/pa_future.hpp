@@ -1,8 +1,13 @@
 #pragma once
 #include "./auth_abstract.hpp"
+#include "./pa_abstract.hpp"
 
 #include <expected>
 #include <pp_common/future.hpp>
+
+struct xPA_FutureBase : xFutureBase {
+    xPA_ClientConnection * ClientConnection = nullptr;
+};
 
 struct xPA_AuthFuture final : xFutureBase {
     enum struct eErrorCode : uint16_t {

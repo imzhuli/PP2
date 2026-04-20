@@ -59,6 +59,27 @@ void xProxyAccessService::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
 }
 
+void xProxyAccessService::KeepAlive(xPA_ClientConnection * Connection) {
+    if (Connection->DeleteMark) {
+        return;
+    }
+    Connection->TimestampMS = LocalTicker();
+    ClientConnectionTimeoutList.GrabTail(*Connection);
+}
+
+void xProxyAccessService::DeferKill(xPA_ClientConnection * Connection) {
+    if (Steal(Connection->DeleteMark, true)) {
+        return;
+    }
+    ClientConnectionKillList.GrabTail(*Connection);
+}
+
+void xProxyAccessService::DestroyConnection(xPA_ClientConnection * Connection) {
+    auto ConnectionId = Connection->ConnectionId;
+    Connection->Clean();
+    ClientConnectionPool.Release(ConnectionId);
+}
+
 void xProxyAccessService::ClearTimeoutFuture() {
     auto KillTimepoint = LocalTicker() - PA_FUTURE_TIMEOUT_MS;
     auto Cond          = [this, KillTimepoint](const xFutureNode & F) {
