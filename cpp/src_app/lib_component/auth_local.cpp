@@ -14,10 +14,12 @@ namespace fs = std::filesystem;
 bool xAuthLocalService::Init(const char * AuthFileDir) {
     assert(AuthFileDir);
     if (!fs::is_directory(AuthFileDir, XR(std::error_code()))) {
+        Logger->E("Failed to open AuthFileDir");
         return false;
     }
     this->AuthFileDir = AuthFileDir;
     if (!ResultPool.Init(RESULE_POOL_SIZE)) {
+        Logger->E("Failed to init ResultPool");
         return false;
     }
 
@@ -37,7 +39,7 @@ void xAuthLocalService::Clean() {
 }
 
 void xAuthLocalService::Tick(uint64_t NowMS) {
-    Pure();
+    Pass();
 }
 
 void xAuthLocalService::Validate(const std::string_view Account, const std::string_view Pass, xPA_AuthFuture & Future) {
@@ -104,13 +106,10 @@ void xAuthLocalService::ReloadAuthFile() {
         try {
             auto NewMap = xAuthLocalMap();
 
-            // 2. 遍历目录（非递归，只遍历当前目录）
             for (const auto & Entry : fs::directory_iterator(AuthFileDir)) {
-                // 跳过子目录，只处理文件
                 if (!Entry.is_regular_file()) {
                     continue;
                 }
-                // 获取文件路径
                 const fs::path & FilePath = Entry.path();
                 if (ToLower(FilePath.extension()) != ".csv"s) {
                     continue;
@@ -118,8 +117,7 @@ void xAuthLocalService::ReloadAuthFile() {
                 LoadFile(NewMap, FilePath);
             }
         } catch (const fs::filesystem_error & e) {
-            // 异常处理：目录不存在、权限不足等
-            AuditLogger->E("遍历目录失败：%s", e.what());
+            AuditLogger->E("iterate directory error：%s", e.what());
             return;
         }
     }

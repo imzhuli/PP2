@@ -3,6 +3,9 @@
 #include "./pa_abstract.hpp"
 #include "./pa_future.hpp"
 
+class xProxyAccessService;
+using xPA_DataProcessor = size_t (xProxyAccessService::*)(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
+
 struct xPA_ClientConnectionTimeoutNode : xListNode {
     uint64_t TimestampMS = 0;
 };
@@ -11,8 +14,9 @@ using xPA_ClientConnectionTimeoutList = xList<xPA_ClientConnectionTimeoutNode>;
 struct xPA_ClientConnection
     : public xTcpConnection
     , public xPA_ClientConnectionTimeoutNode {
-    uint64_t ConnectionId = 0;
-    bool     DeleteMark   = false;
+    uint64_t          ConnectionId  = 0;
+    bool              DeleteMark    = false;
+    xPA_DataProcessor DataProcessor = {};
 };
 
 class xProxyAccessService final
@@ -20,7 +24,7 @@ class xProxyAccessService final
     , xTcpConnection::iListener
     , xUdpChannel::iListener {
 public:
-    bool Init(const xNetAddress & BindAddress);
+    bool Init(const xNetAddress & BindAddress4, const xNetAddress & BindAddress6);
     void Clean();
     void Tick(uint64_t NowMS);
     void BindDeviceService(xDeviceAbstractService * Service) { DeviceService = Service; }
@@ -33,6 +37,9 @@ protected:  // override:
     size_t OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) override;
     void   OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override;
 
+protected:  // process data:
+    size_t OnGuessProxyType(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
+
 protected:
     void KeepAlive(xPA_ClientConnection * Connection);
     void DeferKill(xPA_ClientConnection * Connection);
@@ -40,8 +47,10 @@ protected:
     void ClearTimeoutFuture();
 
 private:
-    xTicker                               LocalTicker;
-    xTcpServer                            TcpServer;
+    xTicker      LocalTicker;
+    xTcpServer * TcpServer4 = nullptr;
+    xTcpServer * TcpServer6 = nullptr;
+
     xIndexedStorage<xPA_ClientConnection> ClientConnectionPool;
     xPA_ClientConnectionTimeoutList       ClientConnectionTimeoutList;
     xPA_ClientConnectionTimeoutList       ClientConnectionKillList;

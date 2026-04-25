@@ -6,34 +6,62 @@ static constexpr const uint64_t PA_FUTURE_TIMEOUT_MS             = 1'000;
 static constexpr const size_t   PA_MAX_CLIENT_CONNECTION         = 20'0000;
 static constexpr const size_t   PA_MAX_CLIENT_REQUEST_PER_SECOND = 5'0000;
 
-bool xProxyAccessService::Init(const xNetAddress & BindAddress) {
-    RuntimeAssert(ServiceRunState);
-    if (ClientConnectionPool.Init(PA_MAX_CLIENT_CONNECTION)) {
+bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddress & BindAddress6) {
+    X_RUNTIME_ASSERT(ServiceRunState);
+    if (!ClientConnectionPool.Init(PA_MAX_CLIENT_CONNECTION)) {
+        DEBUG_LOG("ClientConnectionPool init error");
         return false;
     }
     auto ClientConnectionPoolCleaner = xScopeCleaner(AuthFutureManager);
 
-    if (!TcpServer.Init(ServiceIoContext, BindAddress, this)) {
-        return false;
+    X_RUNTIME_ASSERT(BindAddress4 || BindAddress6);
+    auto TcpServerCleaner = xScopeGuard([this] {
+        if (TcpServer4) {
+            TcpServer4->Clean();
+            delete Steal(TcpServer4);
+        }
+        if (TcpServer6) {
+            TcpServer6->Clean();
+            delete Steal(TcpServer6);
+        }
+    });
+    if (BindAddress4) {
+        TcpServer4 = new xTcpServer();
+        if (!TcpServer4->Init(ServiceIoContext, BindAddress4, this)) {
+            DEBUG_LOG("TcpServer4 init error");
+            delete Steal(TcpServer4);
+            return false;
+        }
     }
-    auto TcpServerCleaner = xScopeCleaner(TcpServer);
+    if (BindAddress6) {
+        TcpServer6 = new xTcpServer();
+        if (!TcpServer6->Init(ServiceIoContext, BindAddress6, this)) {
+            DEBUG_LOG("TcpServer4 init error");
+            delete Steal(TcpServer6);
+            return false;
+        }
+    }
 
     if (!AuthFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
+        DEBUG_LOG("AuthFutureManager init error");
         return false;
     }
     auto AuthFutureManagerCleaner = xScopeCleaner(AuthFutureManager);
 
     if (!AcquireDeviceFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
+        DEBUG_LOG("AcquireDeviceFutureManager init error");
         return false;
     }
     auto AcquireDeviceFutureManagerCleaner = xScopeCleaner(AcquireDeviceFutureManager);
 
     if (!CreateDeviceConnectionFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
+        DEBUG_LOG("CreateDeviceConnectionFutureManager init error");
         return false;
     }
     auto CreateDeviceConnectionFutureManagerCleaner = xScopeCleaner(CreateDeviceConnectionFutureManager);
 
     if (!CreateDeviceUdpChannelFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
+        DEBUG_LOG("CreateDeviceUdpChannelFutureManager init error");
         return false;
     }
     auto CreateDeviceUdpChannelFutureManagerCleaner = xScopeCleaner(CreateDeviceUdpChannelFutureManager);
@@ -51,7 +79,16 @@ void xProxyAccessService::Clean() {
     AuthFutureManager.Clean();
     CreateDeviceConnectionFutureManager.Clean();
     CreateDeviceUdpChannelFutureManager.Clean();
-    TcpServer.Clean();
+    do {  // clean tcp servers
+        if (TcpServer4) {
+            TcpServer4->Clean();
+            delete Steal(TcpServer4);
+        }
+        if (TcpServer6) {
+            TcpServer6->Clean();
+            delete Steal(TcpServer6);
+        }
+    } while (false);
     ClientConnectionPool.Clean();
 }
 
@@ -98,6 +135,17 @@ void xProxyAccessService::ClearTimeoutFuture() {
 
 // tcp server listener:
 void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) {
+    auto ConnectionId = ClientConnectionPool.Acquire();
+    if (!ConnectionId) {
+        XelCloseSocket(NativeHandle);
+        return;
+    }
+    auto & ClientConnection = ClientConnectionPool[ConnectionId];
+    if (!ClientConnection.Init(ServiceIoContext, std::move(NativeHandle), this)) {
+        ClientConnectionPool.Release(ConnectionId);
+        return;
+    }
+    ClientConnection.DataProcessor = &xProxyAccessService::OnGuessProxyType;
 }
 
 void xProxyAccessService::OnConnected(xTcpConnection * TcpConnectionPtr) {
@@ -113,9 +161,18 @@ void xProxyAccessService::OnFlush(xTcpConnection * TcpConnectionPtr) {
 }
 
 size_t xProxyAccessService::OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) {
-    return DataSize;
+    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnectionPtr);
+    return (this->*ClientConnection->DataProcessor)(ClientConnection, DataPtr, DataSize);
 }
 
 void xProxyAccessService::OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
     Pass();
+}
+
+size_t xProxyAccessService::OnGuessProxyType(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
+    if (DataSize < 3) {
+        DEBUG_LOG("invalid challenge size");
+        return InvalidDataSize;
+    }
+    return InvalidDataSize;
 }
