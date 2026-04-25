@@ -3,6 +3,7 @@
 #include <pp_common/device.hpp>
 
 struct xPA_ClientConnection;
+struct xPA_ClientUdpChannel;
 
 struct xProxyAbstractRelayConnection {
     uint64_t ConnectionId;

@@ -12,7 +12,13 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
         DEBUG_LOG("ClientConnectionPool init error");
         return false;
     }
-    auto ClientConnectionPoolCleaner = xScopeCleaner(AuthFutureManager);
+    auto ClientConnectionPoolCleaner = xScopeCleaner(ClientConnectionPool);
+
+    if (!ClientUdpChannelPool.Init(PA_MAX_CLIENT_CONNECTION)) {
+        DEBUG_LOG("ClientUdpChannelPool init error");
+        return false;
+    }
+    auto ClientUdpChannelPoolCleaner = xScopeCleaner(ClientUdpChannelPool);
 
     X_RUNTIME_ASSERT(BindAddress4 || BindAddress6);
     auto TcpServerCleaner = xScopeGuard([this] {
@@ -72,6 +78,11 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
     CreateDeviceConnectionFutureManagerCleaner.Dismiss();
     CreateDeviceUdpChannelFutureManagerCleaner.Dismiss();
 
+    Reset(BindUdpAddress4);
+    Reset(BindUdpAddress6);
+    Reset(ExportUdpAddress4);
+    Reset(ExportUdpAddress6);
+
     return true;
 }
 
@@ -89,11 +100,30 @@ void xProxyAccessService::Clean() {
             delete Steal(TcpServer6);
         }
     } while (false);
+    Reset(BindUdpAddress4);
+    Reset(BindUdpAddress6);
+    Reset(ExportUdpAddress4);
+    Reset(ExportUdpAddress6);
+    ClientUdpChannelPool.Clean();
     ClientConnectionPool.Clean();
 }
 
 void xProxyAccessService::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
+}
+
+void xProxyAccessService::EnableUdp4(const xNetAddress & BindAddress, const xNetAddress & ExportAddress) {
+    X_RUNTIME_ASSERT(BindAddress.Is4() && !BindAddress.Port && ExportAddress.Is4() && !ExportAddress.Port);
+    BindUdpAddress4   = BindAddress;
+    ExportUdpAddress4 = ExportAddress;
+    Logger->I("EnableUdp4: %s -> %s", BindAddress.IpToString().c_str(), ExportAddress.IpToString().c_str());
+}
+
+void xProxyAccessService::EnableUdp6(const xNetAddress & BindAddress, const xNetAddress & ExportAddress) {
+    X_RUNTIME_ASSERT(BindAddress.Is6() && !BindAddress.Port && ExportAddress.Is6() && !ExportAddress.Port);
+    BindUdpAddress6   = BindAddress;
+    ExportUdpAddress6 = ExportAddress;
+    Logger->I("EnableUdp6: %s -> %s", BindAddress.IpToString().c_str(), ExportAddress.IpToString().c_str());
 }
 
 void xProxyAccessService::KeepAlive(xPA_ClientConnection * Connection) {
@@ -165,7 +195,7 @@ size_t xProxyAccessService::OnData(xTcpConnection * TcpConnectionPtr, ubyte * Da
     return (this->*ClientConnection->DataProcessor)(ClientConnection, DataPtr, DataSize);
 }
 
-void xProxyAccessService::OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
+void xProxyAccessService::OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
     Pass();
 }
 

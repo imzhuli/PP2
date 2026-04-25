@@ -71,7 +71,7 @@ static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
     for (size_t Row = 0; Row < RowCount; ++Row) {
         auto ExpiredTimeLimit = Doc.GetCell<int64_t>(ExpiredTimeIndex, Row);
         if (ExpiredTimeLimit < Now) {
-            Logger->I("AuthRow expired");
+            Logger->D("AuthRow expired");
             continue;
         }
 
@@ -87,11 +87,9 @@ static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
 
         Node.CountryId = CountryCodeToCountryId(CountryCode.c_str());
         Node.EnableUdp = atoi(Udp.c_str());
-        cout << AccountKey << endl;
-        cout << CountryCode << endl;
-        cout << Udp << endl;
-        cout << SpeedLimit << endl;
-        cout << ConnectionLimit << endl;
+
+        (void)SpeedLimit;
+        (void)ConnectionLimit;
     }
 }
 
