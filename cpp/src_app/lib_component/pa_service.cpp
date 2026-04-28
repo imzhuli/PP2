@@ -2,7 +2,9 @@
 
 #include <pp_common/service_runtime.hpp>
 
+static constexpr const size_t   PA_CLIENT_AUTH_TIMEOUT_MS        = 2'000;
 static constexpr const uint64_t PA_FUTURE_TIMEOUT_MS             = 1'000;
+static constexpr const size_t   PA_AUDIT_TIMEOUT_MS              = 60'000;
 static constexpr const size_t   PA_MAX_CLIENT_CONNECTION         = 20'0000;
 static constexpr const size_t   PA_MAX_CLIENT_REQUEST_PER_SECOND = 5'0000;
 
@@ -60,23 +62,23 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
     }
     auto AcquireDeviceFutureManagerCleaner = xScopeCleaner(AcquireDeviceFutureManager);
 
-    if (!CreateDeviceConnectionFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
-        DEBUG_LOG("CreateDeviceConnectionFutureManager init error");
+    if (!AcquireDeviceConnectionFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
+        DEBUG_LOG("AcquireDeviceConnectionFutureManager init error");
         return false;
     }
-    auto CreateDeviceConnectionFutureManagerCleaner = xScopeCleaner(CreateDeviceConnectionFutureManager);
+    auto AcquireDeviceConnectionFutureManagerCleaner = xScopeCleaner(AcquireDeviceConnectionFutureManager);
 
-    if (!CreateDeviceUdpChannelFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
-        DEBUG_LOG("CreateDeviceUdpChannelFutureManager init error");
+    if (!AcquireDeviceUdpChannelFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
+        DEBUG_LOG("AcquireDeviceUdpChannelFutureManager init error");
         return false;
     }
-    auto CreateDeviceUdpChannelFutureManagerCleaner = xScopeCleaner(CreateDeviceUdpChannelFutureManager);
+    auto AcquireDeviceUdpChannelFutureManagerCleaner = xScopeCleaner(AcquireDeviceUdpChannelFutureManager);
 
     ClientConnectionPoolCleaner.Dismiss();
     TcpServerCleaner.Dismiss();
     AuthFutureManagerCleaner.Dismiss();
-    CreateDeviceConnectionFutureManagerCleaner.Dismiss();
-    CreateDeviceUdpChannelFutureManagerCleaner.Dismiss();
+    AcquireDeviceConnectionFutureManagerCleaner.Dismiss();
+    AcquireDeviceUdpChannelFutureManagerCleaner.Dismiss();
 
     Reset(BindUdpAddress4);
     Reset(BindUdpAddress6);
@@ -88,8 +90,8 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
 
 void xProxyAccessService::Clean() {
     AuthFutureManager.Clean();
-    CreateDeviceConnectionFutureManager.Clean();
-    CreateDeviceUdpChannelFutureManager.Clean();
+    AcquireDeviceConnectionFutureManager.Clean();
+    AcquireDeviceUdpChannelFutureManager.Clean();
     do {  // clean tcp servers
         if (TcpServer4) {
             TcpServer4->Clean();
@@ -106,10 +108,37 @@ void xProxyAccessService::Clean() {
     Reset(ExportUdpAddress6);
     ClientUdpChannelPool.Clean();
     ClientConnectionPool.Clean();
+
+    Reset(Audit);
 }
 
 void xProxyAccessService::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
+    ScheduleAuthTimeoutConnection();
+    ExcuteKillConnection();
+    ClearTimeoutFuture();
+    OutputAudit();
+}
+
+void xProxyAccessService::OutputAudit() {
+    auto NowMS = LocalTicker();
+    if (NowMS - Audit.LastOutputTimestampMS <= PA_AUDIT_TIMEOUT_MS) {
+        return;
+    }
+    Audit.LastOutputTimestampMS = NowMS;
+
+    auto Output = Audit.InvalidS5AuthTypeCount || Audit.InvalidS5AuthInfo || Audit.InvalidS5AuthResult || Audit.RequestAuthenticationOOM || Audit.AuthTimeoutCount;
+    if (!Output) {
+        return;
+    }
+    auto SS = std::ostringstream();
+    SS << "InvalidS5AuthTypeCount=" << Audit.InvalidS5AuthTypeCount << endl;
+    SS << "InvalidS5AuthInfo=" << Audit.InvalidS5AuthInfo << endl;
+    SS << "InvalidS5AuthResult=" << Audit.InvalidS5AuthResult << endl;
+    SS << "RequestAuthenticationOOM=" << Audit.RequestAuthenticationOOM << endl;
+    SS << "AuthTimeoutCount=" << Audit.AuthTimeoutCount << endl;
+    AuditLogger->I("Audit:\n%s", SS.str().c_str());
+    Reset(Audit);
 }
 
 void xProxyAccessService::EnableUdp4(const xNetAddress & BindAddress, const xNetAddress & ExportAddress) {
@@ -141,7 +170,42 @@ void xProxyAccessService::DeferKill(xPA_ClientConnection * Connection) {
     ClientConnectionKillList.GrabTail(*Connection);
 }
 
+void xProxyAccessService::DestroyConnectionFuture(xPA_FutureBase * Future) {
+    if (!Future) {
+        return;
+    }
+    switch (Future->Type) {
+        case xPA_FutureBase::eType::None:
+            Logger->F("Invalid future type");
+            return;
+        case xPA_FutureBase::eType::Auth:
+            AuthFutureManager.ReleaseFuture(static_cast<xPA_AuthFuture *>(Future));
+            return;
+        case xPA_FutureBase::eType::AcquireDevice:
+            AcquireDeviceFutureManager.ReleaseFuture(static_cast<xPA_AcquireDeviceFuture *>(Future));
+            return;
+        case xPA_FutureBase::eType::AcquireDeviceConnection:
+            AcquireDeviceConnectionFutureManager.ReleaseFuture(static_cast<xPA_AcquireDeviceConnectionFuture *>(Future));
+            return;
+        case xPA_FutureBase::eType::AcquireDeviceUdpChannel:
+            AcquireDeviceUdpChannelFutureManager.ReleaseFuture(static_cast<xPA_AcquireDeviceUdpChannelFuture *>(Future));
+            return;
+
+        default:
+            return;
+    }
+}
+
 void xProxyAccessService::DestroyConnection(xPA_ClientConnection * Connection) {
+    DEBUG_LOG("ConnectionId=%" PRIx64 "", Connection->ConnectionId);
+    assert(Connection == ClientConnectionPool.CheckAndGet(Connection->ConnectionId));
+    if (auto UdpChannel = Steal(Connection->BindUdpChannel)) {
+        assert(UdpChannel == ClientUdpChannelPool.CheckAndGet(UdpChannel->UdpChannelId));
+        UdpChannel->Clean();
+        ClientUdpChannelPool.Release(UdpChannel->UdpChannelId);
+    }
+    DestroyConnectionFuture(Steal(Connection->CurrentFuture));
+
     auto ConnectionId = Connection->ConnectionId;
     Connection->Clean();
     ClientConnectionPool.Release(ConnectionId);
@@ -153,13 +217,30 @@ void xProxyAccessService::ClearTimeoutFuture() {
         return F.StartTimestampMS <= KillTimepoint;
     };
     while (auto P = static_cast<xPA_AuthFuture *>(AuthFutureTimeoutList.PopHead(Cond))) {
+        OnAuthResult(P);
+    }
+    while (auto P = static_cast<xPA_AcquireDeviceConnectionFuture *>(AcquireDeviceConnectionFutureTimeoutList.PopHead(Cond))) {
         Pass(P);
     }
-    while (auto P = static_cast<xPA_CreateDeviceConnectionFuture *>(CreateDeviceConnectionFutureTimeoutList.PopHead(Cond))) {
+    while (auto P = static_cast<xPA_AcquireDeviceUdpChannelFuture *>(AcquireDeviceUdpChannelFutureTimeoutList.PopHead(Cond))) {
         Pass(P);
     }
-    while (auto P = static_cast<xPA_CreateDeviceUdpChannelFuture *>(CreateDeviceUdpChannelFutureTimeoutList.PopHead(Cond))) {
-        Pass(P);
+}
+
+void xProxyAccessService::ScheduleAuthTimeoutConnection() {
+    auto KillTimepoint = LocalTicker() - PA_CLIENT_AUTH_TIMEOUT_MS;
+    auto Cond          = [this, KillTimepoint](const xPA_ClientConnectionTimeoutNode & N) {
+        return N.TimestampMS <= KillTimepoint;
+    };
+    while (auto P = ClientConnectionAuthTimeoutList.PopHead(Cond)) {
+        ClientConnectionKillList.AddTail(*P);
+        ++Audit.AuthTimeoutCount;
+    }
+}
+
+void xProxyAccessService::ExcuteKillConnection() {
+    while (auto Connection = static_cast<xPA_ClientConnection *>(ClientConnectionKillList.PopHead())) {
+        DestroyConnection(Connection);
     }
 }
 
@@ -175,7 +256,10 @@ void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && 
         ClientConnectionPool.Release(ConnectionId);
         return;
     }
+    ClientConnection.ConnectionId  = ConnectionId;
     ClientConnection.DataProcessor = &xProxyAccessService::OnGuessProxyType;
+    ClientConnection.TimestampMS   = LocalTicker();
+    ClientConnectionAuthTimeoutList.AddTail(ClientConnection);
 }
 
 void xProxyAccessService::OnConnected(xTcpConnection * TcpConnectionPtr) {
@@ -183,7 +267,8 @@ void xProxyAccessService::OnConnected(xTcpConnection * TcpConnectionPtr) {
 }
 
 void xProxyAccessService::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
-    Todo(__FILE__);
+    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnectionPtr);
+    DeferKill(ClientConnection);
 }
 
 void xProxyAccessService::OnFlush(xTcpConnection * TcpConnectionPtr) {
@@ -196,7 +281,16 @@ size_t xProxyAccessService::OnData(xTcpConnection * TcpConnectionPtr, ubyte * Da
 }
 
 void xProxyAccessService::OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
+    auto ClientUdpChannel = static_cast<xPA_ClientUdpChannel *>(UdpChannelPtr);
+    assert(ClientUdpChannel->ParentConnection);
+    KeepAlive(ClientUdpChannel->ParentConnection);
+
+    // todo: relay message;
     Pass();
+}
+
+size_t xProxyAccessService::KillConnectionOnData(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
+    return InvalidDataSize;
 }
 
 size_t xProxyAccessService::OnGuessProxyType(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
@@ -204,5 +298,133 @@ size_t xProxyAccessService::OnGuessProxyType(xPA_ClientConnection * Connection, 
         DEBUG_LOG("invalid challenge size");
         return InvalidDataSize;
     }
+    DEBUG_LOG("OnGuessProxyType: ConnectionId=%" PRIx64 "\n%s", Connection->ConnectionId, xel::HexShow({ (const char *)DataPtr, DataSize }).c_str());
+    if ('\x05' == (char)DataPtr[0]) {
+        return OnS5Challenge(Connection, DataPtr, DataSize);
+    }
+    return OnHttpChallenge(Connection, DataPtr, DataSize);
+}
+
+size_t xProxyAccessService::OnS5Challenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
+    xStreamReader R(DataPtr);
+    R.Skip(1);  // skip type check bytes
+
+    size_t NM = R.R1();  // number of methods
+    if (!NM) {
+        return InvalidDataSize;
+    }
+    size_t HeaderSize = 2 + NM;
+    if (DataSize < HeaderSize) {
+        return InvalidDataSize;
+    }
+    bool UserPassSupport = false;
+    for (size_t i = 0; i < NM; ++i) {
+        uint8_t Method = R.R1();
+        if (Method == 0x02) {
+            UserPassSupport = true;
+            break;
+        }
+    }
+    Connection->Type = xPA_ClientConnection::S5_CHALLENGE;
+    if (!UserPassSupport) {
+        auto RemoteAddress        = Connection->GetRemoteAddress();
+        auto Auth                 = '\x00' + RemoteAddress.IpToString();
+        Connection->DataProcessor = &xProxyAccessService::KillConnectionOnData;
+        if (!RequestAuthentication(Connection, Auth)) {
+            ++Audit.RequestAuthenticationOOM;
+            return InvalidDataSize;
+        }
+        return HeaderSize;
+    }
+
+    DEBUG_LOG("Accept account/pass authentication");
+    ubyte Socks5Auth[2] = { 0x05, 0x02 };
+    Connection->PostData(Socks5Auth, sizeof(Socks5Auth));
+    Connection->DataProcessor = &xProxyAccessService::OnS5AuthInfo;
+    return HeaderSize;
+}
+
+size_t xProxyAccessService::OnS5AuthInfo(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
+    DEBUG_LOG("\n%s", HexShow(DataPtr, DataSize).c_str());
+    if (DataSize < 3) {
+        return 0;
+    }
+    xStreamReader R(DataPtr);
+    auto          Ver = R.R1();
+    if (Ver != 0x01) {  // only version for user pass
+        ++Audit.InvalidS5AuthTypeCount;
+        return InvalidDataSize;
+    }
+    size_t NameLen = R.R1();
+    if (DataSize < 3 + NameLen) {
+        return 0;
+    }
+    char * KeyStart = (char *)DataPtr + R.Offset();
+    R.Skip(NameLen);
+
+    size_t PassLen = R.R1();
+    if (DataSize < 3 + NameLen + PassLen) {
+        return 0;
+    }
+    ((char *)DataPtr)[R.Offset() - 1] = '\0';  // make quick user/pass key
+    R.Skip(PassLen);
+
+    if (!NameLen || !PassLen) {
+        ++Audit.InvalidS5AuthInfo;
+        return InvalidDataSize;
+    }
+    Connection->DataProcessor = &xProxyAccessService::KillConnectionOnData;
+
+    size_t KeyLength = NameLen + 1 + PassLen;
+    auto   KeyView   = std::string_view{ KeyStart, KeyLength };
+    if (!RequestAuthentication(Connection, KeyView)) {
+        DEBUG_LOG("Auth with Account: %s", std::string(KeyView).c_str());
+        ++Audit.RequestAuthenticationOOM;
+        Connection->PostData("\x05\xFF", 2);  // auth failure
+        return R.Offset();
+    }
+
+    return R.Offset();
+}
+
+size_t xProxyAccessService::OnHttpChallenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
     return InvalidDataSize;
+}
+
+bool xProxyAccessService::RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView) {
+    auto Future = AuthFutureManager.AcquireFuture();
+    if (!Future) {
+        return false;
+    }
+    assert(AuthService);
+    Future->ClientConnection  = Connection;
+    Connection->CurrentFuture = Future;
+    AuthService->Validate(AuthView, *Future);
+
+    if (Future->IsReady) {
+        OnAuthResult(Future);
+    }
+
+    return true;
+}
+
+void xProxyAccessService::OnAuthResult(xPA_AuthFuture * Future) {
+    assert(Future && Future == AuthFutureManager.GetFuture(Future->FutureId));
+    auto Connection = Future->ClientConnection;
+    assert(Connection->CurrentFuture == Future);
+
+    auto Result = Future->Result.has_value() ? *Future->Result : nullptr;
+    if (Connection->Type == xPA_ClientConnection::eType::S5_CHALLENGE) {
+        return OnS5AuthResult(Connection, Result);
+    }
+
+    // clean up:
+    if (Result) {
+        AuthService->ReleaseAuthResult(Result);
+    }
+    AuthFutureManager.ReleaseFuture(Future);
+    Connection->CurrentFuture = nullptr;
+}
+
+void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xAuthResult * Result) {
 }

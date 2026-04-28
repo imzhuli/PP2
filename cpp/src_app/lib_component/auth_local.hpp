@@ -16,8 +16,8 @@ public:
     void Clean();
     void Tick(uint64_t NowMS);
 
-    void Validate(const std::string_view Account, const std::string_view Pass, xPA_AuthFuture & Future) override;
-    void ReleaseAuthResult(uint64_t ResultId) override;
+    void Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) override;
+    void ReleaseAuthResult(xAuthResult * Result) override;
 
 private:
     void ReloadAuthFile();
@@ -27,6 +27,6 @@ private:
     std::thread           ReloadAuthFileThread;
     xel::xRunState        RunState;
 
-    xel::xIndexedStorage<xAuthResult> ResultPool;
-    xAuthLocalMap                     AuthLocalMap;
+    xel::xMemoryPool<xAuthResult> ResultPool;
+    xAuthLocalMap                 AuthLocalMap;
 };

@@ -20,8 +20,8 @@ struct xAuthResult {
 
 class xAuthAbstractService : xAbstract {
 public:
-    virtual void Validate(const std::string_view Account, const std::string_view Pass, xPA_AuthFuture & Future) = 0;
-    virtual void ReleaseAuthResult(uint64_t ResultId)                                                           = 0;
+    virtual void Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) = 0;
+    virtual void ReleaseAuthResult(xAuthResult * Result)                               = 0;
 };
 
 extern std::string CombineAccountPass(std::string_view AccountView, std::string_view PassView);

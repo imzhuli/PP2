@@ -57,6 +57,7 @@ int main(int argc, char ** argv) {
         X_RUNTIME_ASSERT(ProxyAccessExportUdpAddress6);
         ProxyAccessService.EnableUdp6(ProxyAccessBindUdpAddress6, ProxyAccessExportUdpAddress6);
     }
+    ProxyAccessService.BindAuthService(&LocalAuthService);
 
     while (ServiceRunState) {
         ServiceUpdateOnce(LocalAuthService, RelayLocalService, ProxyAccessService);

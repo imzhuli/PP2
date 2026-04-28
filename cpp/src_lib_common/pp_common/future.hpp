@@ -22,8 +22,8 @@ struct xFutureBase : xFutureNode {
     bool             IsReady  = {};
 
     bool SetReady() {
-        assert(!IsReady && !xListNode::IsLinked(*this));
-        Manager->GetReadyFutureList().AddTail(*this);
+        assert(!IsReady);
+        Manager->GetReadyFutureList().GrabTail(*this);
         return IsReady = true;
     }
 };
@@ -36,6 +36,16 @@ public:
     bool Init(size_t PoolSize) { return FuturePool.Init(PoolSize); };
     void Clean() { FuturePool.Clean(); }
 
+    T * AcquireFuture() {
+        auto Id = FuturePool.Acquire();
+        if (!Id) {
+            return nullptr;
+        }
+        auto Future      = &FuturePool[Id];
+        Future->Manager  = this;
+        Future->FutureId = Id;
+        return Future;
+    }
     auto GetFuture(uint64_t FutureId) -> xFutureBase * override { return FuturePool.CheckAndGet(FutureId); }
     auto GetReadyFutureList() -> xFutureList & override { return FutureList; }
     bool ReleaseFuture(uint64_t FutureId) { return FuturePool.CheckAndRelease(FutureId); }

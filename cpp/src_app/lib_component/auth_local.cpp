@@ -18,7 +18,7 @@ bool xAuthLocalService::Init(const char * AuthFileDir) {
         return false;
     }
     this->AuthFileDir = AuthFileDir;
-    if (!ResultPool.Init(RESULE_POOL_SIZE)) {
+    if (!ResultPool.Init({ .InitSize = RESULE_POOL_SIZE, .MaxPoolSize = RESULE_POOL_SIZE })) {
         Logger->E("Failed to init ResultPool");
         return false;
     }
@@ -42,17 +42,17 @@ void xAuthLocalService::Tick(uint64_t NowMS) {
     Pass();
 }
 
-void xAuthLocalService::Validate(const std::string_view Account, const std::string_view Pass, xPA_AuthFuture & Future) {
-    auto ResultId = ResultPool.Acquire();
-    if (ResultId) {
-        Future.Result.emplace(ResultId);
+void xAuthLocalService::Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) {
+    auto Result = ResultPool.CreateValue();
+    if (Result) {
+        Future.Result.emplace(Result);
     }
     Future.SetReady();
     return;
 }
 
-void xAuthLocalService::ReleaseAuthResult(uint64_t ResultId) {
-    ResultPool.CheckAndRelease(ResultId);
+void xAuthLocalService::ReleaseAuthResult(xAuthResult * Result) {
+    ResultPool.Destroy(Result);
 }
 
 static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
