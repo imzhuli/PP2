@@ -60,6 +60,6 @@ int main(int argc, char ** argv) {
     ProxyAccessService.BindAuthService(&LocalAuthService);
 
     while (ServiceRunState) {
-        ServiceUpdateOnce(LocalAuthService, RelayLocalService, ProxyAccessService);
+        ServiceUpdateOnce(RelayLocalService, ProxyAccessService);
     }
 }

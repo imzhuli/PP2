@@ -69,9 +69,9 @@ protected:  // process data:
     size_t OnS5AuthInfo(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnHttpChallenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
 
-    bool RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView);
-    void OnAuthResult(xPA_AuthFuture * Future);
-    void OnS5AuthResult(xPA_ClientConnection * Connection, xAuthResult * Result);
+    xPA_AuthFuture * RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView);
+    void             OnAuthResult(xPA_AuthFuture * Future);
+    void             OnS5AuthResult(xPA_ClientConnection * Connection, xAuthResult * Result);
 
 protected:
     void KeepAlive(xPA_ClientConnection * Connection);

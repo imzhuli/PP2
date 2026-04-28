@@ -377,13 +377,19 @@ size_t xProxyAccessService::OnS5AuthInfo(xPA_ClientConnection * Connection, ubyt
 
     size_t KeyLength = NameLen + 1 + PassLen;
     auto   KeyView   = std::string_view{ KeyStart, KeyLength };
-    if (!RequestAuthentication(Connection, KeyView)) {
-        DEBUG_LOG("Auth with Account: %s", std::string(KeyView).c_str());
+    DEBUG_LOG("Auth with Account: %s", std::string(KeyView).c_str());
+    auto Future = RequestAuthentication(Connection, KeyView);
+    if (!(Connection->CurrentFuture = Future)) {
+        DEBUG_LOG("AuthFutureManager OOM");
         ++Audit.RequestAuthenticationOOM;
         Connection->PostData("\x05\xFF", 2);  // auth failure
         return R.Offset();
     }
-
+    if (Future->IsReady) {
+        OnAuthResult(Future);
+    } else {
+        DEBUG_LOG("Wait for future results");
+    }
     return R.Offset();
 }
 
@@ -391,21 +397,15 @@ size_t xProxyAccessService::OnHttpChallenge(xPA_ClientConnection * Connection, u
     return InvalidDataSize;
 }
 
-bool xProxyAccessService::RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView) {
+xPA_AuthFuture * xProxyAccessService::RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView) {
     auto Future = AuthFutureManager.AcquireFuture();
     if (!Future) {
-        return false;
+        return nullptr;
     }
     assert(AuthService);
-    Future->ClientConnection  = Connection;
-    Connection->CurrentFuture = Future;
+    Future->ClientConnection = Connection;
     AuthService->Validate(AuthView, *Future);
-
-    if (Future->IsReady) {
-        OnAuthResult(Future);
-    }
-
-    return true;
+    return Future;
 }
 
 void xProxyAccessService::OnAuthResult(xPA_AuthFuture * Future) {

@@ -38,10 +38,6 @@ void xAuthLocalService::Clean() {
     Reset(AuthFileDir);
 }
 
-void xAuthLocalService::Tick(uint64_t NowMS) {
-    Pass();
-}
-
 void xAuthLocalService::Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) {
     auto Result = ResultPool.CreateValue();
     if (Result) {

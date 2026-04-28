@@ -14,7 +14,6 @@ class xAuthLocalService final : public xAuthAbstractService {
 public:
     bool Init(const char * auth_dir);
     void Clean();
-    void Tick(uint64_t NowMS);
 
     void Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) override;
     void ReleaseAuthResult(xAuthResult * Result) override;
