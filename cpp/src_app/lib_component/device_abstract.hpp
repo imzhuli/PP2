@@ -9,6 +9,6 @@ struct xDeviceAcquire {
     xDeviceSelectionStrategy Strategy;
 };
 
-struct xDeviceAbstractService : xAbstract {
+struct xDeviceLocatorAbstractService : xAbstract {
     virtual bool AcquireDevice(const xDeviceAcquire & Request, xPA_AcquireDeviceFuture & Future) = 0;
 };

@@ -49,7 +49,7 @@ public:
     void Clean();
     void Tick(uint64_t NowMS);
     void BindAuthService(xAuthAbstractService * Service) { AuthService = Service; }
-    void BindDeviceService(xDeviceAbstractService * Service) { DeviceService = Service; }
+    void BindDeviceService(xDeviceLocatorAbstractService * Service) { DeviceLocatorService = Service; }
     void EnableUdp4(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
     void EnableUdp6(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
 
@@ -100,8 +100,8 @@ private:
     xFuturePoolManager<xPA_AcquireDeviceConnectionFuture> AcquireDeviceConnectionFutureManager;
     xFuturePoolManager<xPA_AcquireDeviceUdpChannelFuture> AcquireDeviceUdpChannelFutureManager;
 
-    xAuthAbstractService *   AuthService   = nullptr;
-    xDeviceAbstractService * DeviceService = nullptr;
+    xAuthAbstractService *          AuthService          = nullptr;
+    xDeviceLocatorAbstractService * DeviceLocatorService = nullptr;
 
     xNetAddress BindUdpAddress4   = {};
     xNetAddress BindUdpAddress6   = {};
@@ -117,6 +117,7 @@ private:
         size_t InvalidS5AuthInfo        = 0;
         size_t InvalidS5AuthResult      = 0;
         size_t InvalidS5Target          = 0;
+        size_t LocalBindUdpChannelCount = 0;
         size_t RequestAuthenticationOOM = 0;
         size_t AuthTimeoutCount         = 0;
 

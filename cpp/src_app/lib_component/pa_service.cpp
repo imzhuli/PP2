@@ -132,6 +132,7 @@ void xProxyAccessService::OutputAudit() {
     Output     |= Audit.InvalidS5AuthInfo;
     Output     |= Audit.InvalidS5AuthResult;
     Output     |= Audit.InvalidS5Target;
+    Output     |= Audit.LocalBindUdpChannelCount;
     Output     |= Audit.RequestAuthenticationOOM;
     Output     |= Audit.AuthTimeoutCount;
     Output     |= AuthFutureManager.GetActiveFutureCount();
@@ -144,6 +145,7 @@ void xProxyAccessService::OutputAudit() {
     SS << "InvalidS5AuthInfo=" << Audit.InvalidS5AuthInfo << endl;
     SS << "InvalidS5AuthResult=" << Audit.InvalidS5AuthResult << endl;
     SS << "InvalidS5Target=" << Audit.InvalidS5Target << endl;
+    SS << "LocalBindUdpChannelCount=" << Audit.LocalBindUdpChannelCount << endl;
     SS << "RequestAuthenticationOOM=" << Audit.RequestAuthenticationOOM << endl;
     SS << "AuthTimeoutCount=" << Audit.AuthTimeoutCount << endl;
     SS << "AuthFutureCount=" << AuthFutureManager.GetActiveFutureCount() << endl;
@@ -196,6 +198,7 @@ void xProxyAccessService::DestroyConnection(xPA_ClientConnection * Connection) {
     DEBUG_LOG("ConnectionId=%" PRIx64 "", Connection->ConnectionId);
     assert(Connection == ClientConnectionPool.CheckAndGet(Connection->ConnectionId));
     if (auto UdpChannel = Steal(Connection->BindUdpChannel)) {
+        DEBUG_LOG("close bind udp channel");
         assert(UdpChannel == ClientUdpChannelPool.CheckAndGet(UdpChannel->UdpChannelId));
         UdpChannel->Clean();
         ClientUdpChannelPool.Release(UdpChannel->UdpChannelId);

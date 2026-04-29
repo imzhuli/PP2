@@ -81,6 +81,10 @@ const xRelayLocalDevice * xRelayLocalBindingService::GetDevice(uint64_t DeviceId
     return &LocalDeviceList[L32];
 }
 
+bool xRelayLocalBindingService::AcquireDevice(const xDeviceAcquire & Request, xPA_AcquireDeviceFuture & Future) {
+    return false;
+}
+
 void xRelayLocalBindingService::CreateConnection(uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) {
     assert(PASideConnectionId);
     auto Device = GetDevice(DeviceId);
@@ -125,7 +129,7 @@ void xRelayLocalBindingService::CreateUdpChannel(uint64_t DeviceId, uint64_t PAS
     UdpChannel.PASideUdpChannelId = PASideUdpChannelId;
 }
 
-void xRelayLocalBindingService::DeferDestroyConnection(uint64_t ConnectionId) {
+void xRelayLocalBindingService::DestroyConnection(uint64_t ConnectionId) {
     auto Connection = LocalConnectionPool.CheckAndGet(ConnectionId);
     if (!Connection) {
         return;
@@ -133,9 +137,9 @@ void xRelayLocalBindingService::DeferDestroyConnection(uint64_t ConnectionId) {
     DeferDestroyConnection(Connection);
 }
 
-void xRelayLocalBindingService::DeferDestroyUdpChannel(uint64_t UdpChannelId) {
-    auto UdpChannel = LocalUdpChannelPool.Check(UdpChannelId);
-    if (!UdpChannelId) {
+void xRelayLocalBindingService::DestroyUdpChannel(uint64_t UdpChannelId) {
+    auto UdpChannel = LocalUdpChannelPool.CheckAndGet(UdpChannelId);
+    if (!UdpChannel) {
         return;
     }
     DeferDestroyUdpChannel(UdpChannel);
