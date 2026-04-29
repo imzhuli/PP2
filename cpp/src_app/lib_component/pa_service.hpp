@@ -67,6 +67,7 @@ protected:  // process data:
     size_t OnGuessProxyType(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnS5Challenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnS5AuthInfo(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
+    size_t OnS5Target(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnHttpChallenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
 
     xPA_AuthFuture * RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView);
@@ -115,6 +116,7 @@ private:
         size_t InvalidS5AuthTypeCount   = 0;
         size_t InvalidS5AuthInfo        = 0;
         size_t InvalidS5AuthResult      = 0;
+        size_t InvalidS5Target          = 0;
         size_t RequestAuthenticationOOM = 0;
         size_t AuthTimeoutCount         = 0;
 

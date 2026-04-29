@@ -39,16 +39,19 @@ void xAuthLocalService::Clean() {
 }
 
 void xAuthLocalService::Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) {
+    Future.SetReady();
     auto Result = ResultPool.CreateValue();
-    if (Result) {
-        Future.Result.emplace(Result);
-        ++Audit.ResultCount;
+    if (!Result) {
+        return;
     }
+    Future.Result.emplace(Result);
+    ++Audit.ResultCount;
+
     // find out
-    if (AccountPass == "a\x00b") {
+    if (AccountPass == "a\000b"sv) {
+        Result->ProxyAccessAddress = xNetAddress::Parse("10.0.0.7:11000");
     }
 
-    Future.SetReady();
     return;
 }
 

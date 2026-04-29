@@ -131,6 +131,7 @@ void xProxyAccessService::OutputAudit() {
     Output     |= Audit.InvalidS5AuthTypeCount;
     Output     |= Audit.InvalidS5AuthInfo;
     Output     |= Audit.InvalidS5AuthResult;
+    Output     |= Audit.InvalidS5Target;
     Output     |= Audit.RequestAuthenticationOOM;
     Output     |= Audit.AuthTimeoutCount;
     Output     |= AuthFutureManager.GetActiveFutureCount();
@@ -142,6 +143,7 @@ void xProxyAccessService::OutputAudit() {
     SS << "InvalidS5AuthTypeCount=" << Audit.InvalidS5AuthTypeCount << endl;
     SS << "InvalidS5AuthInfo=" << Audit.InvalidS5AuthInfo << endl;
     SS << "InvalidS5AuthResult=" << Audit.InvalidS5AuthResult << endl;
+    SS << "InvalidS5Target=" << Audit.InvalidS5Target << endl;
     SS << "RequestAuthenticationOOM=" << Audit.RequestAuthenticationOOM << endl;
     SS << "AuthTimeoutCount=" << Audit.AuthTimeoutCount << endl;
     SS << "AuthFutureCount=" << AuthFutureManager.GetActiveFutureCount() << endl;
@@ -375,7 +377,7 @@ size_t xProxyAccessService::OnS5AuthInfo(xPA_ClientConnection * Connection, ubyt
 
     size_t KeyLength = NameLen + 1 + PassLen;
     auto   KeyView   = std::string_view{ KeyStart, KeyLength };
-    DEBUG_LOG("Auth with Account: %s", std::string(KeyView).c_str());
+    DEBUG_LOG("Auth with Account: %s", StrToHex(KeyView).c_str());
     auto Future = RequestAuthentication(Connection, KeyView);
     if (!(Connection->AuthFuture = Future)) {
         DEBUG_LOG("AuthFutureManager OOM");
@@ -389,6 +391,74 @@ size_t xProxyAccessService::OnS5AuthInfo(xPA_ClientConnection * Connection, ubyt
         DEBUG_LOG("Wait for future results");
     }
     return R.Offset();
+}
+
+size_t xProxyAccessService::OnS5Target(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
+    if (DataSize < 10) {
+        return 0;
+    }
+    if (DataSize >= 6 + 256) {
+        ++Audit.InvalidS5Target;
+        return InvalidDataSize;
+    }
+    DEBUG_LOG("\n%s", HexShow(DataPtr, DataSize).c_str());
+
+    xStreamReader R(DataPtr);
+    uint8_t       Version   = R.R();
+    uint8_t       Operation = R.R();
+    uint8_t       Reserved  = R.R();
+    uint8_t       AddrType  = R.R();
+    if (Version != 0x05 || Reserved != 0x00) {
+        DEBUG_LOG("invalid protocol");
+        ++Audit.InvalidS5Target;
+        return InvalidDataSize;
+    }
+    // extract target info:
+    auto   TargetAddress = xNetAddress();
+    char   DomainName[256];
+    size_t DomainNameLength = 0;
+    if (AddrType == 0x01) {  // ipv4
+        TargetAddress.Type = xNetAddress::IPV4;
+        R.R(TargetAddress.SA4, 4);
+        TargetAddress.Port = R.R2();
+
+        DEBUG_LOG("target address: %s", TargetAddress.ToString().c_str());
+    } else if (AddrType == 0x04) {  // ipv6
+        if (DataSize < 4 + 16 + 2) {
+            return 0;
+        }
+        TargetAddress.Type = xNetAddress::IPV6;
+        R.R(TargetAddress.SA6, 16);
+        TargetAddress.Port = R.R2();
+
+        DEBUG_LOG("target address: %s", TargetAddress.ToString().c_str());
+    } else if (AddrType == 0x03) {
+        DomainNameLength = R.R();
+        if (DataSize < 4 + 1 + DomainNameLength + 2) {
+            return 0;
+        }
+        R.R(DomainName, DomainNameLength);
+        DomainName[DomainNameLength] = '\0';
+        TargetAddress.Port           = R.R2();
+
+        DEBUG_LOG("target domain: %s, port=%u", DomainName, (unsigned)TargetAddress.Port);
+    }
+    if (Operation == 0x01) {  // build tcp connection
+        DEBUG_LOG("Operation: Connection");
+    } else if (Operation == 0x03) {  // udp
+        DEBUG_LOG("Operation: UdpChannel");
+    } else {
+        size_t        AddressLength = R.Offset() - 3;
+        ubyte         Buffer[512];
+        xStreamWriter W(Buffer);
+        W.W(0x05);
+        W.W(0x01);
+        W.W(0x00);
+        W.W((ubyte *)DataPtr + 3, AddressLength);
+        Connection->PostData(W.Origin(), W.Offset());
+        return 0;
+    }
+    return 0;
 }
 
 size_t xProxyAccessService::OnHttpChallenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
@@ -423,10 +493,11 @@ void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection) {
     assert(Future);
     auto Result = Future->Result ? *Future->Result : nullptr;
     if (!Result || !Result->ProxyAccessAddress) {
-        Connection->PostData("\x05\xFF", 2);  // auth failure
+        Connection->PostData("\x01\x01", 2);  // auth failure
     } else {
+        Connection->PostData("\x01\x00", 2);
+        Connection->DataProcessor = &xProxyAccessService::OnS5Target;
     }
-    ReleaseAuthFuture(Connection);
-
     DEBUG_LOG("%s", Result->ToString().c_str());
+    ReleaseAuthFuture(Connection);
 }
