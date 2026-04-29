@@ -12,8 +12,9 @@ using xAuthLocalMap = std::unordered_map<std::string, xAuthLocalRecord>;
 
 class xAuthLocalService final : public xAuthAbstractService {
 public:
-    bool Init(const char * auth_dir);
-    void Clean();
+    bool   Init(const char * auth_dir);
+    void   Clean();
+    size_t GetUnprocessedResultCount() const override { return Audit.ResultCount; }
 
     void Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) override;
     void ReleaseAuthResult(xAuthResult * Result) override;
@@ -28,4 +29,8 @@ private:
 
     xel::xMemoryPool<xAuthResult> ResultPool;
     xAuthLocalMap                 AuthLocalMap;
+
+    struct {
+        size_t ResultCount = 0;
+    } Audit;
 };

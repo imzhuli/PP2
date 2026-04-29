@@ -30,7 +30,7 @@ struct xPA_ClientConnection
     bool                   DeleteMark     = false;
     xPA_TcpDataProcessor   DataProcessor  = {};
     eType                  Type           = UNDETERMINED;
-    xPA_FutureBase *       CurrentFuture  = nullptr;
+    xPA_AuthFuture *       AuthFuture     = nullptr;
 };
 
 struct xPA_ClientUdpChannel
@@ -71,13 +71,14 @@ protected:  // process data:
 
     xPA_AuthFuture * RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView);
     void             OnAuthResult(xPA_AuthFuture * Future);
-    void             OnS5AuthResult(xPA_ClientConnection * Connection, xAuthResult * Result);
+    void             OnS5AuthResult(xPA_ClientConnection * Connection);
 
 protected:
     void KeepAlive(xPA_ClientConnection * Connection);
     void DeferKill(xPA_ClientConnection * Connection);
+    void CheckAndReleaseAuthFuture(xPA_ClientConnection * Connection);
+    void ReleaseAuthFuture(xPA_ClientConnection * Connection);
     void DestroyConnection(xPA_ClientConnection * Connection);
-    void DestroyConnectionFuture(xPA_FutureBase * Future);
     void ScheduleAuthTimeoutConnection();
     void ExcuteKillConnection();
     void ClearTimeoutFuture();

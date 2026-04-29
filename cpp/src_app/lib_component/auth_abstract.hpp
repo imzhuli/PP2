@@ -16,12 +16,15 @@ struct xAuthResult {
     uint32_t    BandwithLimit;
     uint32_t    ConnectionLimit;
     uint64_t    ExpireTime;
+
+    std::string ToString() const;
 };
 
 class xAuthAbstractService : xAbstract {
 public:
-    virtual void Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) = 0;
-    virtual void ReleaseAuthResult(xAuthResult * Result)                               = 0;
+    virtual void   Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) = 0;
+    virtual void   ReleaseAuthResult(xAuthResult * Result)                               = 0;
+    virtual size_t GetUnprocessedResultCount() const                                     = 0;
 };
 
 extern std::string CombineAccountPass(std::string_view AccountView, std::string_view PassView);

@@ -110,8 +110,8 @@ private:
 };
 
 #ifndef NDEBUG
-#define DEBUG_LOG(fmt, ...) Logger->D("%s:%i:%s$ " fmt, std::filesystem::path(__FILE__).filename().c_str(), __LINE__, __func__, ##__VA_ARGS__)
-#define DEBUG_ADT(fmt, ...) AuditLogger->D("%s:%i:%s$ " fmt, std::filesystem::path(__FILE__).filename().c_str(), __LINE__, __func__, ##__VA_ARGS__)
+#define DEBUG_LOG(fmt, ...) Logger->D("[%s:%i:%s] " fmt, std::filesystem::path(__FILE__).filename().c_str(), __LINE__, __func__, ##__VA_ARGS__)
+#define DEBUG_ADT(fmt, ...) AuditLogger->D("[%s:%i:%s] " fmt, std::filesystem::path(__FILE__).filename().c_str(), __LINE__, __func__, ##__VA_ARGS__)
 #else
 #define DEBUG_LOG(...)
 #define DEBUG_ADT(...)

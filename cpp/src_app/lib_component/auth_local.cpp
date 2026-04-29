@@ -42,12 +42,18 @@ void xAuthLocalService::Validate(const std::string_view AccountPass, xPA_AuthFut
     auto Result = ResultPool.CreateValue();
     if (Result) {
         Future.Result.emplace(Result);
+        ++Audit.ResultCount;
     }
+    // find out
+    if (AccountPass == "a\x00b") {
+    }
+
     Future.SetReady();
     return;
 }
 
 void xAuthLocalService::ReleaseAuthResult(xAuthResult * Result) {
+    --Audit.ResultCount;
     ResultPool.Destroy(Result);
 }
 

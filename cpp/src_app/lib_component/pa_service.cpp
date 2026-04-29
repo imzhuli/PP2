@@ -4,7 +4,7 @@
 
 static constexpr const size_t   PA_CLIENT_AUTH_TIMEOUT_MS        = 2'000;
 static constexpr const uint64_t PA_FUTURE_TIMEOUT_MS             = 1'000;
-static constexpr const size_t   PA_AUDIT_TIMEOUT_MS              = 60'000;
+static constexpr const size_t   PA_AUDIT_TIMEOUT_MS              = 1'000;
 static constexpr const size_t   PA_MAX_CLIENT_CONNECTION         = 20'0000;
 static constexpr const size_t   PA_MAX_CLIENT_REQUEST_PER_SECOND = 5'0000;
 
@@ -127,7 +127,14 @@ void xProxyAccessService::OutputAudit() {
     }
     Audit.LastOutputTimestampMS = NowMS;
 
-    auto Output = Audit.InvalidS5AuthTypeCount || Audit.InvalidS5AuthInfo || Audit.InvalidS5AuthResult || Audit.RequestAuthenticationOOM || Audit.AuthTimeoutCount;
+    auto Output = false;
+    Output     |= Audit.InvalidS5AuthTypeCount;
+    Output     |= Audit.InvalidS5AuthInfo;
+    Output     |= Audit.InvalidS5AuthResult;
+    Output     |= Audit.RequestAuthenticationOOM;
+    Output     |= Audit.AuthTimeoutCount;
+    Output     |= AuthFutureManager.GetActiveFutureCount();
+    Output     |= AuthService->GetUnprocessedResultCount();
     if (!Output) {
         return;
     }
@@ -137,6 +144,8 @@ void xProxyAccessService::OutputAudit() {
     SS << "InvalidS5AuthResult=" << Audit.InvalidS5AuthResult << endl;
     SS << "RequestAuthenticationOOM=" << Audit.RequestAuthenticationOOM << endl;
     SS << "AuthTimeoutCount=" << Audit.AuthTimeoutCount << endl;
+    SS << "AuthFutureCount=" << AuthFutureManager.GetActiveFutureCount() << endl;
+    SS << "GetUnprocessedResultCount=" << AuthService->GetUnprocessedResultCount() << endl;
     AuditLogger->I("Audit:\n%s", SS.str().c_str());
     Reset(Audit);
 }
@@ -170,30 +179,15 @@ void xProxyAccessService::DeferKill(xPA_ClientConnection * Connection) {
     ClientConnectionKillList.GrabTail(*Connection);
 }
 
-void xProxyAccessService::DestroyConnectionFuture(xPA_FutureBase * Future) {
-    if (!Future) {
-        return;
-    }
-    switch (Future->Type) {
-        case xPA_FutureBase::eType::None:
-            Logger->F("Invalid future type");
-            return;
-        case xPA_FutureBase::eType::Auth:
-            AuthFutureManager.ReleaseFuture(static_cast<xPA_AuthFuture *>(Future));
-            return;
-        case xPA_FutureBase::eType::AcquireDevice:
-            AcquireDeviceFutureManager.ReleaseFuture(static_cast<xPA_AcquireDeviceFuture *>(Future));
-            return;
-        case xPA_FutureBase::eType::AcquireDeviceConnection:
-            AcquireDeviceConnectionFutureManager.ReleaseFuture(static_cast<xPA_AcquireDeviceConnectionFuture *>(Future));
-            return;
-        case xPA_FutureBase::eType::AcquireDeviceUdpChannel:
-            AcquireDeviceUdpChannelFutureManager.ReleaseFuture(static_cast<xPA_AcquireDeviceUdpChannelFuture *>(Future));
-            return;
+void xProxyAccessService::CheckAndReleaseAuthFuture(xPA_ClientConnection * Connection) {
+    Connection->AuthFuture ? ReleaseAuthFuture(Connection) : Pass();
+}
 
-        default:
-            return;
-    }
+void xProxyAccessService::ReleaseAuthFuture(xPA_ClientConnection * Connection) {
+    auto Future = Steal(Connection->AuthFuture);
+    assert(Future);
+    Future->Result ? AuthService->ReleaseAuthResult(*Future->Result) : Pass();
+    AuthFutureManager.ReleaseFuture(Future);
 }
 
 void xProxyAccessService::DestroyConnection(xPA_ClientConnection * Connection) {
@@ -204,8 +198,7 @@ void xProxyAccessService::DestroyConnection(xPA_ClientConnection * Connection) {
         UdpChannel->Clean();
         ClientUdpChannelPool.Release(UdpChannel->UdpChannelId);
     }
-    DestroyConnectionFuture(Steal(Connection->CurrentFuture));
-
+    CheckAndReleaseAuthFuture(Connection);
     auto ConnectionId = Connection->ConnectionId;
     Connection->Clean();
     ClientConnectionPool.Release(ConnectionId);
@@ -302,6 +295,11 @@ size_t xProxyAccessService::OnGuessProxyType(xPA_ClientConnection * Connection, 
     if ('\x05' == (char)DataPtr[0]) {
         return OnS5Challenge(Connection, DataPtr, DataSize);
     }
+    if ('\x16' == (char)DataPtr[0]) {  // may be TLS test
+        ubyte Buffer[] = { '\x15', '\x03', '\x01', '\x00', '\x02', '\x02', '\x28' };
+        Connection->PostData(Buffer, Length(Buffer));
+        return 0;
+    }
     return OnHttpChallenge(Connection, DataPtr, DataSize);
 }
 
@@ -379,14 +377,14 @@ size_t xProxyAccessService::OnS5AuthInfo(xPA_ClientConnection * Connection, ubyt
     auto   KeyView   = std::string_view{ KeyStart, KeyLength };
     DEBUG_LOG("Auth with Account: %s", std::string(KeyView).c_str());
     auto Future = RequestAuthentication(Connection, KeyView);
-    if (!(Connection->CurrentFuture = Future)) {
+    if (!(Connection->AuthFuture = Future)) {
         DEBUG_LOG("AuthFutureManager OOM");
         ++Audit.RequestAuthenticationOOM;
         Connection->PostData("\x05\xFF", 2);  // auth failure
         return R.Offset();
     }
     if (Future->IsReady) {
-        OnAuthResult(Future);
+        OnS5AuthResult(Connection);
     } else {
         DEBUG_LOG("Wait for future results");
     }
@@ -409,22 +407,26 @@ xPA_AuthFuture * xProxyAccessService::RequestAuthentication(xPA_ClientConnection
 }
 
 void xProxyAccessService::OnAuthResult(xPA_AuthFuture * Future) {
-    assert(Future && Future == AuthFutureManager.GetFuture(Future->FutureId));
     auto Connection = Future->ClientConnection;
-    assert(Connection->CurrentFuture == Future);
+    assert(Connection->AuthFuture == Future);
+    assert(Future->IsReady);
 
-    auto Result = Future->Result.has_value() ? *Future->Result : nullptr;
     if (Connection->Type == xPA_ClientConnection::eType::S5_CHALLENGE) {
-        return OnS5AuthResult(Connection, Result);
+        return OnS5AuthResult(Connection);
     }
-
-    // clean up:
-    if (Result) {
-        AuthService->ReleaseAuthResult(Result);
-    }
-    AuthFutureManager.ReleaseFuture(Future);
-    Connection->CurrentFuture = nullptr;
 }
 
-void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xAuthResult * Result) {
+void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection) {
+    DEBUG_LOG();
+
+    auto Future = Connection->AuthFuture;
+    assert(Future);
+    auto Result = Future->Result ? *Future->Result : nullptr;
+    if (!Result || !Result->ProxyAccessAddress) {
+        Connection->PostData("\x05\xFF", 2);  // auth failure
+    } else {
+    }
+    ReleaseAuthFuture(Connection);
+
+    DEBUG_LOG("%s", Result->ToString().c_str());
 }

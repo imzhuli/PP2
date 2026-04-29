@@ -33,8 +33,9 @@ template <typename T>
 class xFuturePoolManager
     : public xFutureManager {
 public:
-    bool Init(size_t PoolSize) { return FuturePool.Init(PoolSize); };
-    void Clean() { FuturePool.Clean(); }
+    bool   Init(size_t PoolSize) { return FuturePool.Init(PoolSize); };
+    void   Clean() { FuturePool.Clean(); }
+    size_t GetActiveFutureCount() const { return Audit.FutureInUse; }
 
     T * AcquireFuture() {
         auto Id = FuturePool.Acquire();
@@ -44,20 +45,31 @@ public:
         auto Future      = &FuturePool[Id];
         Future->Manager  = this;
         Future->FutureId = Id;
+        ++Audit.FutureInUse;
         return Future;
     }
     auto GetFuture(uint64_t FutureId) -> xFutureBase * override { return FuturePool.CheckAndGet(FutureId); }
     auto GetReadyFutureList() -> xFutureList & override { return FutureList; }
-    bool ReleaseFuture(uint64_t FutureId) { return FuturePool.CheckAndRelease(FutureId); }
+    bool ReleaseFuture(uint64_t FutureId) {
+        if (FuturePool.CheckAndRelease(FutureId)) {
+            --Audit.FutureInUse;
+            return true;
+        }
+        return false;
+    }
     void ReleaseFuture(T * Future) {
         assert(Future);
         assert(Future == GetFuture(Future->FutureId));
         FuturePool.Release(Future->FutureId);
+        --Audit.FutureInUse;
     }
 
 private:
     xel::xIndexedStorage<T> FuturePool;
     xFutureList             FutureList;
+    struct {
+        size_t FutureInUse;
+    } Audit;
 };
 
 struct xFutureHandle final {
