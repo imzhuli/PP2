@@ -47,8 +47,16 @@ void xAuthLocalService::Validate(const std::string_view AccountPass, xPA_AuthFut
     Future.Result.emplace(Result);
     ++Audit.ResultCount;
 
+    DEBUG_LOG("ValidateAccountPass:%s", HexShow(AccountPass).c_str());
     // find out
     if (AccountPass == "a\000b"sv) {
+        DEBUG_LOG("test account");
+        Result->ProxyAccessAddress = xNetAddress::Parse("10.0.0.7:11000");
+    }
+    if (AccountPass ==
+        "\x00"
+        "10.0.0.7"sv) {
+        DEBUG_LOG("ip white list");
         Result->ProxyAccessAddress = xNetAddress::Parse("10.0.0.7:11000");
     }
 

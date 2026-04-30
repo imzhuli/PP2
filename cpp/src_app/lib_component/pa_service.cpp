@@ -4,7 +4,7 @@
 
 static constexpr const size_t   PA_CLIENT_AUTH_TIMEOUT_MS        = 2'000;
 static constexpr const uint64_t PA_FUTURE_TIMEOUT_MS             = 1'000;
-static constexpr const size_t   PA_AUDIT_TIMEOUT_MS              = 1'000;
+static constexpr const size_t   PA_AUDIT_TIMEOUT_MS              = 5'000;
 static constexpr const size_t   PA_MAX_CLIENT_CONNECTION         = 20'0000;
 static constexpr const size_t   PA_MAX_CLIENT_REQUEST_PER_SECOND = 5'0000;
 
@@ -114,7 +114,16 @@ void xProxyAccessService::Clean() {
 
 void xProxyAccessService::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
-    ScheduleAuthTimeoutConnection();
+    // process auth results:
+    do {
+        auto & ReadyAuthFutureList = AuthFutureManager.GetReadyFutureList();
+        while (auto P = static_cast<xPA_AuthFuture *>(ReadyAuthFutureList.PopHead())) {
+            DEBUG_LOG("async future result");
+            OnAuthResult(P);
+        }
+    } while (false);
+
+    DeferKillInitTimeoutConnection();
     ExcuteKillConnection();
     ClearTimeoutFuture();
     OutputAudit();
@@ -134,7 +143,7 @@ void xProxyAccessService::OutputAudit() {
     Output     |= Audit.InvalidS5Target;
     Output     |= Audit.LocalBindUdpChannelCount;
     Output     |= Audit.RequestAuthenticationOOM;
-    Output     |= Audit.AuthTimeoutCount;
+    Output     |= Audit.InitConnectionTimeoutCount;
     Output     |= AuthFutureManager.GetActiveFutureCount();
     Output     |= AuthService->GetUnprocessedResultCount();
     if (!Output) {
@@ -147,7 +156,7 @@ void xProxyAccessService::OutputAudit() {
     SS << "InvalidS5Target=" << Audit.InvalidS5Target << endl;
     SS << "LocalBindUdpChannelCount=" << Audit.LocalBindUdpChannelCount << endl;
     SS << "RequestAuthenticationOOM=" << Audit.RequestAuthenticationOOM << endl;
-    SS << "AuthTimeoutCount=" << Audit.AuthTimeoutCount << endl;
+    SS << "InitConnectionTimeoutCount=" << Audit.InitConnectionTimeoutCount << endl;
     SS << "AuthFutureCount=" << AuthFutureManager.GetActiveFutureCount() << endl;
     SS << "GetUnprocessedResultCount=" << AuthService->GetUnprocessedResultCount() << endl;
     AuditLogger->I("Audit:\n%s", SS.str().c_str());
@@ -225,14 +234,14 @@ void xProxyAccessService::ClearTimeoutFuture() {
     }
 }
 
-void xProxyAccessService::ScheduleAuthTimeoutConnection() {
+void xProxyAccessService::DeferKillInitTimeoutConnection() {
     auto KillTimepoint = LocalTicker() - PA_CLIENT_AUTH_TIMEOUT_MS;
     auto Cond          = [this, KillTimepoint](const xPA_ClientConnectionTimeoutNode & N) {
         return N.TimestampMS <= KillTimepoint;
     };
-    while (auto P = ClientConnectionAuthTimeoutList.PopHead(Cond)) {
+    while (auto P = ClientConnectionInitTimeoutList.PopHead(Cond)) {
         ClientConnectionKillList.AddTail(*P);
-        ++Audit.AuthTimeoutCount;
+        ++Audit.InitConnectionTimeoutCount;
     }
 }
 
@@ -257,7 +266,7 @@ void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && 
     ClientConnection.ConnectionId  = ConnectionId;
     ClientConnection.DataProcessor = &xProxyAccessService::OnGuessProxyType;
     ClientConnection.TimestampMS   = LocalTicker();
-    ClientConnectionAuthTimeoutList.AddTail(ClientConnection);
+    ClientConnectionInitTimeoutList.AddTail(ClientConnection);
 }
 
 void xProxyAccessService::OnConnected(xTcpConnection * TcpConnectionPtr) {
@@ -332,10 +341,20 @@ size_t xProxyAccessService::OnS5Challenge(xPA_ClientConnection * Connection, uby
     if (!UserPassSupport) {
         auto RemoteAddress        = Connection->GetRemoteAddress();
         auto Auth                 = '\x00' + RemoteAddress.IpToString();
+        Connection->NoAuth        = true;
         Connection->DataProcessor = &xProxyAccessService::KillConnectionOnData;
-        if (!RequestAuthentication(Connection, Auth)) {
+        auto Future               = RequestAuthentication(Connection, Auth);
+        if (!(Connection->AuthFuture = Future)) {
+            DEBUG_LOG("AuthFutureManager OOM");
             ++Audit.RequestAuthenticationOOM;
-            return InvalidDataSize;
+            Connection->PostData("\x05\xFF", 2);  // auth failure
+            return HeaderSize;                    // wait for client side close
+        }
+        if (Future->IsReady) {
+            DEBUG_LOG("immediate no-auth result");
+            OnS5AuthResult(Connection);
+        } else {
+            DEBUG_LOG("Wait for future results");
         }
         return HeaderSize;
     }
@@ -385,10 +404,11 @@ size_t xProxyAccessService::OnS5AuthInfo(xPA_ClientConnection * Connection, ubyt
     if (!(Connection->AuthFuture = Future)) {
         DEBUG_LOG("AuthFutureManager OOM");
         ++Audit.RequestAuthenticationOOM;
-        Connection->PostData("\x05\xFF", 2);  // auth failure
+        Connection->PostData("\x01\x01", 2);  // auth failure
         return R.Offset();
     }
     if (Future->IsReady) {
+        DEBUG_LOG("immediate auth result");
         OnS5AuthResult(Connection);
     } else {
         DEBUG_LOG("Wait for future results");
@@ -495,12 +515,23 @@ void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection) {
     auto Future = Connection->AuthFuture;
     assert(Future);
     auto Result = Future->Result ? *Future->Result : nullptr;
-    if (!Result || !Result->ProxyAccessAddress) {
-        Connection->PostData("\x01\x01", 2);  // auth failure
+
+    if (Connection->NoAuth) {
+        if (!Result || !Result->ProxyAccessAddress) {
+            Connection->PostData("\x05\xFF", 2);  // no-auth failed
+        } else {
+            Connection->PostData("\x05\x00", 2);
+            Connection->DataProcessor = &xProxyAccessService::OnS5Target;
+        }
+        DEBUG_LOG("%s", Result->ToString().c_str());
     } else {
-        Connection->PostData("\x01\x00", 2);
-        Connection->DataProcessor = &xProxyAccessService::OnS5Target;
+        if (!Result || !Result->ProxyAccessAddress) {
+            Connection->PostData("\x01\x01", 2);  // auth failure
+        } else {
+            Connection->PostData("\x01\x00", 2);
+            Connection->DataProcessor = &xProxyAccessService::OnS5Target;
+        }
+        DEBUG_LOG("%s", Result->ToString().c_str());
     }
-    DEBUG_LOG("%s", Result->ToString().c_str());
     ReleaseAuthFuture(Connection);
 }

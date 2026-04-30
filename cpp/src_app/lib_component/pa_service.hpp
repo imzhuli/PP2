@@ -28,6 +28,7 @@ struct xPA_ClientConnection
     uint64_t               ConnectionId   = 0;
     xPA_ClientUdpChannel * BindUdpChannel = {};
     bool                   DeleteMark     = false;
+    bool                   NoAuth         = false;
     xPA_TcpDataProcessor   DataProcessor  = {};
     eType                  Type           = UNDETERMINED;
     xPA_AuthFuture *       AuthFuture     = nullptr;
@@ -71,8 +72,9 @@ protected:  // process data:
     size_t OnHttpChallenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
 
     xPA_AuthFuture * RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView);
-    void             OnAuthResult(xPA_AuthFuture * Future);
-    void             OnS5AuthResult(xPA_ClientConnection * Connection);
+
+    void OnAuthResult(xPA_AuthFuture * Future);
+    void OnS5AuthResult(xPA_ClientConnection * Connection);
 
 protected:
     void KeepAlive(xPA_ClientConnection * Connection);
@@ -80,7 +82,8 @@ protected:
     void CheckAndReleaseAuthFuture(xPA_ClientConnection * Connection);
     void ReleaseAuthFuture(xPA_ClientConnection * Connection);
     void DestroyConnection(xPA_ClientConnection * Connection);
-    void ScheduleAuthTimeoutConnection();
+
+    void DeferKillInitTimeoutConnection();
     void ExcuteKillConnection();
     void ClearTimeoutFuture();
 
@@ -91,8 +94,8 @@ private:
 
     xIndexedStorage<xPA_ClientConnection> ClientConnectionPool;
     xIndexedStorage<xPA_ClientUdpChannel> ClientUdpChannelPool;
+    xPA_ClientConnectionTimeoutList       ClientConnectionInitTimeoutList;
     xPA_ClientConnectionTimeoutList       ClientConnectionTimeoutList;
-    xPA_ClientConnectionTimeoutList       ClientConnectionAuthTimeoutList;
     xPA_ClientConnectionTimeoutList       ClientConnectionKillList;
 
     xFuturePoolManager<xPA_AuthFuture>                    AuthFutureManager;
@@ -113,13 +116,13 @@ private:
     xFutureList AcquireDeviceUdpChannelFutureTimeoutList;
 
     struct xAudit {
-        size_t InvalidS5AuthTypeCount   = 0;
-        size_t InvalidS5AuthInfo        = 0;
-        size_t InvalidS5AuthResult      = 0;
-        size_t InvalidS5Target          = 0;
-        size_t LocalBindUdpChannelCount = 0;
-        size_t RequestAuthenticationOOM = 0;
-        size_t AuthTimeoutCount         = 0;
+        size_t InvalidS5AuthTypeCount     = 0;
+        size_t InvalidS5AuthInfo          = 0;
+        size_t InvalidS5AuthResult        = 0;
+        size_t InvalidS5Target            = 0;
+        size_t LocalBindUdpChannelCount   = 0;
+        size_t RequestAuthenticationOOM   = 0;
+        size_t InitConnectionTimeoutCount = 0;
 
         uint64_t LastOutputTimestampMS = GetTimestampMS();
     } Audit;
