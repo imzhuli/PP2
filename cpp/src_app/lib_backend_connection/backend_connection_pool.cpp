@@ -18,7 +18,7 @@ bool xBackendConnectionPool::Init(xIoContext * ICP, size_t MaxConnectionCount) {
 void xBackendConnectionPool::Clean() {
     xTcpClientPool::Clean();
     ContextList.Reset();
-    RuntimeAssert(SortedServerList->empty());
+    X_RUNTIME_ASSERT(SortedServerList->empty());
     SortedServerList.Reset();
     ResetLocalAudit();
 }

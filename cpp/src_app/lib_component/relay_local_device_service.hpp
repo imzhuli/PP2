@@ -45,17 +45,18 @@ class xRelayLocalBindingService final
     , xUdpChannel::iListener {
 
 public:
-    bool Init(const std::vector<std::pair<xNetAddress, xNetAddress>> & BindAddressPairList);
+    bool Init(uint64_t ServerId, const std::string & AddressPairFile);
+    bool Init(uint64_t ServerId, const std::vector<std::pair<xNetAddress, xNetAddress>> & BindAddressPairList);
     void Clean();
     void Tick(uint64_t NowMS);
 
     bool AcquireDevice(const xDeviceAcquire & Request, xPA_AcquireDeviceFuture & Future) override;
-    void CreateConnection(uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) override;
-    void CreateUdpChannel(uint64_t DeviceId, uint64_t PASideUdpChannelId, xRelayCreateUdpChannelFuture & Future) override;
-    void DestroyConnection(uint64_t ConnectionId) override;
-    void DestroyUdpChannel(uint64_t UdpChannelId) override;
-    void PostData(uint64_t ConnectionId, const void * Payload, size_t PayloadSize) override;
-    void PostData(uint64_t UdpChannelId, const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) override;
+    void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) override;
+    void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideUdpChannelId, xRelayCreateUdpChannelFuture & Future) override;
+    void DestroyConnection(uint64_t RelayServerId, uint64_t ConnectionId) override;
+    void DestroyUdpChannel(uint64_t RelayServerId, uint64_t UdpChannelId) override;
+    void PostData(uint64_t RelayServerId, uint64_t ConnectionId, const void * Payload, size_t PayloadSize) override;
+    void PostData(uint64_t RelayServerId, uint64_t UdpChannelId, const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) override;
 
 private:
     bool CreateLocalDeviceList(const std::vector<std::pair<xNetAddress, xNetAddress>> & BindAddressPairList);
@@ -86,6 +87,7 @@ private:
 
     xTicker LocalTicker;
 
+    uint64_t                                          LocalRelayServerId = 0;
     xLocalDeviceList                                  LocalDeviceList;
     xel::xIndexedStorage<xRelayLocalDeviceConnection> LocalConnectionPool;
     xel::xIndexedStorage<xRelayLocalDeviceUdpChannel> LocalUdpChannelPool;

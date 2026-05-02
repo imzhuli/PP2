@@ -8,7 +8,7 @@ static auto LocalAuthService   = xAuthLocalService();
 static auto RelayLocalService  = xRelayLocalBindingService();
 static auto ProxyAccessService = xProxyAccessService();
 
-static const std::vector<std::pair<xNetAddress, xNetAddress>> TestBindingPairList = {
+[[maybe_unused]] static const std::vector<std::pair<xNetAddress, xNetAddress>> TestBindingPairList = {
     std::make_pair(xNetAddress::Parse("10.0.0.7"), xNetAddress::Parse("175.178.22.69")),
     std::make_pair(xNetAddress::Parse("2402:4e00:101a:f300:0:9f95:4b15:c0db"), xNetAddress::Parse("2402:4e00:101a:f300:0:9f95:4b15:c0db")),
 };
@@ -18,6 +18,8 @@ static auto ProxyAccessBindUdpAddress4   = xNetAddress{};
 static auto ProxyAccessBindUdpAddress6   = xNetAddress{};
 static auto ProxyAccessExportUdpAddress4 = xNetAddress{};
 static auto ProxyAccessExportUdpAddress6 = xNetAddress{};
+static auto LocalRelayServerId           = (uint64_t)0;
+static auto LocalBindingDeviceFile       = std::string{};
 
 static void LoadConfig() {
     auto filename = "./test_assets/local_pa_relay.ini";
@@ -30,6 +32,9 @@ static void LoadConfig() {
     CL.Optional(ProxyAccessExportUdpAddress4, "PA_ExportUdpAddress4");
     CL.Optional(ProxyAccessExportUdpAddress6, "PA_ExportUdpAddress6");
 
+    CL.Require(LocalRelayServerId, "LocalRelayServerId");
+    CL.Require(LocalBindingDeviceFile, "LocalBindingDeviceFile");
+
     Logger->I("Begin Config");
     Logger->I("BindAddress4=%s", ProxyAccessBindAddress4.ToString().c_str());
     Logger->I("BindAddress6=%s", ProxyAccessBindAddress6.ToString().c_str());
@@ -38,6 +43,8 @@ static void LoadConfig() {
     Logger->I("ProxyAccessBindUdpAddress6=%s", ProxyAccessBindUdpAddress6.ToString().c_str());
     Logger->I("ProxyAccessExportUdpAddress4=%s", ProxyAccessExportUdpAddress4.ToString().c_str());
     Logger->I("ProxyAccessExportUdpAddress6=%s", ProxyAccessExportUdpAddress6.ToString().c_str());
+
+    Logger->I("LocalRelayServerId=%" PRIu64 "", LocalRelayServerId);
     Logger->I("Finish Config");
 }
 
@@ -46,7 +53,7 @@ int main(int argc, char ** argv) {
     LoadConfig();
 
     X_RESOURCE_GUARD_ASSERTED(LocalAuthService, "./test_assets/");
-    X_RESOURCE_GUARD_ASSERTED(RelayLocalService, TestBindingPairList);
+    X_RESOURCE_GUARD_ASSERTED(RelayLocalService, LocalRelayServerId, LocalBindingDeviceFile);
     X_RESOURCE_GUARD_ASSERTED(ProxyAccessService, ProxyAccessBindAddress4, ProxyAccessBindAddress6);
 
     if (ProxyAccessBindUdpAddress4) {

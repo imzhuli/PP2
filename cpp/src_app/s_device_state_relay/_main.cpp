@@ -24,10 +24,10 @@ static void LoadConfig() {
     LC.Require(ExportInputAddress4, "ExportInputAddress4");
     LC.Require(ExportOutputAddress4, "ExportOutputAddress4");
 
-    RuntimeAssert(BindInputAddress4.Is4() && BindInputAddress4.Port);
-    RuntimeAssert(BindOutputAddress4.Is4() && BindOutputAddress4.Port);
-    RuntimeAssert(ExportInputAddress4.Is4() && ExportInputAddress4.Port);
-    RuntimeAssert(ExportOutputAddress4.Is4() && ExportOutputAddress4.Port);
+    X_RUNTIME_ASSERT(BindInputAddress4.Is4() && BindInputAddress4.Port);
+    X_RUNTIME_ASSERT(BindOutputAddress4.Is4() && BindOutputAddress4.Port);
+    X_RUNTIME_ASSERT(ExportInputAddress4.Is4() && ExportInputAddress4.Port);
+    X_RUNTIME_ASSERT(ExportOutputAddress4.Is4() && ExportOutputAddress4.Port);
 }
 
 int main(int argc, char ** argv) {

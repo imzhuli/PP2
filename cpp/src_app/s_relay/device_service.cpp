@@ -15,7 +15,7 @@ static xTcpService DeviceService;
 void InitDeviceService(const xNetAddress & BindAddress) {
     SERVICE_RUNTIME_ASSERT(DeviceService.Init(ServiceIoContext, BindAddress, MAX_DEVICE_CONNECTION_ON_RELAY));
 
-    RuntimeAssert(DeviceReportClientPool.Init(MAX_DEVICE_STATE_RELAY_SERVER_COUNT));
+    X_RUNTIME_ASSERT(DeviceReportClientPool.Init(MAX_DEVICE_STATE_RELAY_SERVER_COUNT));
     SERVICE_RUNTIME_ASSERT(DeviceReportServerInfoList.empty());
     DeviceReportServerInfoList.reserve(std::max(MAX_DEVICE_STATE_RELAY_SERVER_COUNT, MAX_RELAY_INFO_DISPATCHER_SERVER_COUNT));
 

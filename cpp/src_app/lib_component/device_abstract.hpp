@@ -4,8 +4,12 @@
 #include <pp_common/device.hpp>
 
 struct xDeviceAcquire {
-    xCountryId               CountryId;
-    xDeviceFlag              Flag;
+    xDeviceFlag Flag;
+    uint64_t    LastDeviceId;
+    union {
+        xNetAddress ExportAddress;
+        xGeoInfo    GeoInfo;
+    } Condition;
     xDeviceSelectionStrategy Strategy;
 };
 

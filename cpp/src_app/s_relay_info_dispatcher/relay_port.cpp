@@ -101,7 +101,7 @@ static void OnRelayClean(const xTcpServiceClientConnectionHandle & H) {
 }
 
 void InitRelayPort() {
-    RuntimeAssert(RelayService.Init(ServiceIoContext, RelayPortBindAddress4, MAX_RELAY_CONTEXT_COUNT));
+    X_RUNTIME_ASSERT(RelayService.Init(ServiceIoContext, RelayPortBindAddress4, MAX_RELAY_CONTEXT_COUNT));
     RelayService.OnClientConnected = OnRelayConnected;
     RelayService.OnClientPacket    = OnRelayPacket;
     RelayService.OnClientKeepAlive = OnRelayKeepAlive;

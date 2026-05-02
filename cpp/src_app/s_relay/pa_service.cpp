@@ -7,7 +7,7 @@ static constexpr const size_t MaxPAConnectionCount = 2'0000;
 static xel::xTcpService PAService;
 
 void InitPAService(const xNetAddress & BindAddress) {
-    RuntimeAssert(PAService.Init(ServiceIoContext, BindAddress, MaxPAConnectionCount));
+    X_RUNTIME_ASSERT(PAService.Init(ServiceIoContext, BindAddress, MaxPAConnectionCount));
 }
 
 void CleanPAService() {

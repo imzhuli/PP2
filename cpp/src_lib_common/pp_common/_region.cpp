@@ -1,7 +1,7 @@
 #include "./_region.hpp"
 
 xCountryId CountryCodeToCountryId(const char * CC) {
-    RuntimeAssert(CC);
+    X_RUNTIME_ASSERT(CC);
     auto len = strlen(CC);
     if (len != 2) {
         return 0;

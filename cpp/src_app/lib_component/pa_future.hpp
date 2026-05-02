@@ -23,6 +23,8 @@ struct xPA_AuthFuture final : xPA_FutureBase {
 };
 
 struct xPA_AcquireDeviceFuture final : xPA_FutureBase {
+    uint64_t RelayServerid     = 0;
+    uint64_t RelaySideDeviceId = 0;
 };
 
 struct xPA_AcquireDeviceConnectionFuture final : xPA_FutureBase {

@@ -9,7 +9,7 @@ static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS  = 120'000;
 static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS  = 120'000;
 
 static uint64_t MakeLocalDeviceId(size_t Index) {
-    RuntimeAssert(Index < std::numeric_limits<uint32_t>::max());
+    X_RUNTIME_ASSERT(Index < std::numeric_limits<uint32_t>::max());
     return Make64(DEVICE_ID_HIGH32_MAGIC, Index);
 }
 
@@ -20,8 +20,36 @@ static size_t EstimateMaxUdpChannelPoolSize(size_t LocalAddressSize) {
     return std::min(3'0000 * LocalAddressSize, MAX_MANAGED_UDPCHANNEL_SIZE);
 }
 
-bool xRelayLocalBindingService::Init(const std::vector<std::pair<xNetAddress, xNetAddress>> & BindAddressPairList) {
-    RuntimeAssert(ServiceRunState);
+bool xRelayLocalBindingService::Init(uint64_t ServerId, const std::string & AddressPairFile) {
+    // parse file:
+    auto BindAddressPairList = std::vector<std::pair<xNetAddress, xNetAddress>>();
+    auto Lines               = xel::FileToLines(AddressPairFile);
+    for (auto L : Lines) {
+        L = xel::Trim(L);
+        if (L.empty()) {
+            continue;
+        }
+        DEBUG_LOG("AddressPairLine:%s", L.c_str());
+        auto Segs = xel::Split(L, "->");
+        if (Segs.size() != 2) {
+            Logger->F("invalid config line");
+            return false;
+        }
+        auto B = xNetAddress::Parse(Segs[0]);
+        auto E = xNetAddress::Parse(Segs[1]);
+        if (!B || !E || B.Type != E.Type) {
+            Logger->F("invalid config line, bad address type");
+            return false;
+        }
+        BindAddressPairList.push_back(std::make_pair(B, E));
+    }
+
+    return Init(ServerId, BindAddressPairList);
+}
+
+bool xRelayLocalBindingService::Init(uint64_t ServerId, const std::vector<std::pair<xNetAddress, xNetAddress>> & BindAddressPairList) {
+    X_RUNTIME_ASSERT(ServerId);
+    X_RUNTIME_ASSERT(ServiceRunState);
     if (!CreateLocalDeviceList(BindAddressPairList)) {
         return false;
     }
@@ -34,6 +62,7 @@ bool xRelayLocalBindingService::Init(const std::vector<std::pair<xNetAddress, xN
         DestroyLocalDeviceList();
         return false;
     }
+    LocalRelayServerId = ServerId;
     return true;
 }
 
@@ -52,7 +81,7 @@ void xRelayLocalBindingService::Tick(uint64_t NowMS) {
 }
 
 bool xRelayLocalBindingService::CreateLocalDeviceList(const std::vector<std::pair<xNetAddress, xNetAddress>> & BindAddressPairList) {
-    RuntimeAssert(LocalDeviceList.empty());
+    X_RUNTIME_ASSERT(LocalDeviceList.empty());
     size_t IndexCount = 0;
     for (auto & P : BindAddressPairList) {
         auto DInfo = xRelayLocalDevice{
@@ -85,7 +114,7 @@ bool xRelayLocalBindingService::AcquireDevice(const xDeviceAcquire & Request, xP
     return false;
 }
 
-void xRelayLocalBindingService::CreateConnection(uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) {
+void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) {
     assert(PASideConnectionId);
     auto Device = GetDevice(DeviceId);
     if (!Device) {
@@ -110,7 +139,7 @@ void xRelayLocalBindingService::CreateConnection(uint64_t DeviceId, uint64_t PAS
     return;
 }
 
-void xRelayLocalBindingService::CreateUdpChannel(uint64_t DeviceId, uint64_t PASideUdpChannelId, xRelayCreateUdpChannelFuture & Future) {
+void xRelayLocalBindingService::CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideUdpChannelId, xRelayCreateUdpChannelFuture & Future) {
     Future.SetReady();  // always has immediate result
     auto Device = GetDevice(DeviceId);
     if (!Device) {
@@ -129,7 +158,7 @@ void xRelayLocalBindingService::CreateUdpChannel(uint64_t DeviceId, uint64_t PAS
     UdpChannel.PASideUdpChannelId = PASideUdpChannelId;
 }
 
-void xRelayLocalBindingService::DestroyConnection(uint64_t ConnectionId) {
+void xRelayLocalBindingService::DestroyConnection(uint64_t RelayServerId, uint64_t ConnectionId) {
     auto Connection = LocalConnectionPool.CheckAndGet(ConnectionId);
     if (!Connection) {
         return;
@@ -137,7 +166,7 @@ void xRelayLocalBindingService::DestroyConnection(uint64_t ConnectionId) {
     DeferDestroyConnection(Connection);
 }
 
-void xRelayLocalBindingService::DestroyUdpChannel(uint64_t UdpChannelId) {
+void xRelayLocalBindingService::DestroyUdpChannel(uint64_t RelayServerId, uint64_t UdpChannelId) {
     auto UdpChannel = LocalUdpChannelPool.CheckAndGet(UdpChannelId);
     if (!UdpChannel) {
         return;
@@ -233,7 +262,7 @@ void xRelayLocalBindingService::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
     DeferDestroyConnection(Connection);
 }
 
-void xRelayLocalBindingService::PostData(uint64_t ConnectionId, const void * Payload, size_t PayloadSize) {
+void xRelayLocalBindingService::PostData(uint64_t RelayServerId, uint64_t ConnectionId, const void * Payload, size_t PayloadSize) {
     auto Connection = LocalConnectionPool.CheckAndGet(ConnectionId);
     if (!Connection || Connection->DeleteMark || !Connection->IsConnected()) {
         return;
@@ -241,7 +270,7 @@ void xRelayLocalBindingService::PostData(uint64_t ConnectionId, const void * Pay
     Connection->PostData(Payload, PayloadSize);
 }
 
-void xRelayLocalBindingService::PostData(uint64_t UdpChannelId, const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) {
+void xRelayLocalBindingService::PostData(uint64_t RelayServerId, uint64_t UdpChannelId, const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) {
     auto UdpChannel = LocalUdpChannelPool.CheckAndGet(UdpChannelId);
     if (!UdpChannel || UdpChannel->DeleteMark) {
         return;

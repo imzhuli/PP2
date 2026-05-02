@@ -8,7 +8,7 @@ static xRID_ObserverContext ObserverContextMap[MAX_OBSERVER_CONTEXT_COUNT];
 static xTcpService          ObserverService;
 
 void InitObserverPort() {
-    RuntimeAssert(ObserverService.Init(ServiceIoContext, ObserverPortBindAddress4, MAX_OBSERVER_CONTEXT_COUNT));
+    X_RUNTIME_ASSERT(ObserverService.Init(ServiceIoContext, ObserverPortBindAddress4, MAX_OBSERVER_CONTEXT_COUNT));
 }
 
 void CleanObserverPort() {

@@ -37,7 +37,7 @@ static void GlobalInit() {
     if (InitCounter++) {
         return;
     }
-    RuntimeAssert(!mysql_library_init(0, nullptr, nullptr));
+    X_RUNTIME_ASSERT(!mysql_library_init(0, nullptr, nullptr));
 }
 
 static void GlobalClean() {

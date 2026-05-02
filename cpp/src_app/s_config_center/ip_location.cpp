@@ -4,7 +4,7 @@ static constexpr const int64_t IpDbReloadInterval = 10 * 60'000;
 
 bool xCC_IpLocationManager::Init(const std::string & RegionMapFile, const std::string & DbName) {
     IpDbName = DbName;
-    RuntimeAssert(IpDb.Init(RegionMapFile.c_str(), DbName.c_str()));
+    X_RUNTIME_ASSERT(IpDb.Init(RegionMapFile.c_str(), DbName.c_str()));
 
     ReloadIpDB();
     return true;

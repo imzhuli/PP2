@@ -19,7 +19,7 @@ static void DispatchData(const void * DataPtr, size_t DataSize) {
 }
 
 void InitRelayService(const xNetAddress & InputAddress, const xNetAddress & OutputAddress) {
-    RuntimeAssert(InputService.Init(ServiceIoContext, InputAddress, MAX_CONNECTION_PER_SERVICE));
+    X_RUNTIME_ASSERT(InputService.Init(ServiceIoContext, InputAddress, MAX_CONNECTION_PER_SERVICE));
     InputService.OnClientPacket = [](const xTcpServiceClientConnectionHandle Handle, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr,
                                      size_t PayloadSize) {
         switch (CommandId) {
@@ -37,7 +37,7 @@ void InitRelayService(const xNetAddress & InputAddress, const xNetAddress & Outp
         return true;
     };
 
-    RuntimeAssert(OutputService.Init(ServiceIoContext, OutputAddress, MAX_CONNECTION_PER_SERVICE));
+    X_RUNTIME_ASSERT(OutputService.Init(ServiceIoContext, OutputAddress, MAX_CONNECTION_PER_SERVICE));
     OutputService.OnClientConnected = [](const xTcpServiceClientConnectionHandle & H) { Connections.push_back(std::make_unique<xTcpServiceClientConnectionHandle>(H)); };
     OutputService.OnClientClean     = [](const xTcpServiceClientConnectionHandle & H) {
         auto I = Connections.begin();

@@ -19,10 +19,10 @@ static std::string MakeCombinedStateName(const std::string & CountryName, const 
 
 static auto InitOnceFlag = std::once_flag();
 static void InitKnownGeoInfoList(const char * filename) {
-    RuntimeAssert(KnownGeoInfoList.empty());
-    RuntimeAssert(CityIdToReginInfoMap.empty());
-    RuntimeAssert(StateNameToRegionIdMap.empty());
-    RuntimeAssert(filename);
+    X_RUNTIME_ASSERT(KnownGeoInfoList.empty());
+    X_RUNTIME_ASSERT(CityIdToReginInfoMap.empty());
+    X_RUNTIME_ASSERT(StateNameToRegionIdMap.empty());
+    X_RUNTIME_ASSERT(filename);
 
     rapidcsv::Document doc(filename);
     auto               RowCount = (unsigned)doc.GetRowCount();
