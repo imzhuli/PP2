@@ -1,6 +1,7 @@
 #pragma once
-#include "./device_abstract.hpp"
-#include "./pa_abstract.hpp"
+#include "./abstract/device_abstract.hpp"
+#include "./abstract/pa_abstract.hpp"
+#include "./abstract/relay_abstract.hpp"
 #include "./pa_future.hpp"
 
 class xProxyAccessService;
@@ -50,7 +51,8 @@ public:
     void Clean();
     void Tick(uint64_t NowMS);
     void BindAuthService(xAuthAbstractService * Service) { AuthService = Service; }
-    void BindDeviceService(xDeviceLocatorAbstractService * Service) { DeviceLocatorService = Service; }
+    void BindDeviceLocatorService(xDeviceLocatorAbstractService * Service) { DeviceLocatorService = Service; }
+    void BindRelayService(xRelayAbstractService * Service) { RelayService = Service; }
     void EnableUdp4(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
     void EnableUdp6(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
 
@@ -71,7 +73,9 @@ protected:  // process data:
     size_t OnS5Target(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnHttpChallenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
 
-    xPA_AuthFuture * RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView);
+    xPA_AuthFuture *          RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView);
+    xDeviceRequest            ConvertAuthResultToDeviceRequirement(const xAuthResult & AuthResult);
+    xPA_AcquireDeviceFuture * RequestDevice(xPA_ClientConnection * Connection, const xDeviceRequest & Request);
 
     void OnAuthResult(xPA_AuthFuture * Future);
     void OnS5AuthResult(xPA_ClientConnection * Connection);
@@ -105,6 +109,7 @@ private:
 
     xAuthAbstractService *          AuthService          = nullptr;
     xDeviceLocatorAbstractService * DeviceLocatorService = nullptr;
+    xRelayAbstractService *         RelayService         = nullptr;
 
     xNetAddress BindUdpAddress4   = {};
     xNetAddress BindUdpAddress6   = {};

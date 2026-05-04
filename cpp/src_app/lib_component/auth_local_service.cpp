@@ -1,4 +1,4 @@
-#include "./auth_local.hpp"
+#include "./auth_local_service.hpp"
 
 #include "./pa_future.hpp"
 
@@ -38,7 +38,7 @@ void xAuthLocalService::Clean() {
     Reset(AuthFileDir);
 }
 
-void xAuthLocalService::Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) {
+void xAuthLocalService::Validate(const std::string_view AccountPass, xAuthResultFuture & Future) {
     Future.SetReady();
     auto Result = ResultPool.CreateValue();
     if (!Result) {

@@ -1,5 +1,5 @@
 #pragma once
-#include "./auth_abstract.hpp"
+#include "./abstract/auth_abstract.hpp"
 
 #include <filesystem>
 #include <pp_common/_common.hpp>
@@ -16,7 +16,7 @@ public:
     void   Clean();
     size_t GetUnprocessedResultCount() const override { return Audit.ResultCount; }
 
-    void Validate(const std::string_view AccountPass, xPA_AuthFuture & Future) override;
+    void Validate(const std::string_view AccountPass, xAuthResultFuture & Future) override;
     void ReleaseAuthResult(xAuthResult * Result) override;
 
 private:

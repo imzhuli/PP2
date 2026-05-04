@@ -1,4 +1,5 @@
-#include "../lib_component/auth_local.hpp"
+#include "../lib_component/auth_local_service.hpp"
+#include "../lib_component/dns_local_service.hpp"
 #include "../lib_component/pa_service.hpp"
 #include "../lib_component/relay_local_device_service.hpp"
 
@@ -7,6 +8,7 @@
 static auto LocalAuthService   = xAuthLocalService();
 static auto RelayLocalService  = xRelayLocalBindingService();
 static auto ProxyAccessService = xProxyAccessService();
+static auto DnsService         = xDnsLocalService();
 
 [[maybe_unused]] static const std::vector<std::pair<xNetAddress, xNetAddress>> TestBindingPairList = {
     std::make_pair(xNetAddress::Parse("10.0.0.7"), xNetAddress::Parse("175.178.22.69")),
@@ -67,6 +69,6 @@ int main(int argc, char ** argv) {
     ProxyAccessService.BindAuthService(&LocalAuthService);
 
     while (ServiceRunState) {
-        ServiceUpdateOnce(RelayLocalService, ProxyAccessService);
+        ServiceUpdateOnce(RelayLocalService, ProxyAccessService, DnsService);
     }
 }

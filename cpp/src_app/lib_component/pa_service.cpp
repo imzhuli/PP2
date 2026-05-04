@@ -499,6 +499,21 @@ xPA_AuthFuture * xProxyAccessService::RequestAuthentication(xPA_ClientConnection
     return Future;
 }
 
+xDeviceRequest xProxyAccessService::ConvertAuthResultToDeviceRequirement(const xAuthResult & AuthResult) {
+    return {};
+}
+
+xPA_AcquireDeviceFuture * xProxyAccessService::RequestDevice(xPA_ClientConnection * Connection, const xDeviceRequest & Request) {
+    auto Future = AcquireDeviceFutureManager.AcquireFuture();
+    if (!Future) {
+        return nullptr;
+    }
+    assert(DeviceLocatorService);
+    Future->ClientConnection = Connection;
+    DeviceLocatorService->AcquireDevice(Request, *Future);
+    return Future;
+}
+
 void xProxyAccessService::OnAuthResult(xPA_AuthFuture * Future) {
     auto Connection = Future->ClientConnection;
     assert(Connection->AuthFuture == Future);

@@ -1,12 +1,18 @@
 #pragma once
-#include "./device_abstract.hpp"
+#include "./abstract/device_abstract.hpp"
+#include "./abstract/relay_abstract.hpp"
 #include "./pa_future.hpp"
-#include "./relay_abstract.hpp"
+
+#include <map>
 
 struct xRelayLocalDevice {
     uint64_t    DeviceId;
-    xNetAddress BindAddress;
-    xNetAddress ExportAddress;
+    xNetAddress BindAddress4;
+    xNetAddress ExportAddress4;
+    xNetAddress BindAddress6;
+    xNetAddress ExportAddress6;
+    bool        EnableTcp;
+    bool        EnableUdp;
 };
 
 struct xRelayLocalDeviceConnectionTimeoutNode : xListNode {
@@ -32,10 +38,21 @@ using xRelayLocalDeviceUdpChannelTimeoutList = xList<xRelayLocalDeviceUdpChannel
 struct xRelayLocalDeviceUdpChannel final
     : xRelayLocalDeviceUdpChannelTimeoutNode
     , xUdpChannel {
-    uint64_t DeviceId     = 0;
-    uint64_t UdpChannelId = 0;
-    uint64_t PASideUdpChannelId;
-    bool     DeleteMark = false;
+    uint64_t DeviceId           = 0;
+    uint64_t UdpChannelId       = 0;
+    uint64_t PASideUdpChannelId = 0;
+    bool     DeleteMark         = false;
+};
+
+struct xRelayLocalBindingOption {
+    xNetAddress BindAddress4;
+    xNetAddress ExportAddress4;
+    xNetAddress BindAddress6;
+    xNetAddress ExportAddress6;
+    bool        EnableTcp = false;
+    bool        EnableUdp = false;
+
+    std::string ToString() const;
 };
 
 class xRelayLocalBindingService final
@@ -46,20 +63,20 @@ class xRelayLocalBindingService final
 
 public:
     bool Init(uint64_t ServerId, const std::string & AddressPairFile);
-    bool Init(uint64_t ServerId, const std::vector<std::pair<xNetAddress, xNetAddress>> & BindAddressPairList);
+    bool Init(uint64_t ServerId, const std::vector<xRelayLocalBindingOption> & BindAddressPairList);
     void Clean();
     void Tick(uint64_t NowMS);
 
-    bool AcquireDevice(const xDeviceAcquire & Request, xPA_AcquireDeviceFuture & Future) override;
+    bool AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) override;
     void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) override;
-    void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideUdpChannelId, xRelayCreateUdpChannelFuture & Future) override;
+    void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideUdpChannelId, xNetAddress::eType Type, xRelayCreateUdpChannelFuture & Future) override;
     void DestroyConnection(uint64_t RelayServerId, uint64_t ConnectionId) override;
     void DestroyUdpChannel(uint64_t RelayServerId, uint64_t UdpChannelId) override;
     void PostData(uint64_t RelayServerId, uint64_t ConnectionId, const void * Payload, size_t PayloadSize) override;
     void PostData(uint64_t RelayServerId, uint64_t UdpChannelId, const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) override;
 
 private:
-    bool CreateLocalDeviceList(const std::vector<std::pair<xNetAddress, xNetAddress>> & BindAddressPairList);
+    bool CreateLocalDeviceList(const std::vector<xRelayLocalBindingOption> & OptionList);
     void DestroyLocalDeviceList();
     auto GetDevice(uint64_t DeviceId) const -> const xRelayLocalDevice *;
     void KeepAlive(xRelayLocalDeviceConnection * Connection);
@@ -70,6 +87,8 @@ private:
     void DeferDestroyIdleUdpChannels();
     void DestroyAllConnections();
     void DestroyAllUdpChannels();
+
+    const xRelayLocalDevice * FindDeviceByExportAddress(const xNetAddress & ExportAddress);
 
 private:  // listener
     void   OnConnected(xTcpConnection * TcpConnectionPtr) override;
@@ -89,6 +108,7 @@ private:
 
     uint64_t                                          LocalRelayServerId = 0;
     xLocalDeviceList                                  LocalDeviceList;
+    std::map<xNetAddress, uint64_t>                   LocalDeviceExportAddressMap;
     xel::xIndexedStorage<xRelayLocalDeviceConnection> LocalConnectionPool;
     xel::xIndexedStorage<xRelayLocalDeviceUdpChannel> LocalUdpChannelPool;
 
@@ -98,4 +118,9 @@ private:
 
     xRelayLocalDeviceUdpChannelTimeoutList UdpChannelIdleTimeoutList;
     xRelayLocalDeviceUdpChannelTimeoutList UdpChannelKillList;
+
+    struct {
+        size_t ConnectionCount = 0;
+        size_t UdpChannelCount = 0;
+    } Audit;
 };

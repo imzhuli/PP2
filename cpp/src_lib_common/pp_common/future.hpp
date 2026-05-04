@@ -1,6 +1,8 @@
 #pragma once
 #include "./_.hpp"
 
+#include <expected>
+
 class xFutureManager;
 class xFutureBase;
 class xFutureHandle;
@@ -85,7 +87,8 @@ public:
     }
     operator bool() const { return Manager && FutureId; }
 
-    template <typename T = xFutureHandle>
+    template <typename T>
+        requires std::is_base_of_v<xFutureBase, T>
     T * Get() const {
         assert(bool(*this));
         return static_cast<T *>(Manager->GetFuture(FutureId));
