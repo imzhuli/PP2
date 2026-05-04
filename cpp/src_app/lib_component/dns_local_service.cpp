@@ -48,6 +48,27 @@ void xDnsLocalService::Tick(uint64_t NowMS) {
     ProcessTimeoutCacheNodes();
 }
 
+xDnsResult xDnsLocalService::PickDnsResult(xDnsLocalCacheNode * CacheNode) {
+    assert(CacheNode->Result);
+    auto   Result       = xDnsResult();
+    auto & CachedResult = *CacheNode->Result;
+    if (CachedResult.A4List.size()) {
+        if (++CachedResult.LastA4ResultIndex >= CachedResult.A4List.size()) {
+            CachedResult.LastA4ResultIndex = 0;
+        }
+        DEBUG_LOG("PickResult4 %zi out of %zi from Node %p", CachedResult.LastA4ResultIndex, CachedResult.A4List.size(), CacheNode);
+        Result.A4 = CachedResult.A4List[CachedResult.LastA4ResultIndex];
+    }
+    if (CachedResult.A6List.size()) {
+        if (++CachedResult.LastA6ResultIndex >= CachedResult.A6List.size()) {
+            CachedResult.LastA6ResultIndex = 0;
+        }
+        Result.A6 = CachedResult.A6List[CachedResult.LastA6ResultIndex];
+        DEBUG_LOG("PickResult6 %zi out of %zi from Node %p", CachedResult.LastA6ResultIndex, CachedResult.A6List.size(), CacheNode);
+    }
+    return Result;
+}
+
 void xDnsLocalService::DispatchResolveResults() {
     auto TempResultList = xDnsRequestList();
     do {
@@ -70,6 +91,7 @@ void xDnsLocalService::DispatchResolveResults() {
 
             while (auto SourceRequest = CacheNode->PendingSourceRequestList.PopHead()) {
                 if (auto F = SourceRequest->FutureHandle.Get<xDnsReultFuture>()) {
+                    F->Result = PickDnsResult(CacheNode);
                     F->SetReady();
                 }
                 DnsSourceRequestPool.Release(SourceRequest->SourceRequestNodeId);
@@ -87,7 +109,7 @@ void xDnsLocalService::ProcessRequestTimeoutCacheNodes() {
     };
     while (auto CacheNode = CacheRequestTimeoutList.PopHead(Cond)) {
         DEBUG_LOG("Timeout dns query: Hostname=%s", CacheNode->Hostname.c_str());
-        assert(!CacheNode->Result.has_value());
+        assert(!CacheNode->Result);
         CacheNode->QueryFinished = true;
         CacheNode->Result        = xDnsLocalCacheResult();
         CacheNode->TimestampMS   = LocalTicker();
@@ -214,28 +236,8 @@ bool xDnsLocalService::ResolveDns(const std::string_view & HostnameView, xDnsReu
         return true;
     }
 
-    // has result:
-    if (CacheNode->Result.has_value()) {
-        auto Result       = xDnsResult();
-        auto CachedResult = *CacheNode->Result;
-        if (CachedResult.A4List.size()) {
-            if (++CachedResult.LastA4ResultIndex >= CachedResult.A4List.size()) {
-                CachedResult.LastA4ResultIndex = 0;
-            }
-            Result.A4 = CachedResult.A4List[CachedResult.LastA4ResultIndex];
-        }
-        if (CachedResult.A6List.size()) {
-            if (++CachedResult.LastA6ResultIndex >= CachedResult.A6List.size()) {
-                CachedResult.LastA6ResultIndex = 0;
-            }
-            Result.A6 = CachedResult.A6List[CachedResult.LastA6ResultIndex];
-        }
-        Future.Result = Result;
-        DEBUG_LOG("Cached result: Hostname=%s, A4=%s, A6=%s", std::string(HostnameView).c_str(), Result.A4.IpToString().c_str(), Result.A6.IpToString().c_str());
-    } else {
-        DEBUG_LOG("Cached result: Hostname=%s, NotResolved", std::string(HostnameView).c_str());
-    }
-
+    Future.Result = PickDnsResult(CacheNode);
     Future.SetReady();
+    DEBUG_LOG("Cached result: Hostname=%s, A4=%s, A6=%s", std::string(HostnameView).c_str(), Future.Result->A4.IpToString().c_str(), Future.Result->A6.IpToString().c_str());
     return true;
 }

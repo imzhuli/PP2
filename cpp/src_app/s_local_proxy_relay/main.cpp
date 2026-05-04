@@ -14,6 +14,17 @@ static auto DnsService         = xDnsLocalService();
     std::make_pair(xNetAddress::Parse("10.0.0.7"), xNetAddress::Parse("175.178.22.69")),
     std::make_pair(xNetAddress::Parse("2402:4e00:101a:f300:0:9f95:4b15:c0db"), xNetAddress::Parse("2402:4e00:101a:f300:0:9f95:4b15:c0db")),
 };
+[[maybe_unused]] static std::string OutputDnsResult(const xDnsReultFuture * F) {
+    X_RUNTIME_ASSERT(F);
+    if (!F->Result) {
+        return "Invalid result";
+    }
+    auto OS = std::ostringstream();
+    OS << "< Address4: " << F->Result->A4.ToString() << ">";
+    OS << "< Address6: " << F->Result->A6.ToString() << ">";
+    return OS.str();
+}
+
 static auto ProxyAccessBindAddress4      = xNetAddress{};
 static auto ProxyAccessBindAddress6      = xNetAddress{};
 static auto ProxyAccessBindUdpAddress4   = xNetAddress{};
@@ -71,21 +82,38 @@ int main(int argc, char ** argv) {
 
     auto TestDnsFuturePool = xFuturePoolManager<xDnsReultFuture>();
     TestDnsFuturePool.Init(10);
+
+    const char * N1 = "www.baidu.com";
+    const char * N2 = "www.qq.com";
+    const char * N3 = "www.qq.com";
+
     auto F1 = TestDnsFuturePool.AcquireFuture();
     auto F2 = TestDnsFuturePool.AcquireFuture();
     auto F3 = TestDnsFuturePool.AcquireFuture();
 
-    DnsService.ResolveDns("www.baidu.com", *F1);
-    DnsService.ResolveDns("www.qq.com", *F2);
-    DnsService.ResolveDns("www.google.com", *F3);
+    DnsService.ResolveDns(N1, *F1);
+    DnsService.ResolveDns(N2, *F2);
+    DnsService.ResolveDns(N3, *F3);
 
     while (ServiceRunState) {
         ServiceUpdateOnce(RelayLocalService, ProxyAccessService, DnsService);
+        if (F1 && F1->IsReady) {
+            DEBUG_LOG("Result: %s --> %s", N1, OutputDnsResult(F1).c_str());
+            TestDnsFuturePool.ReleaseFuture(Steal(F1));
+        }
+        if (F2 && F2->IsReady) {
+            DEBUG_LOG("Result: %s --> %s", N2, OutputDnsResult(F2).c_str());
+            TestDnsFuturePool.ReleaseFuture(Steal(F2));
+        }
+        if (F3 && F3->IsReady) {
+            DEBUG_LOG("Result: %s --> %s", N3, OutputDnsResult(F3).c_str());
+            TestDnsFuturePool.ReleaseFuture(Steal(F3));
+        }
     }
 
-    TestDnsFuturePool.ReleaseFuture(F1);
-    TestDnsFuturePool.ReleaseFuture(F2);
-    TestDnsFuturePool.ReleaseFuture(F3);
+    F1 ? TestDnsFuturePool.ReleaseFuture(F1) : Pass();
+    F2 ? TestDnsFuturePool.ReleaseFuture(F2) : Pass();
+    F3 ? TestDnsFuturePool.ReleaseFuture(F3) : Pass();
 
     TestDnsFuturePool.Clean();
 }

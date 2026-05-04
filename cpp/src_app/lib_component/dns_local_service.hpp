@@ -41,9 +41,10 @@ public:
     bool ResolveDns(const std::string_view & HostnameView, xDnsReultFuture & Future) override;
 
 private:
-    void DispatchResolveResults();
-    void ProcessRequestTimeoutCacheNodes();
-    void ProcessTimeoutCacheNodes();
+    xDnsResult PickDnsResult(xDnsLocalCacheNode * CacheNode);
+    void       DispatchResolveResults();
+    void       ProcessRequestTimeoutCacheNodes();
+    void       ProcessTimeoutCacheNodes();
 
     void QueryThreadFunc();
 
