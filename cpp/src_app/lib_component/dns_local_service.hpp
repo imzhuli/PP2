@@ -5,7 +5,6 @@
 
 struct xDnsRequestNode : xListNode {
     uint64_t                 RequestNodeId;
-    uint64_t                 SourceRequestNodeId;
     std::string              Hostname;
     std::vector<xNetAddress> A4List;
     std::vector<xNetAddress> A6List;
@@ -39,11 +38,10 @@ public:
     bool Init();
     void Clean();
     void Tick(uint64_t NowMS);
+    bool ResolveDns(const std::string_view & HostnameView, xDnsReultFuture & Future) override;
 
 private:
-    bool ResolveDns(const xDnsRequest & Request, xDnsReultFuture & Future) override;
-
-private:
+    void DispatchResolveResults();
     void ProcessRequestTimeoutCacheNodes();
     void ProcessTimeoutCacheNodes();
 

@@ -57,6 +57,7 @@ int main(int argc, char ** argv) {
     X_RESOURCE_GUARD_ASSERTED(LocalAuthService, "./test_assets/");
     X_RESOURCE_GUARD_ASSERTED(RelayLocalService, LocalRelayServerId, LocalBindingDeviceFile);
     X_RESOURCE_GUARD_ASSERTED(ProxyAccessService, ProxyAccessBindAddress4, ProxyAccessBindAddress6);
+    X_RESOURCE_GUARD_ASSERTED(DnsService);
 
     if (ProxyAccessBindUdpAddress4) {
         X_RUNTIME_ASSERT(ProxyAccessExportUdpAddress4);
@@ -68,7 +69,23 @@ int main(int argc, char ** argv) {
     }
     ProxyAccessService.BindAuthService(&LocalAuthService);
 
+    auto TestDnsFuturePool = xFuturePoolManager<xDnsReultFuture>();
+    TestDnsFuturePool.Init(10);
+    auto F1 = TestDnsFuturePool.AcquireFuture();
+    auto F2 = TestDnsFuturePool.AcquireFuture();
+    auto F3 = TestDnsFuturePool.AcquireFuture();
+
+    DnsService.ResolveDns("www.baidu.com", *F1);
+    DnsService.ResolveDns("www.qq.com", *F2);
+    DnsService.ResolveDns("www.google.com", *F3);
+
     while (ServiceRunState) {
         ServiceUpdateOnce(RelayLocalService, ProxyAccessService, DnsService);
     }
+
+    TestDnsFuturePool.ReleaseFuture(F1);
+    TestDnsFuturePool.ReleaseFuture(F2);
+    TestDnsFuturePool.ReleaseFuture(F3);
+
+    TestDnsFuturePool.Clean();
 }

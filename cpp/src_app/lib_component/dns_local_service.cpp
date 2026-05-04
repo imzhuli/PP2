@@ -1,5 +1,8 @@
 #include "./dns_local_service.hpp"
 
+#include <arpa/inet.h>
+#include <netdb.h>
+
 #include <pp_common/service_runtime.hpp>
 
 static constexpr const size_t   DNS_REQUEST_POOL_SIZE        = 3000;
@@ -40,8 +43,41 @@ void xDnsLocalService::Clean() {
 
 void xDnsLocalService::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
+    DispatchResolveResults();
     ProcessRequestTimeoutCacheNodes();
     ProcessTimeoutCacheNodes();
+}
+
+void xDnsLocalService::DispatchResolveResults() {
+    auto TempResultList = xDnsRequestList();
+    do {
+        auto G = xel::xSpinlockGuard(RequestFinishLock);
+        TempResultList.GrabListTail(RequestFinishedList);
+    } while (false);
+    while (auto P = TempResultList.PopHead()) {
+        DEBUG_LOG("Update dns cache node: Hostname=%s", P->Hostname.c_str());
+        auto CacheNodeIter = CacheMap.find(P->Hostname);
+        if (CacheNodeIter != CacheMap.end()) {
+            auto & CacheNode         = CacheNodeIter->second;
+            CacheNode->QueryFinished = true;
+            CacheNode->Result        = xDnsLocalCacheResult();
+            CacheNode->TimestampMS   = LocalTicker();
+            CacheTimeoutList.GrabTail(*CacheNode);
+
+            auto & CacheResult = *CacheNode->Result;
+            CacheResult.A4List = std::move(P->A4List);
+            CacheResult.A6List = std::move(P->A6List);
+
+            while (auto SourceRequest = CacheNode->PendingSourceRequestList.PopHead()) {
+                if (auto F = SourceRequest->FutureHandle.Get<xDnsReultFuture>()) {
+                    F->SetReady();
+                }
+                DnsSourceRequestPool.Release(SourceRequest->SourceRequestNodeId);
+            }
+        }
+        assert(P == DnsRequestPool.CheckAndGet(P->RequestNodeId));
+        DnsRequestPool.Release(P->RequestNodeId);
+    }
 }
 
 void xDnsLocalService::ProcessRequestTimeoutCacheNodes() {
@@ -49,21 +85,25 @@ void xDnsLocalService::ProcessRequestTimeoutCacheNodes() {
         assert(!N.QueryFinished);
         return N.TimestampMS <= KillTimestamp;
     };
-    while (auto P = CacheRequestTimeoutList.PopHead(Cond)) {
-        assert(!P->Result.has_value());
-        while (auto SourceRequest = P->PendingSourceRequestList.PopHead()) {
+    while (auto CacheNode = CacheRequestTimeoutList.PopHead(Cond)) {
+        DEBUG_LOG("Timeout dns query: Hostname=%s", CacheNode->Hostname.c_str());
+        assert(!CacheNode->Result.has_value());
+        CacheNode->QueryFinished = true;
+        CacheNode->Result        = xDnsLocalCacheResult();
+        CacheNode->TimestampMS   = LocalTicker();
+        CacheTimeoutList.AddTail(*CacheNode);
+
+        while (auto SourceRequest = CacheNode->PendingSourceRequestList.PopHead()) {
             if (auto F = SourceRequest->FutureHandle.Get<xDnsReultFuture>()) {
                 F->SetReady();
             }
             DnsSourceRequestPool.Release(SourceRequest->SourceRequestNodeId);
         }
-        P->QueryFinished = true;
-        CacheTimeoutList.AddTail(*P);
     }
 }
 
 void xDnsLocalService::ProcessTimeoutCacheNodes() {
-    auto Cond = [this, KillTimestamp = LocalTicker() - DNS_CACHE_TIMEOUT_MS_TIMEOUT_MS](const xDnsLocalCacheNode & N) {
+    auto Cond = [this, KillTimestamp = LocalTicker() - DNS_CACHE_TIMEOUT_MS](const xDnsLocalCacheNode & N) {
         assert(!N.QueryFinished);
         return N.TimestampMS <= KillTimestamp;
     };
@@ -75,15 +115,53 @@ void xDnsLocalService::ProcessTimeoutCacheNodes() {
 }
 
 void xDnsLocalService::QueryThreadFunc() {
+    auto TmpRequestList = xDnsRequestList();
+    auto GetRequest     = [&, this] {
+        TmpRequestList.GrabListTail(RequestList);
+    };
     while (QueryThreadsRunState) {
-        std::this_thread::sleep_for(1s);
+        RequestEvent.WaitFor(1s, GetRequest);
+        while (auto P = TmpRequestList.PopHead()) {
+            struct addrinfo hints, *res, *iter;
+            memset(&hints, 0, sizeof(hints));
+            hints.ai_family   = AF_UNSPEC;    // 关键：不指定协议族，同时支持IPv4和IPv6
+            hints.ai_socktype = SOCK_STREAM;  // TCP流式套接字
+            do {
+                int status = getaddrinfo(P->Hostname.c_str(), NULL, &hints, &res);
+                if (status != 0) {
+                    DEBUG_LOG("failed to resolve hostname [%s]", P->Hostname.c_str());
+                    break;
+                }
+                for (iter = res; iter != NULL; iter = iter->ai_next) {
+                    if (iter->ai_family == AF_INET) {  // IPv4
+                        struct sockaddr_in * ipv4    = (struct sockaddr_in *)iter->ai_addr;
+                        auto                 Address = xel::xNetAddress::Parse(ipv4);
+                        P->A4List.push_back(Address);
+                        DEBUG_LOG("resolved hostname: %s, address=%s", P->Hostname.c_str(), Address.ToString().c_str());
+                    } else if (iter->ai_family == AF_INET6) {  // IPv6
+                        struct sockaddr_in6 * ipv6    = (struct sockaddr_in6 *)iter->ai_addr;
+                        auto                  Address = xel::xNetAddress::Parse(ipv6);
+                        P->A6List.push_back(Address);
+                        DEBUG_LOG("resolved hostname: %s, address=%s", P->Hostname.c_str(), Address.ToString().c_str());
+                    } else {
+                        continue;
+                    }
+                }
+                freeaddrinfo(res);
+            } while (false);
+
+            do {
+                auto G = xel::xSpinlockGuard(RequestFinishLock);
+                RequestFinishedList.AddTail(*P);
+            } while (false);
+        }
     }
 }
 
-bool xDnsLocalService::ResolveDns(const xDnsRequest & Request, xDnsReultFuture & Future) {
-    auto HintIter = CacheMap.find(Request.HostnameView);
+bool xDnsLocalService::ResolveDns(const std::string_view & HostnameView, xDnsReultFuture & Future) {
+    auto HintIter = CacheMap.find(HostnameView);
     if (HintIter == CacheMap.end()) {
-        auto Hostname = std::string(Request.HostnameView);
+        auto Hostname = std::string(HostnameView);
         DEBUG_LOG("new query, hostname=%s", Hostname.c_str());
 
         auto SourceRequestNodeId = DnsSourceRequestPool.Acquire();
@@ -99,10 +177,9 @@ bool xDnsLocalService::ResolveDns(const xDnsRequest & Request, xDnsReultFuture &
             DnsSourceRequestPool.Release(SourceRequestNodeId);
             return false;
         }
-        auto & RequestNode              = DnsRequestPool[RequestNodeId];
-        RequestNode.RequestNodeId       = RequestNodeId;
-        RequestNode.SourceRequestNodeId = SourceRequestNodeId;
-        RequestNode.Hostname            = Hostname;
+        auto & RequestNode        = DnsRequestPool[RequestNodeId];
+        RequestNode.RequestNodeId = RequestNodeId;
+        RequestNode.Hostname      = Hostname;
 
         auto [Iter, Inserted] = CacheMap.insert(std::make_pair(Hostname, nullptr));
         assert(Inserted);
@@ -124,7 +201,7 @@ bool xDnsLocalService::ResolveDns(const xDnsRequest & Request, xDnsReultFuture &
     auto & CacheNode = HintIter->second;
     assert(CacheNode->TimestampMS);
     if (!CacheNode->QueryFinished) {  // append request
-        DEBUG_LOG("unfinished query, hostname=%s", std::string(Request).c_str());
+        DEBUG_LOG("unfinished query, hostname=%s", std::string(HostnameView).c_str());
 
         auto SourceRequestNodeId = DnsSourceRequestPool.Acquire();
         if (!SourceRequestNodeId) {
@@ -154,9 +231,9 @@ bool xDnsLocalService::ResolveDns(const xDnsRequest & Request, xDnsReultFuture &
             Result.A6 = CachedResult.A6List[CachedResult.LastA6ResultIndex];
         }
         Future.Result = Result;
-        DEBUG_LOG("Cached result: Hostname=%s, A4=%s, A6=%s", std::string(Request).c_str(), Result.A4.IpToString().c_str(), Result.A6.IpToString().c_str());
+        DEBUG_LOG("Cached result: Hostname=%s, A4=%s, A6=%s", std::string(HostnameView).c_str(), Result.A4.IpToString().c_str(), Result.A6.IpToString().c_str());
     } else {
-        DEBUG_LOG("Cached result: Hostname=%s, NotResolved", std::string(Request).c_str());
+        DEBUG_LOG("Cached result: Hostname=%s, NotResolved", std::string(HostnameView).c_str());
     }
 
     Future.SetReady();
