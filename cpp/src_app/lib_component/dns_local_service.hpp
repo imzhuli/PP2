@@ -3,22 +3,34 @@
 
 #include <map>
 
-struct xDnsLocalRequestNode : xListNode {
-    uint64_t      NodeId;
+struct xDnsRequestNode : xListNode {
+    uint64_t                 RequestNodeId;
+    uint64_t                 SourceRequestNodeId;
+    std::string              Hostname;
+    std::vector<xNetAddress> A4List;
+    std::vector<xNetAddress> A6List;
+};
+using xDnsRequestList = xList<xDnsRequestNode>;
+
+struct xDnsLocalSourceRequestNode : xListNode {
+    uint64_t      SourceRequestNodeId;
     xFutureHandle FutureHandle;
 };
-using xDnsLocalRequestList = xList<xDnsLocalRequestNode>;
+using xDnsLocalSourceRequestList = xList<xDnsLocalSourceRequestNode>;
 
 struct xDnsLocalCacheResult {
     std::vector<xNetAddress> A4List;
     std::vector<xNetAddress> A6List;
+    size_t                   LastA4ResultIndex = 0;
+    size_t                   LastA6ResultIndex = 0;
 };
 
 struct xDnsLocalCacheNode : xListNode {
-    uint64_t                                   TimestampMS   = 0;
+    std::string                                Hostname;
     bool                                       QueryFinished = false;
-    std::expected<xDnsLocalCacheResult, xNone> Result        = std::unexpected(None);
-    xDnsLocalRequestList                       PendingRequestList;
+    uint64_t                                   TimestampMS   = 0;
+    xDnsLocalSourceRequestList                 PendingSourceRequestList;
+    std::expected<xDnsLocalCacheResult, xNone> Result = std::unexpected(None);
 };
 using xDnsLocalCacheTimeoutList = xList<xDnsLocalCacheNode>;
 
@@ -32,16 +44,25 @@ private:
     bool ResolveDns(const xDnsRequest & Request, xDnsReultFuture & Future) override;
 
 private:
+    void ProcessRequestTimeoutCacheNodes();
+    void ProcessTimeoutCacheNodes();
+
     void QueryThreadFunc();
-    void PostDnsRequest(const xDnsRequest & Request);
 
 private:
     xTicker                  LocalTicker;
     xel::xRunState           QueryThreadsRunState;
     std::vector<std::thread> QueryThreads;
 
-    xIndexedStorage<xDnsLocalRequestNode>                        DnsRequestPool;
+    xel::xAutoResetEvent RequestEvent;
+    xDnsRequestList      RequestList;
+    xel::xSpinlock       RequestFinishLock;
+    xDnsRequestList      RequestFinishedList;
+
+    xIndexedStorage<xDnsRequestNode>                             DnsRequestPool;
+    xIndexedStorage<xDnsLocalSourceRequestNode>                  DnsSourceRequestPool;
     xIndexedStorage<xDnsLocalCacheNode>                          DnsLocalCachePool;
     std::map<std::string, xDnsLocalCacheNode *, std::less<void>> CacheMap;
+    xDnsLocalCacheTimeoutList                                    CacheRequestTimeoutList;
     xDnsLocalCacheTimeoutList                                    CacheTimeoutList;
 };
