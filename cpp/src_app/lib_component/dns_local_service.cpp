@@ -7,9 +7,19 @@
 
 static constexpr const size_t   DNS_REQUEST_POOL_SIZE        = 3000;
 static constexpr const size_t   DNS_SOURCE_REQUEST_POOL_SIZE = 20000;
-static constexpr const size_t   DNS_QUERY_THREAD_COUNT       = 20;
+static constexpr const size_t   DNS_QUERY_THREAD_COUNT       = 50;
 static constexpr const uint64_t DNS_QUERY_TIMEOUT_MS         = 5'000;
 static constexpr const uint64_t DNS_CACHE_TIMEOUT_MS         = 30 * 60'000;
+
+// #include <ares.h>
+// static X_SCOPE_GUARD([] { X_RUNTIME_ASSERT(!ares_library_init(ARES_LIB_INIT_ALL)); }, [] { ares_library_cleanup(); });
+// [[maybe_unused]] static void AresCallback(void * arg, int status, int timeouts, struct hostent * host) {
+//     if (status == ARES_SUCCESS) {
+//         printf("DNS查询成功: %s\n", host->h_name);
+//     } else {
+//         printf("DNS查询失败: %s\n", ares_strerror(status));
+//     }
+// }
 
 bool xDnsLocalService::Init() {
     if (!DnsRequestPool.Init(DNS_REQUEST_POOL_SIZE)) {
@@ -142,36 +152,37 @@ void xDnsLocalService::QueryThreadFunc() {
         TmpRequestList.GrabListTail(RequestList);
     };
     while (QueryThreadsRunState) {
-        RequestEvent.WaitFor(1s, GetRequest);
+        RequestEvent.WaitFor(10ms, GetRequest);
         while (auto P = TmpRequestList.PopHead()) {
-            struct addrinfo hints, *res, *iter;
-            memset(&hints, 0, sizeof(hints));
-            hints.ai_family   = AF_UNSPEC;    // 关键：不指定协议族，同时支持IPv4和IPv6
-            hints.ai_socktype = SOCK_STREAM;  // TCP流式套接字
-            do {
-                int status = getaddrinfo(P->Hostname.c_str(), NULL, &hints, &res);
-                if (status != 0) {
-                    DEBUG_LOG("failed to resolve hostname [%s]", P->Hostname.c_str());
-                    break;
-                }
-                for (iter = res; iter != NULL; iter = iter->ai_next) {
-                    if (iter->ai_family == AF_INET) {  // IPv4
-                        struct sockaddr_in * ipv4    = (struct sockaddr_in *)iter->ai_addr;
-                        auto                 Address = xel::xNetAddress::Parse(ipv4);
-                        P->A4List.push_back(Address);
-                        DEBUG_LOG("resolved hostname: %s, address=%s", P->Hostname.c_str(), Address.ToString().c_str());
-                    } else if (iter->ai_family == AF_INET6) {  // IPv6
-                        struct sockaddr_in6 * ipv6    = (struct sockaddr_in6 *)iter->ai_addr;
-                        auto                  Address = xel::xNetAddress::Parse(ipv6);
-                        P->A6List.push_back(Address);
-                        DEBUG_LOG("resolved hostname: %s, address=%s", P->Hostname.c_str(), Address.ToString().c_str());
-                    } else {
-                        continue;
+            do {  // using sync getaddrinfo
+                struct addrinfo hints, *res, *iter;
+                memset(&hints, 0, sizeof(hints));
+                hints.ai_family   = AF_UNSPEC;    //
+                hints.ai_socktype = SOCK_STREAM;  //
+                do {
+                    int status = getaddrinfo(P->Hostname.c_str(), NULL, &hints, &res);
+                    if (status != 0) {
+                        DEBUG_LOG("failed to resolve hostname [%s]", P->Hostname.c_str());
+                        break;
                     }
-                }
-                freeaddrinfo(res);
+                    for (iter = res; iter != NULL; iter = iter->ai_next) {
+                        if (iter->ai_family == AF_INET) {  // IPv4
+                            struct sockaddr_in * ipv4    = (struct sockaddr_in *)iter->ai_addr;
+                            auto                 Address = xel::xNetAddress::Parse(ipv4);
+                            P->A4List.push_back(Address);
+                            DEBUG_LOG("resolved hostname: %s, address=%s", P->Hostname.c_str(), Address.ToString().c_str());
+                        } else if (iter->ai_family == AF_INET6) {  // IPv6
+                            struct sockaddr_in6 * ipv6    = (struct sockaddr_in6 *)iter->ai_addr;
+                            auto                  Address = xel::xNetAddress::Parse(ipv6);
+                            P->A6List.push_back(Address);
+                            DEBUG_LOG("resolved hostname: %s, address=%s", P->Hostname.c_str(), Address.ToString().c_str());
+                        } else {
+                            continue;
+                        }
+                    }
+                    freeaddrinfo(res);
+                } while (false);
             } while (false);
-
             do {
                 auto G = xel::xSpinlockGuard(RequestFinishLock);
                 RequestFinishedList.AddTail(*P);

@@ -97,23 +97,12 @@ int main(int argc, char ** argv) {
 
     while (ServiceRunState) {
         ServiceUpdateOnce(RelayLocalService, ProxyAccessService, DnsService);
-        if (F1 && F1->IsReady) {
-            DEBUG_LOG("Result: %s --> %s", N1, OutputDnsResult(F1).c_str());
-            TestDnsFuturePool.ReleaseFuture(Steal(F1));
-        }
-        if (F2 && F2->IsReady) {
-            DEBUG_LOG("Result: %s --> %s", N2, OutputDnsResult(F2).c_str());
-            TestDnsFuturePool.ReleaseFuture(Steal(F2));
-        }
-        if (F3 && F3->IsReady) {
-            DEBUG_LOG("Result: %s --> %s", N3, OutputDnsResult(F3).c_str());
-            TestDnsFuturePool.ReleaseFuture(Steal(F3));
+        auto & FL = TestDnsFuturePool.GetReadyFutureList();
+        while (auto F = static_cast<xDnsReultFuture *>(FL.PopHead())) {
+            DEBUG_LOG("Result: %s", OutputDnsResult(F).c_str());
+            TestDnsFuturePool.ReleaseFuture(F);
         }
     }
-
-    F1 ? TestDnsFuturePool.ReleaseFuture(F1) : Pass();
-    F2 ? TestDnsFuturePool.ReleaseFuture(F2) : Pass();
-    F3 ? TestDnsFuturePool.ReleaseFuture(F3) : Pass();
 
     TestDnsFuturePool.Clean();
 }
