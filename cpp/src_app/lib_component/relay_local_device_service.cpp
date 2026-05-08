@@ -7,6 +7,7 @@ static constexpr const size_t MAX_MANAGED_CONNECTION_SIZE = 15'0000;
 static constexpr const size_t MAX_MANAGED_UDPCHANNEL_SIZE = 10'0000;
 static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS  = 120'000;
 static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS  = 120'000;
+static constexpr const size_t MAX_DNS_FUTURE_COUNT        = 1'0000;
 
 static uint64_t MakeLocalDeviceId(size_t Index) {
     X_RUNTIME_ASSERT(Index < std::numeric_limits<uint32_t>::max());
@@ -104,35 +105,64 @@ bool xRelayLocalBindingService::Init(uint64_t ServerId, const std::vector<xRelay
     X_RUNTIME_ASSERT(ServerId);
     X_RUNTIME_ASSERT(ServiceRunState);
     if (!CreateLocalDeviceList(BindAddressPairList)) {
+        DEBUG_LOG();
         return false;
     }
     if (!LocalConnectionPool.Init(EstimateMaxConnectionPoolSize(BindAddressPairList.size()))) {
+        DEBUG_LOG();
         DestroyLocalDeviceList();
         return false;
     }
     if (!LocalUdpChannelPool.Init(EstimateMaxUdpChannelPoolSize(BindAddressPairList.size()))) {
+        DEBUG_LOG();
         LocalConnectionPool.Clean();
         DestroyLocalDeviceList();
         return false;
     }
+    if (!DnsFutureManager.Init(MAX_DNS_FUTURE_COUNT)) {
+        DEBUG_LOG();
+        LocalUdpChannelPool.Clean();
+        LocalConnectionPool.Clean();
+        DestroyLocalDeviceList();
+        return false;
+    }
+
     LocalRelayServerId = ServerId;
     return true;
 }
 
 void xRelayLocalBindingService::Clean() {
-    DestroyAllConnections();
+    DnsFutureManager.Clean();
+    Reset(DnsService);
+    CleanAllConnections();
+    CleanAllUdpChannels();
     LocalUdpChannelPool.Clean();
-    DestroyAllUdpChannels();
     LocalConnectionPool.Clean();
     DestroyLocalDeviceList();
 
     Reset(Audit);
 }
 
+void xRelayLocalBindingService::BindDnsService(xDnsAbstractService * DnsService) {
+    X_RUNTIME_ASSERT(!Steal(this->DnsService, DnsService));
+}
+
 void xRelayLocalBindingService::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
+    ProcessDnsResults();
     DeferDestroyIdleConnections();
     DeferDestroyIdleUdpChannels();
+    CleanDyingConnections();
+    CleanDyingUdpChannels();
+}
+
+std::string xRelayLocalBindingService::OutputAudit() const {
+    auto OS = std::ostringstream();
+    OS << "xRelayLocalBindingService: " << endl;
+    OS << "\tConnectionCount=" << Audit.ConnectionCount << endl;
+    OS << "\tUdpChannelCount=" << Audit.UdpChannelCount << endl;
+    OS << "\tDnsFutureCount=" << DnsFutureManager.GetActiveFutureCount() << endl;
+    return OS.str();
 }
 
 bool xRelayLocalBindingService::CreateLocalDeviceList(const std::vector<xRelayLocalBindingOption> & OptionList) {
@@ -180,6 +210,42 @@ const xRelayLocalDevice * xRelayLocalBindingService::GetDevice(uint64_t DeviceId
 
 bool xRelayLocalBindingService::AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) {
     return false;
+}
+
+void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const std::string & TargetHostname, uint16_t TargetPort, xRelayCreateConnectionFuture & Future) {
+    Future.RelaySideConnectionId = 0;
+    auto DnsFuture               = DnsFutureManager.AcquireFuture();
+    if (!DnsFuture) {
+        Future.SetReady();
+        return;
+    }
+    DnsFuture->RelayServerId      = RelayServerId;
+    DnsFuture->DeviceId           = DeviceId;
+    DnsFuture->PASideConnectionId = PASideConnectionId;
+
+    if (!DnsService->ResolveDns(TargetHostname, *DnsFuture)) {
+        DnsFutureManager.ReleaseFuture(DnsFuture);
+        Future.SetReady();
+        return;
+    }
+    if (DnsFuture->IsReady) {
+        if (DnsFuture->Result) {
+            auto & Result = *DnsFuture->Result;
+            if (Result.A4) {
+                CreateConnection(RelayServerId, DeviceId, PASideConnectionId, Result.A4, Future);
+            } else if (Result.A6) {
+                CreateConnection(RelayServerId, DeviceId, PASideConnectionId, Result.A6, Future);
+            } else {
+                DEBUG_LOG("no target address found");
+                Future.SetReady();
+            }
+        } else {
+            DEBUG_LOG("no target address found");
+            Future.SetReady();
+        }
+        DnsFutureManager.ReleaseFuture(DnsFuture);
+        return;
+    }
 }
 
 void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) {
@@ -285,6 +351,13 @@ void xRelayLocalBindingService::DeferDestroyUdpChannel(xRelayLocalDeviceUdpChann
     }
 }
 
+void xRelayLocalBindingService::ProcessDnsResults() {
+    auto & DnsReadyList = DnsFutureManager.GetReadyFutureList();
+    while (auto P = static_cast<xRelayDnsResultFuture *>(DnsReadyList.PopHead())) {
+        DnsFutureManager.ReleaseFuture(P);
+    }
+}
+
 void xRelayLocalBindingService::DeferDestroyIdleConnections() {
     auto NowMS = LocalTicker();
     auto Cond  = [KillTimepoint = NowMS - IDLE_CONNECTION_TIMEOUT_MS](const xRelayLocalDeviceConnectionTimeoutNode & N) {
@@ -305,9 +378,7 @@ void xRelayLocalBindingService::DeferDestroyIdleUdpChannels() {
     }
 }
 
-void xRelayLocalBindingService::DestroyAllConnections() {
-    ConnectionKillList.GrabListTail(ConnectionEstablishTimeoutList);
-    ConnectionKillList.GrabListTail(ConnectionIdleTimeoutList);
+void xRelayLocalBindingService::CleanDyingConnections() {
     while (auto P = static_cast<xRelayLocalDeviceConnection *>(ConnectionKillList.PopHead())) {
         P->Clean();
         LocalConnectionPool.Release(P->ConnectionId);
@@ -315,13 +386,23 @@ void xRelayLocalBindingService::DestroyAllConnections() {
     }
 }
 
-void xRelayLocalBindingService::DestroyAllUdpChannels() {
-    UdpChannelKillList.GrabListTail(UdpChannelIdleTimeoutList);
+void xRelayLocalBindingService::CleanDyingUdpChannels() {
     while (auto P = static_cast<xRelayLocalDeviceUdpChannel *>(UdpChannelKillList.PopHead())) {
         P->Clean();
         LocalUdpChannelPool.Release(P->UdpChannelId);
         --Audit.UdpChannelCount;
     }
+}
+
+void xRelayLocalBindingService::CleanAllConnections() {
+    ConnectionKillList.GrabListTail(ConnectionEstablishTimeoutList);
+    ConnectionKillList.GrabListTail(ConnectionIdleTimeoutList);
+    CleanDyingConnections();
+}
+
+void xRelayLocalBindingService::CleanAllUdpChannels() {
+    UdpChannelKillList.GrabListTail(UdpChannelIdleTimeoutList);
+    CleanDyingUdpChannels();
 }
 
 ////////////////////////////////

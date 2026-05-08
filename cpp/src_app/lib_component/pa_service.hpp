@@ -56,6 +56,8 @@ public:
     void EnableUdp4(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
     void EnableUdp6(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
 
+    auto OutputAudit() -> std::string;
+
 protected:  // override:
     void   OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) override;
     void   OnConnected(xTcpConnection * TcpConnectionPtr) override;
@@ -65,7 +67,11 @@ protected:  // override:
     void   OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override;
 
 protected:  // process data:
-    void   OutputAudit();
+    void ProcessReadyAuthFuture();
+    void ProcessReadyAcquireDeviceFuture();
+    void ProcessReadyAcquireDeviceConnectionFuture();
+    void ProcessReadyAcquireDeviceUdpChannelFuture();
+
     size_t KillConnectionOnData(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnGuessProxyType(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnS5Challenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
@@ -117,6 +123,7 @@ private:
     xNetAddress ExportUdpAddress6 = {};
 
     xFutureList AuthFutureTimeoutList;
+    xFutureList AcquireDeviceFutureTimeoutList;
     xFutureList AcquireDeviceConnectionFutureTimeoutList;
     xFutureList AcquireDeviceUdpChannelFutureTimeoutList;
 

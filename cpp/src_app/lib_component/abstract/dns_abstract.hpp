@@ -14,6 +14,6 @@ struct xDnsReultFuture : xFutureBase {
 
 extern xDnsReultFuture * GetDnsResultFuture(const xFutureHandle & Handle);
 
-class xDnsAbstractService : xAbstract {
+struct xDnsAbstractService : xAbstract {
     virtual bool ResolveDns(const std::string_view & HostnameView, xDnsReultFuture & Future) = 0;
 };

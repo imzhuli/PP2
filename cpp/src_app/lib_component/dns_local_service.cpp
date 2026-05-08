@@ -9,7 +9,7 @@ static constexpr const size_t   DNS_REQUEST_POOL_SIZE        = 3000;
 static constexpr const size_t   DNS_SOURCE_REQUEST_POOL_SIZE = 20000;
 static constexpr const size_t   DNS_QUERY_THREAD_COUNT       = 50;
 static constexpr const uint64_t DNS_QUERY_TIMEOUT_MS         = 5'000;
-static constexpr const uint64_t DNS_CACHE_TIMEOUT_MS         = 30 * 60'000;
+static constexpr const uint64_t DNS_CACHE_TIMEOUT_MS         = 45 * 60'000;
 
 // #include <ares.h>
 // static X_SCOPE_GUARD([] { X_RUNTIME_ASSERT(!ares_library_init(ARES_LIB_INIT_ALL)); }, [] { ares_library_cleanup(); });
@@ -58,6 +58,13 @@ void xDnsLocalService::Tick(uint64_t NowMS) {
     ProcessTimeoutCacheNodes();
 }
 
+std::string xDnsLocalService::OutputAudit() const {
+    auto OS = std::ostringstream();
+    OS << "xDnsLocalService:" << endl;
+    OS << "\tOnGoingDnsRequestCount=" << Audit.OnGoingDnsRequestCount << endl;
+    return OS.str();
+}
+
 xDnsResult xDnsLocalService::PickDnsResult(xDnsLocalCacheNode * CacheNode) {
     assert(CacheNode->Result);
     auto   Result       = xDnsResult();
@@ -86,6 +93,7 @@ void xDnsLocalService::DispatchResolveResults() {
         TempResultList.GrabListTail(RequestFinishedList);
     } while (false);
     while (auto P = TempResultList.PopHead()) {
+        --Audit.OnGoingDnsRequestCount;
         DEBUG_LOG("Update dns cache node: Hostname=%s", P->Hostname.c_str());
         auto CacheNodeIter = CacheMap.find(P->Hostname);
         if (CacheNodeIter != CacheMap.end()) {
@@ -226,6 +234,7 @@ bool xDnsLocalService::ResolveDns(const std::string_view & HostnameView, xDnsReu
 
         RequestEvent.Notify([this, &RequestNode] {
             RequestList.AddTail(RequestNode);
+            ++Audit.OnGoingDnsRequestCount;
         });
 
         return true;

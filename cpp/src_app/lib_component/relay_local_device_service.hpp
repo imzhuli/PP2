@@ -1,9 +1,17 @@
 #pragma once
 #include "./abstract/device_abstract.hpp"
+#include "./abstract/dns_abstract.hpp"
 #include "./abstract/relay_abstract.hpp"
 #include "./pa_future.hpp"
 
 #include <map>
+
+struct xRelayDnsResultFuture : xDnsReultFuture {
+    uint64_t      RelayServerId;
+    uint64_t      DeviceId;
+    uint64_t      PASideConnectionId;
+    xFutureHandle FutureHandle;  // create connection/udpchannel future handle;
+};
 
 struct xRelayLocalDevice {
     uint64_t    DeviceId;
@@ -65,9 +73,13 @@ public:
     bool Init(uint64_t ServerId, const std::string & AddressPairFile);
     bool Init(uint64_t ServerId, const std::vector<xRelayLocalBindingOption> & BindAddressPairList);
     void Clean();
+    void BindDnsService(xDnsAbstractService * DnsService);
     void Tick(uint64_t NowMS);
 
+    auto OutputAudit() const -> std::string;
+
     bool AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) override;
+    void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const std::string & TargetHostname, uint16_t TargetPort, xRelayCreateConnectionFuture & Future) override;
     void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) override;
     void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideUdpChannelId, xNetAddress::eType Type, xRelayCreateUdpChannelFuture & Future) override;
     void DestroyConnection(uint64_t RelayServerId, uint64_t ConnectionId) override;
@@ -85,8 +97,11 @@ private:
     void DeferDestroyUdpChannel(xRelayLocalDeviceUdpChannel * UdpChannel);
     void DeferDestroyIdleConnections();
     void DeferDestroyIdleUdpChannels();
-    void DestroyAllConnections();
-    void DestroyAllUdpChannels();
+    void CleanDyingConnections();
+    void CleanDyingUdpChannels();
+    void CleanAllConnections();
+    void CleanAllUdpChannels();
+    void ProcessDnsResults();
 
     const xRelayLocalDevice * FindDeviceByExportAddress(const xNetAddress & ExportAddress);
 
@@ -111,6 +126,9 @@ private:
     std::map<xNetAddress, uint64_t>                   LocalDeviceExportAddressMap;
     xel::xIndexedStorage<xRelayLocalDeviceConnection> LocalConnectionPool;
     xel::xIndexedStorage<xRelayLocalDeviceUdpChannel> LocalUdpChannelPool;
+
+    xDnsAbstractService *                     DnsService = nullptr;
+    xFuturePoolManager<xRelayDnsResultFuture> DnsFutureManager;
 
     xRelayLocalDeviceConnectionTimeoutList ConnectionEstablishTimeoutList;
     xRelayLocalDeviceConnectionTimeoutList ConnectionIdleTimeoutList;

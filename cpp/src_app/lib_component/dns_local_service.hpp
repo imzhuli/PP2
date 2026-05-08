@@ -38,6 +38,8 @@ public:
     bool Init();
     void Clean();
     void Tick(uint64_t NowMS);
+    auto OutputAudit() const -> std::string;
+
     bool ResolveDns(const std::string_view & HostnameView, xDnsReultFuture & Future) override;
 
 private:
@@ -64,4 +66,8 @@ private:
     std::map<std::string, xDnsLocalCacheNode *, std::less<void>> CacheMap;
     xDnsLocalCacheTimeoutList                                    CacheRequestTimeoutList;
     xDnsLocalCacheTimeoutList                                    CacheTimeoutList;
+
+    struct {
+        size_t OnGoingDnsRequestCount = 0;
+    } Audit;
 };

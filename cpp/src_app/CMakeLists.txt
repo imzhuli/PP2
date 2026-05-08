@@ -64,7 +64,6 @@ set(target_list
 	s_server_list
 	s_config_center
 	s_dispatcher
-    s_dns
 	
 	s_local_proxy_relay
 

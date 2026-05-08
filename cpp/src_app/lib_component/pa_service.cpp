@@ -8,6 +8,26 @@ static constexpr const size_t   PA_AUDIT_TIMEOUT_MS              = 5'000;
 static constexpr const size_t   PA_MAX_CLIENT_CONNECTION         = 20'0000;
 static constexpr const size_t   PA_MAX_CLIENT_REQUEST_PER_SECOND = 5'0000;
 
+static ubyte S5_CONNECTION_IPV4_FAILED[] = {
+    '\x05',                          // version
+    '\x01',                          // generic error
+    '\x00',                          // reserved
+    '\x01',                          // type=ipv4
+    '\x00', '\x00', '\x00', '\x00',  // addr.ipv4
+    '\x00', '\x00',                  // port
+};
+static ubyte S5_CONNECTION_IPV6_FAILED[] = {
+    '\x05',                          // version
+    '\x01',                          // generic error
+    '\x00',                          // reserved
+    '\x04',                          // type=ipv6
+    '\x00', '\x00', '\x00', '\x00',  // addr.ipv6
+    '\x00', '\x00', '\x00', '\x00',  // addr.ipv6
+    '\x00', '\x00', '\x00', '\x00',  // addr.ipv6
+    '\x00', '\x00', '\x00', '\x00',  // addr.ipv6
+    '\x00', '\x00',                  // port
+};
+
 bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddress & BindAddress6) {
     X_RUNTIME_ASSERT(ServiceRunState);
     if (!ClientConnectionPool.Init(PA_MAX_CLIENT_CONNECTION)) {
@@ -90,6 +110,7 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
 
 void xProxyAccessService::Clean() {
     AuthFutureManager.Clean();
+    AcquireDeviceFutureManager.Clean();
     AcquireDeviceConnectionFutureManager.Clean();
     AcquireDeviceUdpChannelFutureManager.Clean();
     do {  // clean tcp servers
@@ -115,52 +136,68 @@ void xProxyAccessService::Clean() {
 void xProxyAccessService::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
     // process auth results:
-    do {
-        auto & ReadyAuthFutureList = AuthFutureManager.GetReadyFutureList();
-        while (auto P = static_cast<xPA_AuthFuture *>(ReadyAuthFutureList.PopHead())) {
-            DEBUG_LOG("async future result");
-            OnAuthResult(P);
-        }
-    } while (false);
+    ProcessReadyAuthFuture();
+    ProcessReadyAcquireDeviceFuture();
+    ProcessReadyAcquireDeviceConnectionFuture();
+    ProcessReadyAcquireDeviceUdpChannelFuture();
 
     DeferKillInitTimeoutConnection();
     ExcuteKillConnection();
     ClearTimeoutFuture();
-    OutputAudit();
 }
 
-void xProxyAccessService::OutputAudit() {
-    auto NowMS = LocalTicker();
-    if (NowMS - Audit.LastOutputTimestampMS <= PA_AUDIT_TIMEOUT_MS) {
-        return;
+void xProxyAccessService::ProcessReadyAuthFuture() {
+    auto & FutureList = AuthFutureManager.GetReadyFutureList();
+    while (auto P = static_cast<xPA_AuthFuture *>(FutureList.PopHead())) {
+        DEBUG_LOG();
+        OnAuthResult(P);
+        AuthFutureManager.ReleaseFuture(P);
     }
-    Audit.LastOutputTimestampMS = NowMS;
+}
 
-    auto Output = false;
-    Output     |= Audit.InvalidS5AuthTypeCount;
-    Output     |= Audit.InvalidS5AuthInfo;
-    Output     |= Audit.InvalidS5AuthResult;
-    Output     |= Audit.InvalidS5Target;
-    Output     |= Audit.LocalBindUdpChannelCount;
-    Output     |= Audit.RequestAuthenticationOOM;
-    Output     |= Audit.InitConnectionTimeoutCount;
-    Output     |= AuthFutureManager.GetActiveFutureCount();
-    Output     |= AuthService->GetUnprocessedResultCount();
-    if (!Output) {
-        return;
+void xProxyAccessService::ProcessReadyAcquireDeviceFuture() {
+    auto & FutureList = AcquireDeviceFutureManager.GetReadyFutureList();
+    while (auto P = static_cast<xPA_AcquireDeviceFuture *>(FutureList.PopHead())) {
+        DEBUG_LOG();
+        (void)P;
+        AcquireDeviceFutureManager.ReleaseFuture(P);
     }
+}
+
+void xProxyAccessService::ProcessReadyAcquireDeviceConnectionFuture() {
+    auto & FutureList = AcquireDeviceConnectionFutureManager.GetReadyFutureList();
+    while (auto P = static_cast<xPA_AcquireDeviceConnectionFuture *>(FutureList.PopHead())) {
+        DEBUG_LOG();
+        (void)P;
+        AcquireDeviceConnectionFutureManager.ReleaseFuture(P);
+    }
+}
+
+void xProxyAccessService::ProcessReadyAcquireDeviceUdpChannelFuture() {
+    auto & FutureList = AcquireDeviceUdpChannelFutureManager.GetReadyFutureList();
+    while (auto P = static_cast<xPA_AcquireDeviceUdpChannelFuture *>(FutureList.PopHead())) {
+        DEBUG_LOG();
+        (void)P;
+        AcquireDeviceUdpChannelFutureManager.ReleaseFuture(P);
+    }
+}
+
+std::string xProxyAccessService::OutputAudit() {
     auto SS = std::ostringstream();
-    SS << "InvalidS5AuthTypeCount=" << Audit.InvalidS5AuthTypeCount << endl;
-    SS << "InvalidS5AuthInfo=" << Audit.InvalidS5AuthInfo << endl;
-    SS << "InvalidS5AuthResult=" << Audit.InvalidS5AuthResult << endl;
-    SS << "InvalidS5Target=" << Audit.InvalidS5Target << endl;
-    SS << "LocalBindUdpChannelCount=" << Audit.LocalBindUdpChannelCount << endl;
-    SS << "RequestAuthenticationOOM=" << Audit.RequestAuthenticationOOM << endl;
-    SS << "InitConnectionTimeoutCount=" << Audit.InitConnectionTimeoutCount << endl;
-    SS << "AuthFutureCount=" << AuthFutureManager.GetActiveFutureCount() << endl;
-    SS << "GetUnprocessedResultCount=" << AuthService->GetUnprocessedResultCount() << endl;
-    AuditLogger->I("Audit:\n%s", SS.str().c_str());
+    SS << "xProxyAccessService:" << endl;
+    SS << "\tInvalidS5AuthTypeCount=" << Audit.InvalidS5AuthTypeCount << endl;
+    SS << "\tInvalidS5AuthInfo=" << Audit.InvalidS5AuthInfo << endl;
+    SS << "\tInvalidS5AuthResult=" << Audit.InvalidS5AuthResult << endl;
+    SS << "\tInvalidS5Target=" << Audit.InvalidS5Target << endl;
+    SS << "\tLocalBindUdpChannelCount=" << Audit.LocalBindUdpChannelCount << endl;
+    SS << "\tRequestAuthenticationOOM=" << Audit.RequestAuthenticationOOM << endl;
+    SS << "\tInitConnectionTimeoutCount=" << Audit.InitConnectionTimeoutCount << endl;
     Reset(Audit);
+    SS << "\tAuthFutureCount=" << AuthFutureManager.GetActiveFutureCount() << endl;
+    SS << "\tAcquireDeviceFutureCount=" << AcquireDeviceFutureManager.GetActiveFutureCount() << endl;
+    SS << "\tAcquireDeviceConnectionFutureCount=" << AcquireDeviceConnectionFutureManager.GetActiveFutureCount() << endl;
+    SS << "\tAcquireDeviceUdpChannelFutureCount=" << AcquireDeviceUdpChannelFutureManager.GetActiveFutureCount() << endl;
+    return SS.str();
 }
 
 void xProxyAccessService::EnableUdp4(const xNetAddress & BindAddress, const xNetAddress & ExportAddress) {
@@ -225,12 +262,19 @@ void xProxyAccessService::ClearTimeoutFuture() {
     };
     while (auto P = static_cast<xPA_AuthFuture *>(AuthFutureTimeoutList.PopHead(Cond))) {
         OnAuthResult(P);
+        AuthFutureManager.ReleaseFuture(P);
+    }
+    while (auto P = static_cast<xPA_AcquireDeviceFuture *>(AcquireDeviceFutureTimeoutList.PopHead(Cond))) {
+        Pass(P);
+        AcquireDeviceFutureManager.ReleaseFuture(P);
     }
     while (auto P = static_cast<xPA_AcquireDeviceConnectionFuture *>(AcquireDeviceConnectionFutureTimeoutList.PopHead(Cond))) {
         Pass(P);
+        AcquireDeviceConnectionFutureManager.ReleaseFuture(P);
     }
     while (auto P = static_cast<xPA_AcquireDeviceUdpChannelFuture *>(AcquireDeviceUdpChannelFutureTimeoutList.PopHead(Cond))) {
         Pass(P);
+        AcquireDeviceUdpChannelFutureManager.ReleaseFuture(P);
     }
 }
 
@@ -407,12 +451,6 @@ size_t xProxyAccessService::OnS5AuthInfo(xPA_ClientConnection * Connection, ubyt
         Connection->PostData("\x01\x01", 2);  // auth failure
         return R.Offset();
     }
-    if (Future->IsReady) {
-        DEBUG_LOG("immediate auth result");
-        OnS5AuthResult(Connection);
-    } else {
-        DEBUG_LOG("Wait for future results");
-    }
     return R.Offset();
 }
 
@@ -463,11 +501,22 @@ size_t xProxyAccessService::OnS5Target(xPA_ClientConnection * Connection, ubyte 
         R.R(DomainName, DomainNameLength);
         DomainName[DomainNameLength] = '\0';
         TargetAddress.Port           = R.R2();
-
         DEBUG_LOG("target domain: %s, port=%u", DomainName, (unsigned)TargetAddress.Port);
     }
     if (Operation == 0x01) {  // build tcp connection
         DEBUG_LOG("Operation: Connection");
+        auto Future = AcquireDeviceConnectionFutureManager.AcquireFuture();
+        AcquireDeviceConnectionFutureManager.ReleaseFuture(Steal(Future));
+        if (!Future) {
+            if (AddrType = 0x01) {  // ipv4
+                Connection->PostData(S5_CONNECTION_IPV4_FAILED, sizeof(S5_CONNECTION_IPV4_FAILED));
+                return 0;
+            } else if (AddrType == 0x04) {  // ipv6
+                Connection->PostData(S5_CONNECTION_IPV6_FAILED, sizeof(S5_CONNECTION_IPV6_FAILED));
+                return 0;
+            }
+        }
+
     } else if (Operation == 0x03) {  // udp
         DEBUG_LOG("Operation: UdpChannel");
     } else {
@@ -548,5 +597,4 @@ void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection) {
         }
         DEBUG_LOG("%s", Result->ToString().c_str());
     }
-    ReleaseAuthFuture(Connection);
 }

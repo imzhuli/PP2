@@ -6,14 +6,21 @@
 #include <pp_common/service_runtime.hpp>
 
 static auto LocalAuthService   = xAuthLocalService();
-static auto RelayLocalService  = xRelayLocalBindingService();
+static auto LocalRelayService  = xRelayLocalBindingService();
 static auto ProxyAccessService = xProxyAccessService();
-static auto DnsService         = xDnsLocalService();
+static auto LocalDnsService    = xDnsLocalService();
+static auto LocalAuditTimeout =
+#ifndef NDEBUG
+    1min;
+#else
+    10min;
+#endif
 
-[[maybe_unused]] static const std::vector<std::pair<xNetAddress, xNetAddress>> TestBindingPairList = {
-    std::make_pair(xNetAddress::Parse("10.0.0.7"), xNetAddress::Parse("175.178.22.69")),
-    std::make_pair(xNetAddress::Parse("2402:4e00:101a:f300:0:9f95:4b15:c0db"), xNetAddress::Parse("2402:4e00:101a:f300:0:9f95:4b15:c0db")),
-};
+[[maybe_unused]] static const std::vector<std::pair<xNetAddress, xNetAddress>>
+    TestBindingPairList = {
+        std::make_pair(xNetAddress::Parse("10.0.0.7"), xNetAddress::Parse("175.178.22.69")),
+        std::make_pair(xNetAddress::Parse("2402:4e00:101a:f300:0:9f95:4b15:c0db"), xNetAddress::Parse("2402:4e00:101a:f300:0:9f95:4b15:c0db")),
+    };
 [[maybe_unused]] static std::string OutputDnsResult(const xDnsReultFuture * F) {
     X_RUNTIME_ASSERT(F);
     if (!F->Result) {
@@ -66,9 +73,9 @@ int main(int argc, char ** argv) {
     LoadConfig();
 
     X_RESOURCE_GUARD_ASSERTED(LocalAuthService, "./test_assets/");
-    X_RESOURCE_GUARD_ASSERTED(RelayLocalService, LocalRelayServerId, LocalBindingDeviceFile);
+    X_RESOURCE_GUARD_ASSERTED(LocalRelayService, LocalRelayServerId, LocalBindingDeviceFile);
     X_RESOURCE_GUARD_ASSERTED(ProxyAccessService, ProxyAccessBindAddress4, ProxyAccessBindAddress6);
-    X_RESOURCE_GUARD_ASSERTED(DnsService);
+    X_RESOURCE_GUARD_ASSERTED(LocalDnsService);
 
     if (ProxyAccessBindUdpAddress4) {
         X_RUNTIME_ASSERT(ProxyAccessExportUdpAddress4);
@@ -79,30 +86,13 @@ int main(int argc, char ** argv) {
         ProxyAccessService.EnableUdp6(ProxyAccessBindUdpAddress6, ProxyAccessExportUdpAddress6);
     }
     ProxyAccessService.BindAuthService(&LocalAuthService);
+    LocalRelayService.BindDnsService(&LocalDnsService);
 
-    auto TestDnsFuturePool = xFuturePoolManager<xDnsReultFuture>();
-    TestDnsFuturePool.Init(10);
-
-    const char * N1 = "www.baidu.com";
-    const char * N2 = "www.qq.com";
-    const char * N3 = "www.qq.com";
-
-    auto F1 = TestDnsFuturePool.AcquireFuture();
-    auto F2 = TestDnsFuturePool.AcquireFuture();
-    auto F3 = TestDnsFuturePool.AcquireFuture();
-
-    DnsService.ResolveDns(N1, *F1);
-    DnsService.ResolveDns(N2, *F2);
-    DnsService.ResolveDns(N3, *F3);
-
+    auto AuditTimer = xTimer();
     while (ServiceRunState) {
-        ServiceUpdateOnce(RelayLocalService, ProxyAccessService, DnsService);
-        auto & FL = TestDnsFuturePool.GetReadyFutureList();
-        while (auto F = static_cast<xDnsReultFuture *>(FL.PopHead())) {
-            DEBUG_LOG("Result: %s", OutputDnsResult(F).c_str());
-            TestDnsFuturePool.ReleaseFuture(F);
+        ServiceUpdateOnce(LocalRelayService, ProxyAccessService, LocalDnsService);
+        if (AuditTimer.TestAndTag(LocalAuditTimeout)) {
+            AuditLogger->I("LocalAudit:\n%s%s%s", ProxyAccessService.OutputAudit().c_str(), LocalRelayService.OutputAudit().c_str(), LocalDnsService.OutputAudit().c_str());
         }
     }
-
-    TestDnsFuturePool.Clean();
 }
