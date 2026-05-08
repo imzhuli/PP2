@@ -24,15 +24,13 @@ struct xAuthResultFuture : xFutureBase {
         NO_DATA = 1,
         OOM     = 2,
     };
-    using xResult  = std::expected<xAuthResult *, eErrorCode>;
+    using xResult  = std::expected<xAuthResult, eErrorCode>;
     xResult Result = std::unexpected(eErrorCode::NO_DATA);
 };
 
 class xAuthAbstractService : xAbstract {
 public:
-    virtual void   Validate(const std::string_view AccountPass, xAuthResultFuture & Future) = 0;
-    virtual void   ReleaseAuthResult(xAuthResult * Result)                                  = 0;
-    virtual size_t GetUnprocessedResultCount() const                                        = 0;
+    virtual void Validate(const std::string_view AccountPass, xAuthResultFuture & Future) = 0;
 };
 
 extern std::string CombineAccountPass(std::string_view AccountView, std::string_view PassView);

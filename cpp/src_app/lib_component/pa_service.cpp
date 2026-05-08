@@ -151,7 +151,6 @@ void xProxyAccessService::ProcessReadyAuthFuture() {
     while (auto P = static_cast<xPA_AuthFuture *>(FutureList.PopHead())) {
         DEBUG_LOG();
         OnAuthResult(P);
-        AuthFutureManager.ReleaseFuture(P);
     }
 }
 
@@ -235,8 +234,6 @@ void xProxyAccessService::CheckAndReleaseAuthFuture(xPA_ClientConnection * Conne
 
 void xProxyAccessService::ReleaseAuthFuture(xPA_ClientConnection * Connection) {
     auto Future = Steal(Connection->AuthFuture);
-    assert(Future);
-    Future->Result ? AuthService->ReleaseAuthResult(*Future->Result) : Pass();
     AuthFutureManager.ReleaseFuture(Future);
 }
 
@@ -262,19 +259,18 @@ void xProxyAccessService::ClearTimeoutFuture() {
     };
     while (auto P = static_cast<xPA_AuthFuture *>(AuthFutureTimeoutList.PopHead(Cond))) {
         OnAuthResult(P);
-        AuthFutureManager.ReleaseFuture(P);
     }
     while (auto P = static_cast<xPA_AcquireDeviceFuture *>(AcquireDeviceFutureTimeoutList.PopHead(Cond))) {
         Pass(P);
-        AcquireDeviceFutureManager.ReleaseFuture(P);
+        // AcquireDeviceFutureManager.ReleaseFuture(P);
     }
     while (auto P = static_cast<xPA_AcquireDeviceConnectionFuture *>(AcquireDeviceConnectionFutureTimeoutList.PopHead(Cond))) {
         Pass(P);
-        AcquireDeviceConnectionFutureManager.ReleaseFuture(P);
+        // AcquireDeviceConnectionFutureManager.ReleaseFuture(P);
     }
     while (auto P = static_cast<xPA_AcquireDeviceUdpChannelFuture *>(AcquireDeviceUdpChannelFutureTimeoutList.PopHead(Cond))) {
         Pass(P);
-        AcquireDeviceUdpChannelFutureManager.ReleaseFuture(P);
+        // AcquireDeviceUdpChannelFutureManager.ReleaseFuture(P);
     }
 }
 
@@ -393,12 +389,6 @@ size_t xProxyAccessService::OnS5Challenge(xPA_ClientConnection * Connection, uby
             ++Audit.RequestAuthenticationOOM;
             Connection->PostData("\x05\xFF", 2);  // auth failure
             return HeaderSize;                    // wait for client side close
-        }
-        if (Future->IsReady) {
-            DEBUG_LOG("immediate no-auth result");
-            OnS5AuthResult(Connection);
-        } else {
-            DEBUG_LOG("Wait for future results");
         }
         return HeaderSize;
     }
@@ -567,19 +557,18 @@ void xProxyAccessService::OnAuthResult(xPA_AuthFuture * Future) {
     auto Connection = Future->ClientConnection;
     assert(Connection->AuthFuture == Future);
     assert(Future->IsReady);
-
+    X_SCOPE_GUARD([=, this] {
+        ReleaseAuthFuture(Connection);
+    });
     if (Connection->Type == xPA_ClientConnection::eType::S5_CHALLENGE) {
-        return OnS5AuthResult(Connection);
+        return OnS5AuthResult(Connection, Future);
     }
 }
 
-void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection) {
+void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future) {
     DEBUG_LOG();
 
-    auto Future = Connection->AuthFuture;
-    assert(Future);
-    auto Result = Future->Result ? *Future->Result : nullptr;
-
+    auto Result = Future->Result ? &*Future->Result : nullptr;
     if (Connection->NoAuth) {
         if (!Result || !Result->ProxyAccessAddress) {
             Connection->PostData("\x05\xFF", 2);  // no-auth failed

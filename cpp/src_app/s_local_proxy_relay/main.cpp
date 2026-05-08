@@ -92,7 +92,7 @@ int main(int argc, char ** argv) {
     while (ServiceRunState) {
         ServiceUpdateOnce(LocalRelayService, ProxyAccessService, LocalDnsService);
         if (AuditTimer.TestAndTag(LocalAuditTimeout)) {
-            AuditLogger->I("LocalAudit:\n%s%s%s", ProxyAccessService.OutputAudit().c_str(), LocalRelayService.OutputAudit().c_str(), LocalDnsService.OutputAudit().c_str());
+            AuditLogger->I("LocalAudit:\n%s%s%s%s", ProxyAccessService.OutputAudit().c_str(), LocalAuthService.OutputAudit().c_str(), LocalRelayService.OutputAudit().c_str(), LocalDnsService.OutputAudit().c_str());
         }
     }
 }

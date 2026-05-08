@@ -84,7 +84,7 @@ protected:  // process data:
     xPA_AcquireDeviceFuture * RequestDevice(xPA_ClientConnection * Connection, const xDeviceRequest & Request);
 
     void OnAuthResult(xPA_AuthFuture * Future);
-    void OnS5AuthResult(xPA_ClientConnection * Connection);
+    void OnS5AuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future);
 
 protected:
     void KeepAlive(xPA_ClientConnection * Connection);

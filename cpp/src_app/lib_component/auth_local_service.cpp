@@ -18,10 +18,6 @@ bool xAuthLocalService::Init(const char * AuthFileDir) {
         return false;
     }
     this->AuthFileDir = AuthFileDir;
-    if (!ResultPool.Init({ .InitSize = RESULE_POOL_SIZE, .MaxPoolSize = RESULE_POOL_SIZE })) {
-        Logger->E("Failed to init ResultPool");
-        return false;
-    }
 
     RunState.Start();
     Reset(ReloadAuthFileThread, std::thread([this]() { ReloadAuthFile(); }));
@@ -34,38 +30,34 @@ void xAuthLocalService::Clean() {
     Reset(ReloadAuthFileThread);
     RunState.Finish();
 
-    ResultPool.Clean();
     Reset(AuthFileDir);
+}
+
+std::string xAuthLocalService::OutputAudit() const {
+    auto OS = std::ostringstream();
+    OS << "xAuthLocalService:" << endl;
+    return OS.str();
 }
 
 void xAuthLocalService::Validate(const std::string_view AccountPass, xAuthResultFuture & Future) {
     Future.SetReady();
-    auto Result = ResultPool.CreateValue();
-    if (!Result) {
-        return;
-    }
-    Future.Result.emplace(Result);
-    ++Audit.ResultCount;
+    Future.Result.emplace();
+    auto Result = *Future.Result;
 
     DEBUG_LOG("ValidateAccountPass:%s", HexShow(AccountPass).c_str());
     // find out
     if (AccountPass == "a\000b"sv) {
         DEBUG_LOG("test account");
-        Result->ProxyAccessAddress = xNetAddress::Parse("10.0.0.7:11000");
+        Result.ProxyAccessAddress = xNetAddress::Parse("10.0.0.7:11000");
     }
     if (AccountPass ==
         "\x00"
         "10.0.0.7"sv) {
         DEBUG_LOG("ip white list");
-        Result->ProxyAccessAddress = xNetAddress::Parse("10.0.0.7:11000");
+        Result.ProxyAccessAddress = xNetAddress::Parse("10.0.0.7:11000");
     }
 
     return;
-}
-
-void xAuthLocalService::ReleaseAuthResult(xAuthResult * Result) {
-    --Audit.ResultCount;
-    ResultPool.Destroy(Result);
 }
 
 static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
