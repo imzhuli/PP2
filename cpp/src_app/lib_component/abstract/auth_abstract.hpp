@@ -10,6 +10,8 @@ class xAuthAbstract;
 struct xAuthResult {
     xCountryId  CountryId;
     xNetAddress ProxyAccessAddress;
+    xNetAddress ExportAddress;
+    bool        EnableTcp;
     bool        EnableUdp;
     uint32_t    BandwithLimit;
     uint32_t    ConnectionLimit;
@@ -30,7 +32,7 @@ struct xAuthResultFuture : xFutureBase {
 
 class xAuthAbstractService : xAbstract {
 public:
-    virtual void Validate(const std::string_view AccountPass, xAuthResultFuture & Future) = 0;
+    virtual void Validate(const std::string_view AccountPassView, xAuthResultFuture & Future) = 0;
 };
 
 extern std::string CombineAccountPass(std::string_view AccountView, std::string_view PassView);

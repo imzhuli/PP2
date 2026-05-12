@@ -4,6 +4,8 @@ std::string xAuthResult::ToString() const {
     auto SS = std::ostringstream();
     SS << "CountryId:" << CountryId << endl;
     SS << "ProxyAccessAddress:" << ProxyAccessAddress << endl;
+    SS << "ExportAddress:" << ExportAddress << endl;
+    SS << "EnableTcp:" << EnableTcp << endl;
     SS << "EnableUdp:" << EnableUdp << endl;
     SS << "BandwithLimit:" << BandwithLimit << endl;
     SS << "ConnectionLimit:" << ConnectionLimit << endl;

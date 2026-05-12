@@ -576,7 +576,7 @@ void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xPA_
             Connection->PostData("\x05\x00", 2);
             Connection->DataProcessor = &xProxyAccessService::OnS5Target;
         }
-        DEBUG_LOG("%s", Result->ToString().c_str());
+        DEBUG_LOG("\n%s", Result->ToString().c_str());
     } else {
         if (!Result || !Result->ProxyAccessAddress) {
             Connection->PostData("\x01\x01", 2);  // auth failure
@@ -584,6 +584,6 @@ void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xPA_
             Connection->PostData("\x01\x00", 2);
             Connection->DataProcessor = &xProxyAccessService::OnS5Target;
         }
-        DEBUG_LOG("%s", Result->ToString().c_str());
+        DEBUG_LOG("\n%s", Result->ToString().c_str());
     }
 }

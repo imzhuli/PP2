@@ -29,11 +29,8 @@ static size_t EstimateMaxUdpChannelPoolSize(size_t LocalAddressSize) {
 std::string xRelayLocalBindingOption::ToString() const {
     auto OS = std::ostringstream();
     OS << "[ ";
-    OS << "B4:" << BindAddress4.ToString() << " ";
-    OS << "E4:" << ExportAddress4.ToString() << " ";
-    OS << "B6:" << BindAddress6.ToString() << " ";
-    OS << "E6:" << ExportAddress6.ToString() << " ";
-    OS << (EnableTcp ? "tcp" : "no-tcp") << " ";
+    OS << "B:" << BindAddress.ToString() << " ";
+    OS << "E:" << ExportAddress.ToString() << " ";
     OS << (EnableUdp ? "udp" : "no-udp") << " ";
     OS << "]";
     return OS.str();
@@ -53,37 +50,19 @@ bool xRelayLocalBindingService::Init(uint64_t ServerId, const std::string & Addr
         // [0]: addr4 mapping
         // [1]: addr6 mapping
         // [2]: functions
-        if (Segs.size() != 3) {
+        if (Segs.size() != 2) {
             Logger->F("invalid config line");
             return false;
         }
-        auto A4M    = Split(Segs[0], "->");
-        auto A6M    = Split(Segs[1], "->");
-        auto FN     = Split(Segs[2], ",");
+        auto AM     = Split(Segs[0], "->");
+        auto FN     = Split(Segs[1], ",");
         auto Option = xRelayLocalBindingOption();
-        do {  // 4
-            if (A4M.empty()) {
-                break;
-            }
-            X_RUNTIME_ASSERT(A4M.size() == 2);
-            auto B = xNetAddress::Parse(Trim(A4M[0]));
-            auto E = xNetAddress::Parse(Trim(A4M[1]));
-            X_RUNTIME_ASSERT(B.Is4() && E.Is4());
-            Option.BindAddress4   = B;
-            Option.ExportAddress4 = E;
-        } while (false);
-        do {  // 6
-            if (A6M.empty()) {
-                break;
-            }
-            X_RUNTIME_ASSERT(A6M.size() == 2);
-            auto B = xNetAddress::Parse(Trim(A6M[0]));
-            auto E = xNetAddress::Parse(Trim(A6M[1]));
-            X_RUNTIME_ASSERT(B.Is6() && E.Is6());
-            Option.BindAddress6   = B;
-            Option.ExportAddress6 = E;
-        } while (false);
-        X_RUNTIME_ASSERT(Option.BindAddress4 || Option.BindAddress6);
+        X_RUNTIME_ASSERT(AM.size() == 2);
+        auto B = xNetAddress::Parse(Trim(AM[0]));
+        auto E = xNetAddress::Parse(Trim(AM[1]));
+        X_RUNTIME_ASSERT(B && E);
+        Option.BindAddress   = B;
+        Option.ExportAddress = E;
         do {
             for (auto & F : FN) {
                 F = Trim(F);
@@ -170,22 +149,14 @@ bool xRelayLocalBindingService::CreateLocalDeviceList(const std::vector<xRelayLo
     size_t IndexCount = 0;
     for (auto & O : OptionList) {
         auto DInfo = xRelayLocalDevice{
-            .DeviceId       = MakeLocalDeviceId(IndexCount++),
-            .BindAddress4   = O.BindAddress4,
-            .ExportAddress4 = O.ExportAddress4,
-            .BindAddress6   = O.BindAddress6,
-            .ExportAddress6 = O.ExportAddress6,
-            .EnableTcp      = O.EnableTcp,
-            .EnableUdp      = O.EnableUdp,
+            .DeviceId      = MakeLocalDeviceId(IndexCount++),
+            .BindAddress   = O.BindAddress,
+            .ExportAddress = O.ExportAddress,
+            .EnableTcp     = O.EnableTcp,
+            .EnableUdp     = O.EnableUdp,
         };
-        if (DInfo.ExportAddress4) {
-            auto & E = LocalDeviceExportAddressMap[DInfo.ExportAddress4];
-            X_RUNTIME_ASSERT(!Steal(E, DInfo.DeviceId));
-        }
-        if (DInfo.ExportAddress6) {
-            auto & E = LocalDeviceExportAddressMap[DInfo.ExportAddress6];
-            X_RUNTIME_ASSERT(!Steal(E, DInfo.DeviceId));
-        }
+        auto & E = LocalDeviceExportAddressMap[DInfo.ExportAddress];
+        X_RUNTIME_ASSERT(!Steal(E, DInfo.DeviceId));
         LocalDeviceList.push_back(DInfo);
     }
     return true;
@@ -261,7 +232,7 @@ void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_
         return;
     }
     auto & Connection = LocalConnectionPool[ConnectionId];
-    if (!Connection.Init(ServiceIoContext, TargetAddress, TargetAddress.Is4() ? Device->BindAddress4 : Device->BindAddress6, this)) {
+    if (!Connection.Init(ServiceIoContext, TargetAddress, Device->BindAddress, this)) {
         LocalConnectionPool.Release(ConnectionId);
         Future.SetReady();
         return;
@@ -287,7 +258,7 @@ void xRelayLocalBindingService::CreateUdpChannel(uint64_t RelayServerId, uint64_
         return;
     }
     auto & UdpChannel = LocalUdpChannelPool[UdpChannelId];
-    if (!UdpChannel.Init(ServiceIoContext, (Type == xNetAddress::IPV4) ? Device->BindAddress4 : Device->BindAddress6, this)) {
+    if (!UdpChannel.Init(ServiceIoContext, Device->BindAddress, this)) {
         LocalUdpChannelPool.Release(UdpChannelId);
         return;
     }

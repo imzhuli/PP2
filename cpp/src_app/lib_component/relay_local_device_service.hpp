@@ -15,10 +15,8 @@ struct xRelayDnsResultFuture : xDnsReultFuture {
 
 struct xRelayLocalDevice {
     uint64_t    DeviceId;
-    xNetAddress BindAddress4;
-    xNetAddress ExportAddress4;
-    xNetAddress BindAddress6;
-    xNetAddress ExportAddress6;
+    xNetAddress BindAddress;
+    xNetAddress ExportAddress;
     bool        EnableTcp;
     bool        EnableUdp;
 };
@@ -53,10 +51,8 @@ struct xRelayLocalDeviceUdpChannel final
 };
 
 struct xRelayLocalBindingOption {
-    xNetAddress BindAddress4;
-    xNetAddress ExportAddress4;
-    xNetAddress BindAddress6;
-    xNetAddress ExportAddress6;
+    xNetAddress BindAddress;
+    xNetAddress ExportAddress;
     bool        EnableTcp = false;
     bool        EnableUdp = false;
 
