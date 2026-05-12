@@ -53,6 +53,7 @@ private:
     } LastReloadInfo;
 
     struct {
-        size_t CachedAuthInfoCount = 0;
+        size_t CachedAuthInfoCount      = 0;
+        size_t CachedAuthInfoMapVersion = 0;
     } Audit;
 };

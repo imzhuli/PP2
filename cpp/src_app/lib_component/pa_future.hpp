@@ -11,13 +11,11 @@ struct xPA_AuthFuture final : xAuthResultFuture {
 };
 
 struct xPA_AcquireDeviceFuture final : xAcquireDeviceFuture {
-    struct xPA_ClientConnection * ClientConnection  = nullptr;
-    uint64_t                      RelayServerid     = 0;
-    uint64_t                      RelaySideDeviceId = 0;
+    struct xPA_ClientConnection * ClientConnection = nullptr;
 };
 
 struct xPA_AcquireDeviceConnectionFuture final : xFutureBase {
-    uint64_t RelaySideConnectionId = 0;
+    struct xPA_ClientConnection * ClientConnection = nullptr;
 };
 
 struct xPA_AcquireDeviceUdpChannelFuture final : xFutureBase {

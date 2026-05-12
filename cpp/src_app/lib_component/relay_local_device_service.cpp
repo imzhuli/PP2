@@ -36,6 +36,18 @@ std::string xRelayLocalBindingOption::ToString() const {
     return OS.str();
 }
 
+std::string xRelayLocalDevice::ToString() const {
+    auto OS = std::ostringstream();
+    OS << "[ ";
+    OS << "DeviceId:" << DeviceId << " ";
+    OS << "B:" << BindAddress.ToString() << " ";
+    OS << "E:" << ExportAddress.ToString() << " ";
+    OS << "EnableTcp:" << YN(EnableTcp) << " ";
+    OS << "EnableUdp:" << YN(EnableUdp) << " ";
+    OS << "]";
+    return OS.str();
+}
+
 bool xRelayLocalBindingService::Init(uint64_t ServerId, const std::string & AddressPairFile) {
     // parse file:
     auto BindAddressPairList = std::vector<xRelayLocalBindingOption>();
@@ -159,6 +171,10 @@ bool xRelayLocalBindingService::CreateLocalDeviceList(const std::vector<xRelayLo
         X_RUNTIME_ASSERT(!Steal(E, DInfo.DeviceId));
         LocalDeviceList.push_back(DInfo);
     }
+    X_RUNTIME_ASSERT(LocalDeviceList.size() == LocalDeviceExportAddressMap.size());
+    for (auto & D : LocalDeviceList) {
+        AuditLogger->I("EnableDevice:\n\t%s", D.ToString().c_str());
+    }
     return true;
 }
 
@@ -179,8 +195,23 @@ const xRelayLocalDevice * xRelayLocalBindingService::GetDevice(uint64_t DeviceId
     return &LocalDeviceList[L32];
 }
 
-bool xRelayLocalBindingService::AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) {
-    return false;
+void xRelayLocalBindingService::AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) {
+    Future.SetReady();
+    if (!(Request.Strategy & DSS_STATIC_EXPORT_ADDRESS)) {
+        DEBUG_LOG();
+        return;
+    }
+    auto Iter = LocalDeviceExportAddressMap.find(Request.Condition.ExportAddress);
+    if (Iter == LocalDeviceExportAddressMap.end()) {
+        DEBUG_LOG();
+        return;
+    }
+    Future.Result = xDeviceReference{
+        .RelayServerId     = 0,
+        .RelaySideDeviceId = Iter->second,
+    };
+    DEBUG_LOG();
+    return;
 }
 
 void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const std::string & TargetHostname, uint16_t TargetPort, xRelayCreateConnectionFuture & Future) {

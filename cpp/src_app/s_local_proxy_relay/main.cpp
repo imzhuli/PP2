@@ -86,6 +86,7 @@ int main(int argc, char ** argv) {
         ProxyAccessService.EnableUdp6(ProxyAccessBindUdpAddress6, ProxyAccessExportUdpAddress6);
     }
     ProxyAccessService.BindAuthService(&LocalAuthService);
+    ProxyAccessService.BindDeviceLocatorService(&LocalRelayService);
     LocalRelayService.BindDnsService(&LocalDnsService);
 
     auto AuditTimer = xTimer();

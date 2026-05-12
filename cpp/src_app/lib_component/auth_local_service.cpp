@@ -52,6 +52,8 @@ void xAuthLocalService::Clean() {
 std::string xAuthLocalService::OutputAudit() const {
     auto OS = std::ostringstream();
     OS << "xAuthLocalService:" << endl;
+    OS << "\tCachedAuthInfoMapVersion:" << Audit.CachedAuthInfoMapVersion << endl;
+    OS << "\tCachedAuthInfoCount:" << Audit.CachedAuthInfoCount << endl;
     return OS.str();
 }
 
@@ -61,7 +63,9 @@ void xAuthLocalService::Validate(const std::string_view AccountPassView, xAuthRe
     // check and update auth map;
     auto NewMap = LastReloadInfo.AuthMap.exchange(nullptr);
     if (NewMap) {
-        AuthLocalMap = std::move(*NewMap);
+        AuthLocalMap              = std::move(*NewMap);
+        Audit.CachedAuthInfoCount = AuthLocalMap.size();
+        ++Audit.CachedAuthInfoMapVersion;
         delete NewMap;
     }
 

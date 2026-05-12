@@ -19,6 +19,8 @@ struct xRelayLocalDevice {
     xNetAddress ExportAddress;
     bool        EnableTcp;
     bool        EnableUdp;
+
+    std::string ToString() const;
 };
 
 struct xRelayLocalDeviceConnectionTimeoutNode : xListNode {
@@ -60,8 +62,8 @@ struct xRelayLocalBindingOption {
 };
 
 class xRelayLocalBindingService final
-    : xRelayAbstractService
-    , xDeviceLocatorAbstractService
+    : public xRelayAbstractService
+    , public xDeviceLocatorAbstractService
     , xTcpConnection::iListener
     , xUdpChannel::iListener {
 
@@ -74,7 +76,7 @@ public:
 
     auto OutputAudit() const -> std::string;
 
-    bool AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) override;
+    void AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) override;
     void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const std::string & TargetHostname, uint16_t TargetPort, xRelayCreateConnectionFuture & Future) override;
     void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) override;
     void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideUdpChannelId, xNetAddress::eType Type, xRelayCreateUdpChannelFuture & Future) override;

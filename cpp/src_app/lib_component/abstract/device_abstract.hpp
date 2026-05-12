@@ -3,8 +3,13 @@
 #include <pp_common/device.hpp>
 #include <pp_common/future.hpp>
 
+struct xDeviceReference {
+    uint64_t RelayServerId;
+    uint64_t RelaySideDeviceId;
+};
+
 struct xAcquireDeviceFuture : xFutureBase {
-    struct xPA_ClientConnection * ClientConnection = nullptr;
+    std::expected<xDeviceReference, xNone> Result = std::unexpected(None);
 };
 
 struct xDeviceRequest {
@@ -18,5 +23,5 @@ struct xDeviceRequest {
 };
 
 struct xDeviceLocatorAbstractService : xAbstract {
-    virtual bool AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) = 0;
+    virtual void AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) = 0;
 };

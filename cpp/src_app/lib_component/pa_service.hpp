@@ -26,13 +26,17 @@ struct xPA_ClientConnection
         HTTP_1,
     };
 
-    uint64_t               ConnectionId   = 0;
-    xPA_ClientUdpChannel * BindUdpChannel = {};
-    bool                   DeleteMark     = false;
-    bool                   NoAuth         = false;
-    xPA_TcpDataProcessor   DataProcessor  = {};
-    eType                  Type           = UNDETERMINED;
-    xPA_AuthFuture *       AuthFuture     = nullptr;
+    uint64_t                            ConnectionId                  = 0;
+    xPA_ClientUdpChannel *              BindUdpChannel                = {};
+    bool                                DeleteMark                    = false;
+    bool                                NoAuth                        = false;
+    xPA_TcpDataProcessor                DataProcessor                 = {};
+    eType                               Type                          = UNDETERMINED;
+    xPA_AuthFuture *                    AuthFuture                    = nullptr;
+    xPA_AcquireDeviceFuture *           AcquireDeviceFuture           = nullptr;
+    xPA_AcquireDeviceConnectionFuture * AcquireDeviceConnectionFuture = nullptr;
+    xPA_AcquireDeviceUdpChannelFuture * AcquireDeviceUdpChannelFuture = nullptr;
+    xDeviceReference                    DeviceReference               = {};
 };
 
 struct xPA_ClientUdpChannel
@@ -84,13 +88,19 @@ protected:  // process data:
     xPA_AcquireDeviceFuture * RequestDevice(xPA_ClientConnection * Connection, const xDeviceRequest & Request);
 
     void OnAuthResult(xPA_AuthFuture * Future);
+    void SendS5AuthError(xPA_ClientConnection * Connection);
+    void SendS5AuthAccepted(xPA_ClientConnection * Connection);
     void OnS5AuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future);
+    void OnAcquireDeviceResult(xPA_AcquireDeviceFuture * Future);
+    void OnS5AcquireDeviceResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceFuture * Future);
 
 protected:
     void KeepAlive(xPA_ClientConnection * Connection);
     void DeferKill(xPA_ClientConnection * Connection);
-    void CheckAndReleaseAuthFuture(xPA_ClientConnection * Connection);
     void ReleaseAuthFuture(xPA_ClientConnection * Connection);
+    void ReleaseAcquireDeviceFuture(xPA_ClientConnection * Connection);
+    void ReleaseAcquireDeviceConnectionFuture(xPA_ClientConnection * Connection);
+    void ReleaseAcquireDeviceUdpChannelFuture(xPA_ClientConnection * Connection);
     void DestroyConnection(xPA_ClientConnection * Connection);
 
     void DeferKillInitTimeoutConnection();
