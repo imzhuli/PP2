@@ -206,7 +206,7 @@ void xRelayLocalBindingService::AcquireDevice(const xDeviceRequest & Request, xA
         DEBUG_LOG();
         return;
     }
-    Future.Result = xDeviceReference{
+    Future.Result = {
         .RelayServerId     = 0,
         .RelaySideDeviceId = Iter->second,
     };
@@ -215,8 +215,7 @@ void xRelayLocalBindingService::AcquireDevice(const xDeviceRequest & Request, xA
 }
 
 void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const std::string & TargetHostname, uint16_t TargetPort, xRelayCreateConnectionFuture & Future) {
-    Future.RelaySideConnectionId = 0;
-    auto DnsFuture               = DnsFutureManager.AcquireFuture();
+    auto DnsFuture = DnsFutureManager.AcquireFuture();
     if (!DnsFuture) {
         Future.SetReady();
         return;
@@ -424,7 +423,7 @@ const xRelayLocalDevice * xRelayLocalBindingService::FindDeviceByExportAddress(c
 void xRelayLocalBindingService::OnConnected(xTcpConnection * TcpConnectionPtr) {
     auto Connection = static_cast<xRelayLocalDeviceConnection *>(TcpConnectionPtr);
     if (auto Future = !Connection->CreateConnectionFutureHandle ? nullptr : Steal(Connection->CreateConnectionFutureHandle).Get<xRelayCreateConnectionFuture>()) {
-        Future->RelaySideConnectionId = Connection->ConnectionId;
+        Future->Result = Connection->ConnectionId;
         Future->SetReady();
         KeepAlive(Connection);
     }

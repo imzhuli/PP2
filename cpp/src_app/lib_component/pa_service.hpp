@@ -37,6 +37,9 @@ struct xPA_ClientConnection
     xPA_AcquireDeviceConnectionFuture * AcquireDeviceConnectionFuture = nullptr;
     xPA_AcquireDeviceUdpChannelFuture * AcquireDeviceUdpChannelFuture = nullptr;
     xDeviceReference                    DeviceReference               = {};
+    struct {
+        uint64_t StartupTimestampMS = 0;
+    } Debug;
 };
 
 struct xPA_ClientUdpChannel

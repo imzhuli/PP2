@@ -8,6 +8,7 @@ struct xAuthResult;
 class xAuthAbstract;
 
 struct xAuthResult {
+    uint64_t    AuthId;
     xCountryId  CountryId;
     xNetAddress ProxyAccessAddress;
     xNetAddress ExportAddress;
@@ -21,13 +22,7 @@ struct xAuthResult {
 };
 
 struct xAuthResultFuture : xFutureBase {
-    enum struct eErrorCode : uint16_t {
-        OK      = 0,
-        NO_DATA = 1,
-        OOM     = 2,
-    };
-    using xResult  = std::expected<xAuthResult, eErrorCode>;
-    xResult Result = std::unexpected(eErrorCode::NO_DATA);
+    xExpected<xAuthResult> Result = UnexpctedResult;
 };
 
 class xAuthAbstractService : xAbstract {

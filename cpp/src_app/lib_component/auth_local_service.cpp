@@ -70,7 +70,7 @@ void xAuthLocalService::Validate(const std::string_view AccountPassView, xAuthRe
     }
 
     Future.SetReady();
-    Future.Result.emplace();
+    Future.Result = {};
     auto & Result = *Future.Result;
     auto   Iter   = AuthLocalMap.find(AccountPassView);
     if (Iter == AuthLocalMap.end()) {

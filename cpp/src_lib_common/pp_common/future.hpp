@@ -7,6 +7,11 @@ class xFutureManager;
 class xFutureBase;
 class xFutureHandle;
 
+template <typename T>
+using xExpected = std::expected<T, xNone>;
+
+constexpr const auto UnexpctedResult = std::unexpected(None);
+
 struct xFutureNode : xListNode {
     uint64_t StartTimestampMS = {};
 };

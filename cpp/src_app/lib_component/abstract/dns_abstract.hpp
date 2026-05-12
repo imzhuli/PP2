@@ -8,8 +8,7 @@ struct xDnsResult {
 };
 
 struct xDnsReultFuture : xFutureBase {
-    using xResult  = std::expected<xDnsResult, xNone>;
-    xResult Result = std::unexpected(None);
+    xExpected<xDnsResult> Result = UnexpctedResult;
 };
 
 extern xDnsReultFuture * GetDnsResultFuture(const xFutureHandle & Handle);

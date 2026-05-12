@@ -9,7 +9,7 @@ struct xDeviceReference {
 };
 
 struct xAcquireDeviceFuture : xFutureBase {
-    std::expected<xDeviceReference, xNone> Result = std::unexpected(None);
+    xExpected<xDeviceReference> Result = UnexpctedResult;
 };
 
 struct xDeviceRequest {

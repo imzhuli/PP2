@@ -2,8 +2,8 @@
 
 #include <pp_common/service_runtime.hpp>
 
-static constexpr const size_t   PA_CLIENT_AUTH_TIMEOUT_MS        = 2'000;
-static constexpr const uint64_t PA_FUTURE_TIMEOUT_MS             = 1'000;
+static constexpr const size_t   PA_CLIENT_AUTH_TIMEOUT_MS        = 5'000;
+static constexpr const uint64_t PA_FUTURE_TIMEOUT_MS             = 2'000;
 static constexpr const size_t   PA_AUDIT_TIMEOUT_MS              = 5'000;
 static constexpr const size_t   PA_MAX_CLIENT_CONNECTION         = 20'0000;
 static constexpr const size_t   PA_MAX_CLIENT_REQUEST_PER_SECOND = 5'0000;
@@ -250,7 +250,7 @@ void xProxyAccessService::ReleaseAcquireDeviceUdpChannelFuture(xPA_ClientConnect
 }
 
 void xProxyAccessService::DestroyConnection(xPA_ClientConnection * Connection) {
-    DEBUG_LOG("ConnectionId=%" PRIx64 "", Connection->ConnectionId);
+    DEBUG_LOG("ConnectionId=%" PRIx64 ", LifeTime=%" PRIu64 "", Connection->ConnectionId, LocalTicker() - Connection->Debug.StartupTimestampMS);
     assert(Connection == ClientConnectionPool.CheckAndGet(Connection->ConnectionId));
     if (auto UdpChannel = Steal(Connection->BindUdpChannel)) {
         DEBUG_LOG("close bind udp channel");
@@ -322,6 +322,8 @@ void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && 
     ClientConnection.DataProcessor = &xProxyAccessService::OnGuessProxyType;
     ClientConnection.TimestampMS   = LocalTicker();
     ClientConnectionInitTimeoutList.AddTail(ClientConnection);
+
+    ClientConnection.Debug.StartupTimestampMS = LocalTicker();
 }
 
 void xProxyAccessService::OnConnected(xTcpConnection * TcpConnectionPtr) {

@@ -7,11 +7,12 @@
 struct xRelayAbstractConnection;
 struct xRelayAbstractUdpChannel;
 
-struct xRelayCreateConnectionFuture final : xFutureBase {
-    uint64_t RelaySideConnectionId = 0;
+struct xRelayCreateConnectionFuture : xFutureBase {
+    xExpected<uint64_t> Result = UnexpctedResult;
 };
-struct xRelayCreateUdpChannelFuture final : xFutureBase {
-    uint64_t RelaySideUdpChannelId = 0;
+
+struct xRelayCreateUdpChannelFuture : xFutureBase {
+    xExpected<uint64_t> Result = UnexpctedResult;
 };
 
 struct xRelayAbstractService
