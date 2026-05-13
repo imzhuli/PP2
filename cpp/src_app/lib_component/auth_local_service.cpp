@@ -58,7 +58,7 @@ std::string xAuthLocalService::OutputAudit() const {
 }
 
 void xAuthLocalService::Validate(const std::string_view AccountPassView, xAuthResultFuture & Future) {
-    DEBUG_LOG("ValidateAccountPass:%s", HexShow(AccountPassView).c_str());
+    DEBUG_LOG("ValidateAccountPass:\n%s", HexShow(AccountPassView).c_str());
 
     // check and update auth map;
     auto NewMap = LastReloadInfo.AuthMap.exchange(nullptr);

@@ -234,12 +234,12 @@ void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_
         Future.SetReady();
         return;
     }
+    DnsFuture->CreateConnectionFutureHandle = Future;
     if (DnsFuture->IsReady) {
         CreateConnectionWithDnsResult(DnsFuture);
         DnsFutureManager.ReleaseFuture(DnsFuture);
         return;
     }
-    DnsFuture->CreateConnectionFutureHandle = Future;
 }
 
 void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) {

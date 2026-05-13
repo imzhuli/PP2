@@ -21,9 +21,8 @@ struct xPA_ClientConnection
         S5_CHALLENGE,
         S5_TCP,
         S5_UDP,
-        HTTP_CHALLENGE,
-        HTTP_RAW,
-        HTTP_1,
+        HTTP_RAW_CHALLENGE,
+        HTTP_NORMAL_CHALLENGE,
     };
 
     uint64_t                            ConnectionId                  = 0;
@@ -38,6 +37,15 @@ struct xPA_ClientConnection
     xPA_AcquireDeviceUdpChannelFuture * AcquireDeviceUdpChannelFuture = nullptr;
     xDeviceReference                    DeviceReference               = {};
     uint64_t                            RelaySideConnectionId         = {};
+
+    struct xHttpData {
+        std::string TargetHost        = {};
+        uint16_t    TargetPort        = {};
+        std::string RebuiltHttpHeader = {};
+
+        std::string ToString() const;
+    } Http;
+
     struct {
         uint64_t StartupTimestampMS = 0;
     } Debug;
@@ -91,8 +99,10 @@ protected:  // process data:
     size_t OnS5Challenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnS5AuthInfo(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnS5Target(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
-    size_t OnS5Data(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
+    size_t OnRawData(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnHttpChallenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
+    size_t OnHttpRawHeaderProcessor(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
+    size_t OnHttpNormalHeaderProcessor(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
 
     xPA_AuthFuture *                    RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView);
     xDeviceRequest                      ConvertAuthResultToDeviceRequirement(const xAuthResult & AuthResult);
@@ -101,14 +111,24 @@ protected:  // process data:
     xPA_AcquireDeviceConnectionFuture * RequestDeviceConnection(xPA_ClientConnection * Connection, const std::string_view & TargetHostnameView, uint16_t TargetPort);
     xPA_AcquireDeviceUdpChannelFuture * RequestDeviceUdpChannel(xPA_ClientConnection * Connection);
 
-    void OnAuthResult(xPA_AuthFuture * Future);
     void SendS5AuthError(xPA_ClientConnection * Connection);
     void SendS5AuthAccepted(xPA_ClientConnection * Connection);
+    void Send200(xPA_ClientConnection * Connection);
+    void Send404(xPA_ClientConnection * Connection);
+    void Send407(xPA_ClientConnection * Connection);
+    void Send500(xPA_ClientConnection * Connection);
+    void Send502(xPA_ClientConnection * Connection);
+
+    void OnAuthResult(xPA_AuthFuture * Future);
     void OnS5AuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future);
+    void OnHttpRawAuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future);
     void OnAcquireDeviceResult(xPA_AcquireDeviceFuture * Future);
     void OnS5AcquireDeviceResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceFuture * Future);
+    void OnHttpRawAcquireDeviceResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceFuture * Future);
     void OnAcquireDeviceConnectionResult(xPA_AcquireDeviceConnectionFuture * Future);
     void OnS5AcquireDeviceConnectionResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceConnectionFuture * Future);
+    void OnHttpRawAcquireDeviceConnectionResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceConnectionFuture * Future);
+
     void OnAcquireDeviceUdpChannelResult(xPA_AcquireDeviceUdpChannelFuture * Future);
 
 protected:

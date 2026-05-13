@@ -40,6 +40,23 @@ static ubyte S5_UDPCHANNEL_GENERIC_ERROR[] = {
     '\x00', '\x00',                  // port
 };
 
+static constexpr auto HTTP_200 = "HTTP/1.1 200 Connection Established\r\n\r\n"sv;
+static constexpr auto HTTP_404 = "HTTP/1.1 404 Not Found\r\n\r\n"sv;
+static constexpr auto HTTP_407 = "HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"generic\"\r\nConnection: close\r\n\r\n"sv;
+static constexpr auto HTTP_500 = "HTTP/1.1 500 Server Error\r\n\r\n"sv;
+static constexpr auto HTTP_502 = "HTTP/1.1 502 Bad Gateway\r\n\r\n"sv;
+
+//////////
+
+std::string xPA_ClientConnection::xHttpData::ToString() const {
+    auto OS = std::ostringstream();
+    OS << "Target= " << TargetHost << ":" << TargetPort << endl;
+    OS << RebuiltHttpHeader << endl;
+    return OS.str();
+}
+
+///////////
+
 bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddress & BindAddress6) {
     X_RUNTIME_ASSERT(ServiceRunState);
     if (!ClientConnectionPool.Init(PA_MAX_CLIENT_CONNECTION)) {
@@ -356,12 +373,12 @@ void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && 
     ClientConnection.Debug.StartupTimestampMS = LocalTicker();
 }
 
-void xProxyAccessService::OnConnected(xTcpConnection * TcpConnectionPtr) {
+void xProxyAccessService::OnConnected(xTcpConnection * TcpConnection) {
     Unreachable();
 }
 
-void xProxyAccessService::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
-    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnectionPtr);
+void xProxyAccessService::OnPeerClose(xTcpConnection * TcpConnection) {
+    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnection);
     if (ClientConnection->DeleteMark) {
         return;
     }
@@ -373,16 +390,16 @@ void xProxyAccessService::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
     DeferKill(ClientConnection);
 }
 
-void xProxyAccessService::OnFlush(xTcpConnection * TcpConnectionPtr) {
-    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnectionPtr);
+void xProxyAccessService::OnFlush(xTcpConnection * TcpConnection) {
+    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnection);
     if (ClientConnection->DeleteMark) {
         DeferKill(ClientConnection);
         return;
     }
 }
 
-size_t xProxyAccessService::OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) {
-    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnectionPtr);
+size_t xProxyAccessService::OnData(xTcpConnection * TcpConnection, ubyte * DataPtr, size_t DataSize) {
+    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnection);
     return (this->*ClientConnection->DataProcessor)(ClientConnection, DataPtr, DataSize);
 }
 
@@ -665,7 +682,7 @@ size_t xProxyAccessService::OnS5Target(xPA_ClientConnection * Connection, ubyte 
     return R.Offset();
 }
 
-size_t xProxyAccessService::OnS5Data(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
+size_t xProxyAccessService::OnRawData(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
     if (!KeepAlive(Connection)) {
         return 0;
     }
@@ -675,6 +692,159 @@ size_t xProxyAccessService::OnS5Data(xPA_ClientConnection * Connection, ubyte * 
 }
 
 size_t xProxyAccessService::OnHttpChallenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
+    std::string_view HostnameView;
+    uint16_t         Port       = 0;
+    std::string_view DataView   = { (const char *)DataPtr, DataSize };
+    auto             LineStart  = DataView.data();
+    auto             LineLength = DataView.find("\r\n");
+
+    if (LineLength == 0) {
+        DEBUG_LOG("Invalid Http challenge, new line at beginning");
+        return InvalidDataSize;
+    } else if (LineLength == DataView.npos) {
+        return 0;
+    }
+    if (0 == strncasecmp("CONNECT ", LineStart, 8)) {
+        auto LineEnd = LineStart + LineLength;
+        LineStart   += 8;  // skip CONNECT & space
+        for (auto Curr = LineStart; Curr < LineEnd; ++Curr) {
+            char C = *Curr;
+            if (C == ':') {
+                HostnameView = { LineStart, (size_t)(Curr - LineStart) };
+                Port         = atoi(++Curr);
+                break;
+            } else if (C == ' ') {
+                HostnameView = { LineStart, (size_t)(Curr - LineStart) };
+                Port         = 80;
+                break;
+            }
+        }
+        if (!HostnameView.length()) {
+            DEBUG_LOG("Invalid HttpProxy Target");
+            return InvalidDataSize;
+        }
+        Connection->Http.TargetHost = std::string(HostnameView);
+        Connection->Http.TargetPort = Port;
+        Connection->Type            = xPA_ClientConnection::eType::HTTP_RAW_CHALLENGE;
+        Connection->DataProcessor   = &xProxyAccessService::OnHttpRawHeaderProcessor;
+
+        DEBUG_LOG("HTTP_RAW_CHALLENGE: %s", Connection->Http.ToString().c_str());
+        return LineLength + 2;
+    }
+
+    auto LineView      = std::string_view{ LineStart, LineLength };
+    auto URLStartIndex = LineView.find(' ');
+    if (URLStartIndex == LineView.npos) {
+        DEBUG_LOG("Invalid Http Target Line");
+        return InvalidDataSize;
+    }
+    ++URLStartIndex;
+    Connection->Http.RebuiltHttpHeader.append(LineStart, URLStartIndex);
+
+    auto URLEndIndex = LineView.find(' ', URLStartIndex);
+    if (URLEndIndex == LineView.npos) {
+        DEBUG_LOG("Invalid Http Target Line");
+        return InvalidDataSize;
+    }
+    auto URLStart = LineView.data() + URLStartIndex;
+    if (0 == strncasecmp(URLStart, "http://", 7)) {
+        URLStart      += 7;
+        URLStartIndex += 7;
+    } else if (0 == strncasecmp(URLStart, "https://", 8)) {
+        URLStart      += 8;
+        URLStartIndex += 7;
+    }
+
+    auto PathStartIndex = LineView.find('/', URLStartIndex);
+    if (PathStartIndex == LineView.npos) {
+        DEBUG_LOG("Invalid Http Target Line (No Path)");
+        return InvalidDataSize;
+    }
+    // get host:port
+    for (auto Curr = URLStart; Curr <= LineStart + PathStartIndex; ++Curr) {
+        char C = *Curr;
+        if (C == ':') {
+            HostnameView = { URLStart, (size_t)(Curr - URLStart) };
+            Port         = atoi(++Curr);
+            break;
+        } else if (C == '/') {
+            HostnameView = { URLStart, (size_t)(Curr - URLStart) };
+            Port         = 80;
+            break;
+        }
+    }
+
+    Connection->Http.TargetHost = std::string(HostnameView);
+    Connection->Http.TargetPort = Port;
+    Connection->Http.RebuiltHttpHeader.append(LineStart + PathStartIndex, LineLength - PathStartIndex + 2);
+    Connection->Type          = xPA_ClientConnection::eType::HTTP_NORMAL_CHALLENGE;
+    Connection->DataProcessor = &xProxyAccessService::OnHttpNormalHeaderProcessor;
+
+    DEBUG_LOG("HTTP_NORMAL_CHALLENGE: %s", Connection->Http.ToString().c_str());
+    return LineLength + 2;
+}
+
+size_t xProxyAccessService::OnHttpRawHeaderProcessor(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
+    auto   AuthKey      = std::string();
+    auto   HeaderView   = std::string_view{ (const char *)DataPtr, DataSize };
+    size_t ConsumedSize = 0;
+    while (true) {
+        auto LineEndIndex = HeaderView.find("\r\n");
+        if (LineEndIndex == 0) {  // header reading finished
+            Connection->DataProcessor = &xProxyAccessService::KillConnectionOnData;
+
+            if (AuthKey.empty()) {
+                DEBUG_LOG("Invalid Proxy-Authorization: Not Found!");
+                Send407(Connection);
+                return 0;
+            }
+            ConsumedSize += 2;
+
+            DEBUG_LOG("Auth with Account: %s", StrToHex(AuthKey).c_str());
+            auto Future = RequestAuthentication(Connection, AuthKey);
+            if (!(Connection->AuthFuture = Future)) {
+                DEBUG_LOG("Invalid auth future");
+                Send500(Connection);
+                return 0;
+            }
+            return ConsumedSize;
+        }
+
+        if (LineEndIndex == HeaderView.npos) {
+            return ConsumedSize;
+        };
+        auto LineLength = LineEndIndex + 2;
+        ConsumedSize   += LineLength;
+
+        auto LineStart = HeaderView.data();
+        if (LineEndIndex > 21 && 0 == strncasecmp(LineStart, "Proxy-Authorization: ", 21)) {
+            auto AuthStart  = LineStart + 21;
+            auto AuthLength = LineEndIndex - 21;
+            if (AuthLength < 6 && 0 != strncasecmp(AuthStart, "Basic ", 6)) {
+                DEBUG_LOG("Invalid Proxy-Authorization Request");
+                return InvalidDataSize;
+            }
+            auto Base64Start = AuthStart + 6;
+            auto Base64Size  = AuthLength - 6;
+
+            AuthKey = Base64Decode(Base64Start, Base64Size);
+            DEBUG_LOG("AuthKey=%s", AuthKey.c_str());
+            auto PassStart = AuthKey.find(':');
+            if (!PassStart) {
+                DEBUG_LOG("HttpReqeust AuthKey Not Found!");
+                Send404(Connection);
+                return 0;
+            }
+            AuthKey[PassStart] = '\0';
+        }
+        HeaderView = HeaderView.substr(LineLength);
+    }
+    DEBUG_LOG("BUG: Impossible loop exit");
+    return InvalidDataSize;
+}
+
+size_t xProxyAccessService::OnHttpNormalHeaderProcessor(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
+
     return InvalidDataSize;
 }
 
@@ -747,17 +917,6 @@ xPA_AcquireDeviceUdpChannelFuture * xProxyAccessService::RequestDeviceUdpChannel
     return Future;
 }
 
-void xProxyAccessService::OnAuthResult(xPA_AuthFuture * Future) {
-    auto Connection = Future->ClientConnection;
-    assert(Connection->AuthFuture == Future);
-    X_SCOPE_GUARD([=, this] {
-        ReleaseAuthFuture(Connection);
-    });
-    if (Connection->Type == xPA_ClientConnection::eType::S5_CHALLENGE) {
-        return OnS5AuthResult(Connection, Future);
-    }
-}
-
 void xProxyAccessService::SendS5AuthError(xPA_ClientConnection * Connection) {
     if (Connection->NoAuth) {
         Connection->PostData("\x05\xFF", 2);  // no-auth failed
@@ -773,6 +932,40 @@ void xProxyAccessService::SendS5AuthAccepted(xPA_ClientConnection * Connection) 
         Connection->PostData("\x05\x00", 2);
     } else {
         Connection->PostData("\x01\x00", 2);
+    }
+}
+
+void xProxyAccessService::Send200(xPA_ClientConnection * Connection) {
+    Connection->PostData(HTTP_200.data(), HTTP_200.size());
+}
+
+void xProxyAccessService::Send404(xPA_ClientConnection * Connection) {
+    Connection->PostData(HTTP_404.data(), HTTP_404.size());
+}
+
+void xProxyAccessService::Send407(xPA_ClientConnection * Connection) {
+    Connection->PostData(HTTP_407.data(), HTTP_407.size());
+}
+
+void xProxyAccessService::Send500(xPA_ClientConnection * Connection) {
+    Connection->PostData(HTTP_500.data(), HTTP_500.size());
+}
+
+void xProxyAccessService::Send502(xPA_ClientConnection * Connection) {
+    Connection->PostData(HTTP_502.data(), HTTP_502.size());
+}
+
+void xProxyAccessService::OnAuthResult(xPA_AuthFuture * Future) {
+    auto Connection = Future->ClientConnection;
+    assert(Connection->AuthFuture == Future);
+    X_SCOPE_GUARD([=, this] {
+        ReleaseAuthFuture(Connection);
+    });
+    if (Connection->Type == xPA_ClientConnection::eType::S5_CHALLENGE) {
+        return OnS5AuthResult(Connection, Future);
+    }
+    if (Connection->Type == xPA_ClientConnection::eType::HTTP_RAW_CHALLENGE) {
+        return OnHttpRawAuthResult(Connection, Future);
     }
 }
 
@@ -796,6 +989,26 @@ void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xPA_
     }
 }
 
+void xProxyAccessService::OnHttpRawAuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future) {
+    auto Result = Future->Result ? &*Future->Result : nullptr;
+    if (!Result || !Result->ProxyAccessAddress) {
+        Send407(Connection);
+        return;
+    }
+    // Acquire device
+    auto DeviceRequest = xDeviceRequest{
+        .Condition = {
+            .ExportAddress = Result->ProxyAccessAddress,
+        },
+        .Strategy = DSS_STATIC_EXPORT_ADDRESS,
+    };
+    if (!(Connection->AcquireDeviceFuture = RequestDevice(Connection, DeviceRequest))) {
+        DEBUG_LOG();
+        Send407(Connection);
+        return;
+    }
+}
+
 void xProxyAccessService::OnAcquireDeviceResult(xPA_AcquireDeviceFuture * Future) {
     auto Connection = Future->ClientConnection;
     assert(Connection->AcquireDeviceFuture == Future);
@@ -804,6 +1017,9 @@ void xProxyAccessService::OnAcquireDeviceResult(xPA_AcquireDeviceFuture * Future
     });
     if (Connection->Type == xPA_ClientConnection::eType::S5_CHALLENGE) {
         return OnS5AcquireDeviceResult(Connection, Future);
+    }
+    if (Connection->Type == xPA_ClientConnection::eType::HTTP_RAW_CHALLENGE) {
+        return OnHttpRawAcquireDeviceResult(Connection, Future);
     }
 }
 
@@ -818,6 +1034,22 @@ void xProxyAccessService::OnS5AcquireDeviceResult(xPA_ClientConnection * Connect
     SendS5AuthAccepted(Connection);
 }
 
+void xProxyAccessService::OnHttpRawAcquireDeviceResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceFuture * DeviceFuture) {
+    auto & Result = DeviceFuture->Result;
+    if (!Result) {
+        Send500(Connection);
+        return;
+    }
+    Connection->DeviceReference = *Result;
+
+    // do create connection:
+    auto Future = RequestDeviceConnection(Connection, Connection->Http.TargetHost, Connection->Http.TargetPort);
+    if (!(Connection->AcquireDeviceConnectionFuture = Future)) {
+        Send500(Connection);
+        return;
+    }
+}
+
 void xProxyAccessService::OnAcquireDeviceConnectionResult(xPA_AcquireDeviceConnectionFuture * Future) {
     auto Connection = Future->ClientConnection;
     assert(Connection->AcquireDeviceConnectionFuture == Future);
@@ -826,6 +1058,9 @@ void xProxyAccessService::OnAcquireDeviceConnectionResult(xPA_AcquireDeviceConne
     });
     if (Connection->Type == xPA_ClientConnection::eType::S5_TCP) {
         return OnS5AcquireDeviceConnectionResult(Connection, Future);
+    }
+    if (Connection->Type == xPA_ClientConnection::eType::HTTP_RAW_CHALLENGE) {
+        return OnHttpRawAcquireDeviceConnectionResult(Connection, Future);
     }
 }
 
@@ -837,8 +1072,20 @@ void xProxyAccessService::OnS5AcquireDeviceConnectionResult(xPA_ClientConnection
         return;
     }
     Connection->RelaySideConnectionId = *Result;
-    Connection->DataProcessor         = &xProxyAccessService::OnS5Data;
+    Connection->DataProcessor         = &xProxyAccessService::OnRawData;
     Connection->PostData(S5_CONNECTION_ESTABLISHED, sizeof(S5_CONNECTION_ESTABLISHED));
+}
+
+void xProxyAccessService::OnHttpRawAcquireDeviceConnectionResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceConnectionFuture * Future) {
+    DEBUG_LOG();
+    auto & Result = Future->Result;
+    if (!Result) {
+        Send502(Connection);
+        return;
+    }
+    Connection->RelaySideConnectionId = *Result;
+    Connection->DataProcessor         = &xProxyAccessService::OnRawData;
+    Send200(Connection);
 }
 
 void xProxyAccessService::OnAcquireDeviceUdpChannelResult(xPA_AcquireDeviceUdpChannelFuture * Future) {
