@@ -230,8 +230,10 @@ void xProxyAccessService::DeferGracefulKill(xPA_ClientConnection * Connection) {
     if (Steal(Connection->DeleteMark, true)) {
         return;
     }
-    Connection->TimestampMS = LocalTicker();
-    ClientConnectionGracefulKillList.GrabTail(*Connection);
+    if (Connection->HasPendingWrites()) {
+        Connection->TimestampMS = LocalTicker();
+        ClientConnectionGracefulKillList.GrabTail(*Connection);
+    }
 }
 
 void xProxyAccessService::ReleaseAuthFuture(xPA_ClientConnection * Connection) {
@@ -359,7 +361,11 @@ void xProxyAccessService::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
 }
 
 void xProxyAccessService::OnFlush(xTcpConnection * TcpConnectionPtr) {
-    Pass();  // speed control
+    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnectionPtr);
+    if (ClientConnection->DeleteMark) {
+        DeferKill(ClientConnection);
+        return;
+    }
 }
 
 size_t xProxyAccessService::OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) {
@@ -770,4 +776,5 @@ void xProxyAccessService::CloseConnection(uint64_t ProxyClientConnectionId) {
         DEBUG_LOG("Connection lost, ConnectionId=%" PRIx64 "", ProxyClientConnectionId);
         return;
     }
+    DeferGracefulKill(Connection);
 }
