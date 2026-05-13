@@ -20,7 +20,7 @@ std::string xAuthLocalRecord::ToString() const {
     OS << "\tCountryId:" << CountryId << endl;
     OS << "\tEnableUdp:" << EnableUdp << endl;
     OS << "\tProxyClientAddress:" << ProxyClientAddress << endl;
-    OS << "\tStaticExportAddress:" << StaticExportAddress << endl;
+    OS << "\tStaticExportAddress:" << StaticExportAddress;
     return OS.str();
 }
 
