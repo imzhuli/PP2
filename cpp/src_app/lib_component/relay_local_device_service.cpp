@@ -298,20 +298,22 @@ void xRelayLocalBindingService::KeepUdpChannelAlive(uint64_t RelayServerId, uint
 
 ////////////////////////////////
 
-void xRelayLocalBindingService::KeepAlive(xRelayLocalDeviceConnection * Connection) {
+bool xRelayLocalBindingService::KeepAlive(xRelayLocalDeviceConnection * Connection) {
     if (Connection->DeleteMark) {
-        return;
+        return false;
     }
     Connection->TimestampMS = LocalTicker();
     ConnectionIdleTimeoutList.GrabTail(*Connection);
+    return true;
 }
 
-void xRelayLocalBindingService::KeepAlive(xRelayLocalDeviceUdpChannel * UdpChannel) {
+bool xRelayLocalBindingService::KeepAlive(xRelayLocalDeviceUdpChannel * UdpChannel) {
     if (UdpChannel->DeleteMark) {
-        return;
+        return false;
     }
     UdpChannel->TimestampMS = LocalTicker();
     UdpChannelIdleTimeoutList.GrabTail(*UdpChannel);
+    return true;
 }
 
 void xRelayLocalBindingService::DeferDestroyConnection(xRelayLocalDeviceConnection * Connection) {
@@ -470,7 +472,7 @@ void xRelayLocalBindingService::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
 
 size_t xRelayLocalBindingService::OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) {
     auto Connection = static_cast<xRelayLocalDeviceConnection *>(TcpConnectionPtr);
-    if (Connection->DeleteMark) {
+    if (!KeepAlive(Connection)) {
         DEBUG_LOG("connection lost");
         return 0;
     }

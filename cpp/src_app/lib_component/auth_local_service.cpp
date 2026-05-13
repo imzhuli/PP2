@@ -19,8 +19,8 @@ std::string xAuthLocalRecord::ToString() const {
     OS << "xAuthLocalRecord:" << endl;
     OS << "\tCountryId:" << CountryId << endl;
     OS << "\tEnableUdp:" << EnableUdp << endl;
-    OS << "\tProxyClientAddress:" << ProxyClientAddress << endl;
-    OS << "\tStaticExportAddress:" << StaticExportAddress;
+    OS << "\tProxyClientAddress:" << ProxyClientAddress.IpToString() << endl;
+    OS << "\tStaticExportAddress:" << StaticExportAddress.IpToString();
     return OS.str();
 }
 

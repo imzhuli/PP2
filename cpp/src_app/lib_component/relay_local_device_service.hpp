@@ -93,8 +93,8 @@ private:
     bool CreateLocalDeviceList(const std::vector<xRelayLocalBindingOption> & OptionList);
     void DestroyLocalDeviceList();
     auto GetDevice(uint64_t DeviceId) const -> const xRelayLocalDevice *;
-    void KeepAlive(xRelayLocalDeviceConnection * Connection);
-    void KeepAlive(xRelayLocalDeviceUdpChannel * UdpChannel);
+    bool KeepAlive(xRelayLocalDeviceConnection * Connection);
+    bool KeepAlive(xRelayLocalDeviceUdpChannel * UdpChannel);
     void DeferDestroyConnection(xRelayLocalDeviceConnection * Connection);
     void DeferDestroyUdpChannel(xRelayLocalDeviceUdpChannel * UdpChannel);
     void DeferDestroyIdleConnections();
