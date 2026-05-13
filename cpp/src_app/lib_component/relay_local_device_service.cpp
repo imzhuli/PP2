@@ -5,8 +5,8 @@
 static constexpr const size_t DEVICE_ID_HIGH32_MAGIC      = 0xCDEF7788;
 static constexpr const size_t MAX_MANAGED_CONNECTION_SIZE = 15'0000;
 static constexpr const size_t MAX_MANAGED_UDPCHANNEL_SIZE = 10'0000;
-static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS  = 120'000;
-static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS  = 120'000;
+static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS  = 125'000;
+static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS  = 125'000;
 static constexpr const size_t MAX_DNS_FUTURE_COUNT        = 1'0000;
 
 static uint64_t MakeLocalDeviceId(size_t Index) {
@@ -253,8 +253,7 @@ void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_
     return;
 }
 
-void xRelayLocalBindingService::CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideUdpChannelId, xNetAddress::eType Type, xRelayCreateUdpChannelFuture & Future) {
-    assert(Type == xNetAddress::IPV4 || Type == xNetAddress::IPV6);
+void xRelayLocalBindingService::CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideUdpChannelId, xRelayCreateUdpChannelFuture & Future) {
     Future.SetReady();  // always has immediate result
     auto Device = GetDevice(DeviceId);
     if (!Device) {
@@ -271,6 +270,7 @@ void xRelayLocalBindingService::CreateUdpChannel(uint64_t RelayServerId, uint64_
     }
     UdpChannel.UdpChannelId          = UdpChannelId;
     UdpChannel.ProxySideUdpChannelId = ProxySideUdpChannelId;
+    Future.Result                    = UdpChannelId;
 
     ++Audit.UdpChannelCount;
     return;
@@ -292,6 +292,14 @@ void xRelayLocalBindingService::DestroyUdpChannel(uint64_t RelayServerId, uint64
         return;
     }
     DeferDestroyUdpChannel(UdpChannel);
+}
+
+void xRelayLocalBindingService::KeepUdpChannelAlive(uint64_t RelayServerId, uint64_t UdpChannelId) {
+    auto UdpChannel = LocalUdpChannelPool.CheckAndGet(UdpChannelId);
+    if (!UdpChannel) {
+        return;
+    }
+    KeepAlive(UdpChannel);
 }
 
 ////////////////////////////////
@@ -324,9 +332,8 @@ void xRelayLocalBindingService::DeferDestroyConnection(xRelayLocalDeviceConnecti
 
 void xRelayLocalBindingService::DeferDestroyUdpChannel(xRelayLocalDeviceUdpChannel * UdpChannel) {
     assert(UdpChannel == LocalUdpChannelPool.CheckAndGet(UdpChannel->UdpChannelId));
-    if (!Steal(UdpChannel->DeleteMark, true)) {
-        UdpChannelKillList.GrabTail(*UdpChannel);
-    }
+    Reset(UdpChannel->DeleteMark, true);
+    UdpChannelKillList.GrabTail(*UdpChannel);
 }
 
 void xRelayLocalBindingService::CreateConnection(uint64_t ProxySideConnectionId, const xNetAddress & DeviceBindAddress, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) {
@@ -477,6 +484,13 @@ size_t xRelayLocalBindingService::OnData(xTcpConnection * TcpConnectionPtr, ubyt
     return DataSize;
 }
 
+void xRelayLocalBindingService::OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
+    DEBUG_LOG();
+    auto UdpChannel = static_cast<xRelayLocalDeviceUdpChannel *>(ChannelPtr);
+    assert(UdpChannel->ProxySideUdpChannelId);
+    ProxyService->PostData(UdpChannel->ProxySideUdpChannelId, RemoteAddress, DataPtr, DataSize);
+}
+
 void xRelayLocalBindingService::PostData(uint64_t RelayServerId, uint64_t ConnectionId, const void * Payload, size_t PayloadSize) {
     auto Connection = LocalConnectionPool.CheckAndGet(ConnectionId);
     if (!Connection || Connection->DeleteMark || !Connection->IsConnected()) {
@@ -493,6 +507,6 @@ void xRelayLocalBindingService::PostData(uint64_t RelayServerId, uint64_t UdpCha
         DEBUG_LOG("UdpChannel lost");
         return;
     }
-    DEBUG_LOG("Post udp channel data: size=%zi", PayloadSize);
+    DEBUG_LOG("Post udp channel data: from=%s to=%s, data=\n%s", UdpChannel->GetBindAddress().ToString().c_str(), TargetAddress.ToString().c_str(), HexShow(Payload, PayloadSize).c_str());
     UdpChannel->PostData(TargetAddress, Payload, PayloadSize);
 }

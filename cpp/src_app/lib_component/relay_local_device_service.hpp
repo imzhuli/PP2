@@ -82,11 +82,12 @@ public:
     void AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) override;
     void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideConnectionId, const std::string_view & TargetHostnameView, uint16_t TargetPort, xRelayCreateConnectionFuture & Future) override;
     void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) override;
-    void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideUdpChannelId, xNetAddress::eType Type, xRelayCreateUdpChannelFuture & Future) override;
+    void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideUdpChannelId, xRelayCreateUdpChannelFuture & Future) override;
     void DestroyConnection(uint64_t RelayServerId, uint64_t ConnectionId) override;
     void DestroyUdpChannel(uint64_t RelayServerId, uint64_t UdpChannelId) override;
     void PostData(uint64_t RelayServerId, uint64_t ConnectionId, const void * Payload, size_t PayloadSize) override;
     void PostData(uint64_t RelayServerId, uint64_t UdpChannelId, const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) override;
+    void KeepUdpChannelAlive(uint64_t RelayServerId, uint64_t UdpChannelId) override;
 
 private:
     bool CreateLocalDeviceList(const std::vector<xRelayLocalBindingOption> & OptionList);
@@ -113,10 +114,8 @@ private:  // listener
     void   OnConnected(xTcpConnection * TcpConnectionPtr) override;
     void   OnPeerClose(xTcpConnection * TcpConnectionPtr) override;
     void   OnFlush(xTcpConnection * TcpConnectionPtr) override {}
-    size_t OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize);
-    void   OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override {
-        Pure();
-    }
+    size_t OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) override;
+    void   OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override;
 
 private:
     using xLocalDeviceList = std::vector<xRelayLocalDevice>;

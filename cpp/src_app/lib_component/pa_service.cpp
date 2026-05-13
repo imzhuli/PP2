@@ -8,6 +8,10 @@ static constexpr const size_t   PA_AUDIT_TIMEOUT_MS              = 5'000;
 static constexpr const size_t   PA_GRACEFUL_KILL_TIMEOUT_MS      = 60'000;
 static constexpr const size_t   PA_MAX_CLIENT_CONNECTION         = 20'0000;
 static constexpr const size_t   PA_MAX_CLIENT_REQUEST_PER_SECOND = 5'0000;
+static constexpr const size_t   PA_MAX_UDP_PACKET_SIZE           = 4200;
+static constexpr const size_t   PA_UDP_RESERVED_HEADER_SIZE      = 32;
+
+static_assert(PA_MAX_UDP_PACKET_SIZE + PA_UDP_RESERVED_HEADER_SIZE < xel::MaxPacketSize);  // core_io buffer size
 
 static ubyte S5_CONNECTION_ESTABLISHED[] = {
     '\x05',                          // version
@@ -19,6 +23,15 @@ static ubyte S5_CONNECTION_ESTABLISHED[] = {
 };
 
 static ubyte S5_CONNECTION_GENERIC_ERROR[] = {
+    '\x05',                          // version
+    '\x01',                          // generic error
+    '\x00',                          // reserved
+    '\x01',                          // type=ipv4
+    '\x00', '\x00', '\x00', '\x00',  // addr.ipv4
+    '\x00', '\x00',                  // port
+};
+
+static ubyte S5_UDPCHANNEL_GENERIC_ERROR[] = {
     '\x05',                          // version
     '\x01',                          // generic error
     '\x00',                          // reserved
@@ -94,6 +107,7 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
     auto AcquireDeviceUdpChannelFutureManagerCleaner = xScopeCleaner(AcquireDeviceUdpChannelFutureManager);
 
     ClientConnectionPoolCleaner.Dismiss();
+    ClientUdpChannelPoolCleaner.Dismiss();
     TcpServerCleaner.Dismiss();
 
     AuthFutureManagerCleaner.Dismiss();
@@ -175,8 +189,7 @@ void xProxyAccessService::ProcessReadyAcquireDeviceUdpChannelFuture() {
     auto & FutureList = AcquireDeviceUdpChannelFutureManager.GetReadyFutureList();
     while (auto P = static_cast<xPA_AcquireDeviceUdpChannelFuture *>(FutureList.PopHead())) {
         DEBUG_LOG();
-        (void)P;
-        AcquireDeviceUdpChannelFutureManager.ReleaseFuture(P);
+        OnAcquireDeviceUdpChannelResult(P);
     }
 }
 
@@ -259,16 +272,17 @@ void xProxyAccessService::ReleaseAcquireDeviceUdpChannelFuture(xPA_ClientConnect
 void xProxyAccessService::DestroyConnection(xPA_ClientConnection * Connection) {
     DEBUG_LOG("ConnectionId=%" PRIx64 ", LifeTime=%" PRIu64 "", Connection->ConnectionId, LocalTicker() - Connection->Debug.StartupTimestampMS);
     assert(Connection == ClientConnectionPool.CheckAndGet(Connection->ConnectionId));
+    Connection->AuthFuture ? ReleaseAuthFuture(Connection) : Pass();
+    Connection->AcquireDeviceFuture ? ReleaseAcquireDeviceFuture(Connection) : Pass();
+    Connection->AcquireDeviceConnectionFuture ? ReleaseAcquireDeviceConnectionFuture(Connection) : Pass();
+    Connection->AcquireDeviceUdpChannelFuture ? ReleaseAcquireDeviceUdpChannelFuture(Connection) : Pass();
+
     if (auto UdpChannel = Steal(Connection->BindUdpChannel)) {
         DEBUG_LOG("close bind udp channel");
         assert(UdpChannel == ClientUdpChannelPool.CheckAndGet(UdpChannel->UdpChannelId));
         UdpChannel->Clean();
         ClientUdpChannelPool.Release(UdpChannel->UdpChannelId);
     }
-    Connection->AuthFuture ? ReleaseAuthFuture(Connection) : Pass();
-    Connection->AcquireDeviceFuture ? ReleaseAcquireDeviceFuture(Connection) : Pass();
-    Connection->AcquireDeviceConnectionFuture ? ReleaseAcquireDeviceConnectionFuture(Connection) : Pass();
-    Connection->AcquireDeviceUdpChannelFuture ? ReleaseAcquireDeviceUdpChannelFuture(Connection) : Pass();
 
     auto ConnectionId = Connection->ConnectionId;
     Connection->Clean();
@@ -287,8 +301,7 @@ void xProxyAccessService::ClearTimeoutFuture() {
         OnAcquireDeviceResult(P);
     }
     while (auto P = static_cast<xPA_AcquireDeviceConnectionFuture *>(AcquireDeviceConnectionFutureTimeoutList.PopHead(Cond))) {
-        Pass(P);
-        // AcquireDeviceConnectionFutureManager.ReleaseFuture(P);
+        OnAcquireDeviceConnectionResult(P);
     }
     while (auto P = static_cast<xPA_AcquireDeviceUdpChannelFuture *>(AcquireDeviceUdpChannelFutureTimeoutList.PopHead(Cond))) {
         Pass(P);
@@ -373,15 +386,54 @@ size_t xProxyAccessService::OnData(xTcpConnection * TcpConnectionPtr, ubyte * Da
     return (this->*ClientConnection->DataProcessor)(ClientConnection, DataPtr, DataSize);
 }
 
-void xProxyAccessService::OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
-    auto ClientUdpChannel       = static_cast<xPA_ClientUdpChannel *>(UdpChannelPtr);
+void xProxyAccessService::OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & SourceAddress) {
+    auto ClientUdpChannel = static_cast<xPA_ClientUdpChannel *>(UdpChannelPtr);
+    if (!ClientUdpChannel->RelaySideUdpChannelId) {  // not ready
+        return;
+    }
+    if (SourceAddress.Ip() != ClientUdpChannel->ClientIpCheckAddress) {
+        DEBUG_LOG("failed source ip check");
+        return;
+    }
+    ClientUdpChannel->LastClientIpAddress = SourceAddress;
+
+    // extract target info:
+    auto R = xel::xStreamReader(DataPtr);
+    if (DataSize < 4) {
+        return;
+    }
+    if (R.R2()) {  // RSV
+        return;
+    }
+    if (R.R()) {  // fragmentation not suppurted
+        return;
+    }
+    auto AType         = R.R();
+    auto TargetAddress = xNetAddress();
+    if (AType == 0x01) {  // ipv4
+        if (DataSize < 10) {
+            return;
+        }
+        TargetAddress.Type = xNetAddress::IPV4;
+        R.R(TargetAddress.SA4, 4);
+        TargetAddress.Port = R.R2();
+    } else if (AType == 0x04) {  // ipv6
+        if (DataSize < 22) {
+            return;
+        }
+        TargetAddress.Type = xNetAddress::IPV6;
+        R.R(TargetAddress.SA6, 16);
+        TargetAddress.Port = R.R2();
+    } else {
+        return;  // drop domain
+    }
+    auto PayloadSize = DataSize - R.Offset();
+    if (!PayloadSize) {  // empty packet
+        return;
+    }
+
     auto ParentClientConnection = ClientUdpChannel->ParentConnection;
-
-    assert(ParentClientConnection);
-    KeepAlive(ParentClientConnection);
-
-    auto & D = ParentClientConnection->DeviceReference;
-    RelayService->PostData(D.RelayServerId, ClientUdpChannel->RelaySideUdpChannelId, RemoteAddress, DataPtr, DataSize);
+    RelayService->PostData(ParentClientConnection->DeviceReference.RelayServerId, ClientUdpChannel->RelaySideUdpChannelId, TargetAddress, R, PayloadSize);
 }
 
 size_t xProxyAccessService::KillConnectionOnData(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
@@ -567,7 +619,38 @@ size_t xProxyAccessService::OnS5Target(xPA_ClientConnection * Connection, ubyte 
             return 0;
         }
     } else if (Operation == 0x03) {  // udp
-        DEBUG_LOG("Operation: UdpChannel");
+        // create local binding udp channel
+        auto UdpBindAddress = (AddrType == 0x01) ? BindUdpAddress4 : ((AddrType == 0x04) ? BindUdpAddress6 : xNetAddress{});
+        if (!UdpBindAddress) {
+            DEBUG_LOG();
+            Connection->PostData(S5_UDPCHANNEL_GENERIC_ERROR, sizeof(S5_UDPCHANNEL_GENERIC_ERROR));
+            return 0;
+        }
+        auto UdpChannelId = ClientUdpChannelPool.Acquire();
+        if (!UdpChannelId) {
+            DEBUG_LOG();
+            Connection->PostData(S5_UDPCHANNEL_GENERIC_ERROR, sizeof(S5_UDPCHANNEL_GENERIC_ERROR));
+            return 0;
+        }
+        auto & UdpChannel = ClientUdpChannelPool[UdpChannelId];
+        if (!UdpChannel.Init(ServiceIoContext, UdpBindAddress, this)) {
+            DEBUG_LOG();
+            Connection->PostData(S5_UDPCHANNEL_GENERIC_ERROR, sizeof(S5_UDPCHANNEL_GENERIC_ERROR));
+            ClientUdpChannelPool.Release(UdpChannelId);
+            return 0;
+        }
+        UdpChannel.UdpChannelId         = UdpChannelId;
+        UdpChannel.ParentConnection     = Connection;
+        UdpChannel.ClientIpCheckAddress = Connection->GetRemoteAddress().Ip();
+        Connection->BindUdpChannel      = &UdpChannel;
+
+        auto Future = RequestDeviceUdpChannel(Connection);
+        if (!(Connection->AcquireDeviceUdpChannelFuture = Future)) {
+            DEBUG_LOG();
+            Connection->PostData(S5_UDPCHANNEL_GENERIC_ERROR, sizeof(S5_UDPCHANNEL_GENERIC_ERROR));
+            return 0;
+        }
+        Connection->Type = xPA_ClientConnection::eType::S5_UDP;
     } else {
         size_t        AddressLength = R.Offset() - 3;
         ubyte         Buffer[512];
@@ -645,6 +728,21 @@ xPA_AcquireDeviceConnectionFuture * xProxyAccessService::RequestDeviceConnection
         Connection->DeviceReference.RelaySideDeviceId,  //
         Connection->ConnectionId,                       //
         TargetHostnameView, TargetPort, *Future
+    );
+    return Future;
+}
+
+xPA_AcquireDeviceUdpChannelFuture * xProxyAccessService::RequestDeviceUdpChannel(xPA_ClientConnection * Connection) {
+    auto Future = AcquireDeviceUdpChannelFutureManager.AcquireFuture();
+    if (!Future) {
+        return nullptr;
+    }
+    Future->ClientConnection = Connection;
+    RelayService->CreateUdpChannel(
+        Connection->DeviceReference.RelayServerId,      //
+        Connection->DeviceReference.RelaySideDeviceId,  //
+        Connection->BindUdpChannel->UdpChannelId,       //
+        *Future
     );
     return Future;
 }
@@ -743,6 +841,48 @@ void xProxyAccessService::OnS5AcquireDeviceConnectionResult(xPA_ClientConnection
     Connection->PostData(S5_CONNECTION_ESTABLISHED, sizeof(S5_CONNECTION_ESTABLISHED));
 }
 
+void xProxyAccessService::OnAcquireDeviceUdpChannelResult(xPA_AcquireDeviceUdpChannelFuture * Future) {
+    auto Connection = Future->ClientConnection;
+    assert(Connection->AcquireDeviceUdpChannelFuture == Future);
+    auto UdpChannel = Connection->BindUdpChannel;
+    assert(UdpChannel);
+    X_SCOPE_GUARD([=, this] {
+        ReleaseAcquireDeviceUdpChannelFuture(Connection);
+    });
+
+    assert(Connection->Type == xPA_ClientConnection::eType::S5_UDP);
+    auto & Result = Future->Result;
+    if (!Result) {
+        DEBUG_LOG();
+        Connection->PostData(S5_UDPCHANNEL_GENERIC_ERROR, sizeof(S5_UDPCHANNEL_GENERIC_ERROR));
+        return;
+    }
+    UdpChannel->RelaySideUdpChannelId = *Result;
+    //
+    auto & UdpBindAddress = UdpChannel->GetBindAddress();
+    assert(UdpBindAddress);
+    DEBUG_LOG("Enable udp channel at local address: %s", UdpBindAddress.ToString().c_str());
+
+    ubyte Buffer[512];
+    auto  W = xStreamWriter(Buffer);
+    W.W(0x05);
+    W.W(0x00);
+    W.W(0x00);
+    if (UdpBindAddress.Is4()) {
+        W.W(0x01);
+        W.W(UdpBindAddress.SA4, 4);
+        W.W2(UdpBindAddress.Port);
+    } else {
+        assert(UdpBindAddress.Is6());
+        W.W(0x04);
+        W.W(UdpBindAddress.SA6, 16);
+        W.W2(UdpBindAddress.Port);
+    }
+    DEBUG_LOG("SendS5 udp info by connection:\n%s", HexShow(Buffer, W.Offset()).c_str());
+    Connection->PostData(Buffer, W.Offset());
+    KeepAlive(Connection);
+}
+
 void xProxyAccessService::PostData(uint64_t ProxyClientConnectionId, ubyte * DataPtr, size_t DataSize) {
     auto Connection = ClientConnectionPool.CheckAndGet(ProxyClientConnectionId);
     if (!Connection) {
@@ -760,13 +900,42 @@ void xProxyAccessService::PostData(uint64_t ProxyClientConnectionId, ubyte * Dat
 
 void xProxyAccessService::PostData(uint64_t ProxyClientUdpChannelId, const xNetAddress & SourceAddress, ubyte * DataPtr, size_t DataSize) {
     auto UdpChannel = ClientUdpChannelPool.CheckAndGet(ProxyClientUdpChannelId);
-    if (UdpChannel) {
+    if (!UdpChannel) {
         DEBUG_LOG("udp channel lost, UdpChannelId=%" PRIx64 ", size=%zi", ProxyClientUdpChannelId, DataSize);
         return;
     }
+    if (DataSize >= PA_MAX_UDP_PACKET_SIZE) {  // drop large packets
+        DEBUG_LOG("oversized udp data");
+        return;
+    }
+    if (!UdpChannel->LastClientIpAddress) {
+        DEBUG_LOG("client address not determined");
+        return;
+    }
+
     auto ClientConnection = UdpChannel->ParentConnection;
-    assert(ClientConnection);
-    DEBUG_LOG("UdpChannel data, UdpChannelId=%" PRIx64 ", from: %s, size=%zi", ProxyClientUdpChannelId, SourceAddress.ToString().c_str(), DataSize);
+    if (!KeepAlive(ClientConnection)) {
+        return;
+    }
+
+    ubyte Buffer[PA_MAX_UDP_PACKET_SIZE + PA_UDP_RESERVED_HEADER_SIZE];
+    auto  W = xStreamWriter(Buffer);
+    W.W2(0x00);
+    W.W(0);
+    if (SourceAddress.Is4()) {
+        W.W(0x01);
+        W.W(SourceAddress.SA4, 4);
+        W.W2(SourceAddress.Port);
+    } else if (SourceAddress.Is6()) {
+        W.W(0x04);
+        W.W(SourceAddress.SA6, 16);
+        W.W2(SourceAddress.Port);
+    } else {  // drop unknown address type
+        return;
+    }
+    W.W(DataPtr, DataSize);
+    DEBUG_LOG("UdpChannel data, UdpChannelId=%" PRIx64 ", from: %s, data=\n%s", ProxyClientUdpChannelId, SourceAddress.ToString().c_str(), HexShow(Buffer, W.Offset()).c_str());
+    UdpChannel->PostData(UdpChannel->LastClientIpAddress, Buffer, W.Offset());
     return;
 }
 

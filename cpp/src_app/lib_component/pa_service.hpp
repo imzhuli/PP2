@@ -47,8 +47,9 @@ struct xPA_ClientUdpChannel
     : public xUdpChannel {
     uint64_t               UdpChannelId          = 0;
     xPA_ClientConnection * ParentConnection      = 0;
-    xPA_UdpDataProcessor   DataProcessor         = {};
     uint64_t               RelaySideUdpChannelId = {};
+    xNetAddress            ClientIpCheckAddress  = {};
+    xNetAddress            LastClientIpAddress   = {};
 };
 
 class xProxyAccessService final
@@ -98,6 +99,7 @@ protected:  // process data:
     xPA_AcquireDeviceFuture *           RequestDevice(xPA_ClientConnection * Connection, const xDeviceRequest & Request);
     xPA_AcquireDeviceConnectionFuture * RequestDeviceConnection(xPA_ClientConnection * Connection, const xNetAddress & TargetAddress);
     xPA_AcquireDeviceConnectionFuture * RequestDeviceConnection(xPA_ClientConnection * Connection, const std::string_view & TargetHostnameView, uint16_t TargetPort);
+    xPA_AcquireDeviceUdpChannelFuture * RequestDeviceUdpChannel(xPA_ClientConnection * Connection);
 
     void OnAuthResult(xPA_AuthFuture * Future);
     void SendS5AuthError(xPA_ClientConnection * Connection);
@@ -107,6 +109,7 @@ protected:  // process data:
     void OnS5AcquireDeviceResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceFuture * Future);
     void OnAcquireDeviceConnectionResult(xPA_AcquireDeviceConnectionFuture * Future);
     void OnS5AcquireDeviceConnectionResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceConnectionFuture * Future);
+    void OnAcquireDeviceUdpChannelResult(xPA_AcquireDeviceUdpChannelFuture * Future);
 
 protected:
     bool KeepAlive(xPA_ClientConnection * Connection);
