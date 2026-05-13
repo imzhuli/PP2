@@ -31,7 +31,7 @@ using xAuthLocalMap = std::unordered_map<std::string, xAuthLocalRecord, xStringH
 
 class xAuthLocalService final : public xAuthAbstractService {
 public:
-    bool        Init(const char * auth_dir);
+    bool        Init(const std::string & AuthFilePath);
     void        Clean();
     std::string OutputAudit() const;
 

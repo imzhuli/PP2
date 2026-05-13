@@ -26,8 +26,7 @@ std::string xAuthLocalRecord::ToString() const {
 
 namespace fs = std::filesystem;
 
-bool xAuthLocalService::Init(const char * AuthFileDir) {
-    assert(AuthFileDir);
+bool xAuthLocalService::Init(const std::string & AuthFileDir) {
     if (!fs::is_directory(AuthFileDir, XR(std::error_code()))) {
         Logger->E("Failed to open AuthFileDir");
         return false;

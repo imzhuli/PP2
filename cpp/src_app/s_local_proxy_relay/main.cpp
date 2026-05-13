@@ -16,22 +16,6 @@ static auto LocalAuditTimeout =
     10min;
 #endif
 
-[[maybe_unused]] static const std::vector<std::pair<xNetAddress, xNetAddress>>
-    TestBindingPairList = {
-        std::make_pair(xNetAddress::Parse("10.0.0.7"), xNetAddress::Parse("175.178.22.69")),
-        std::make_pair(xNetAddress::Parse("2402:4e00:101a:f300:0:9f95:4b15:c0db"), xNetAddress::Parse("2402:4e00:101a:f300:0:9f95:4b15:c0db")),
-    };
-[[maybe_unused]] static std::string OutputDnsResult(const xDnsReultFuture * F) {
-    X_RUNTIME_ASSERT(F);
-    if (!F->Result) {
-        return "Invalid result";
-    }
-    auto OS = std::ostringstream();
-    OS << "< Address4: " << F->Result->A4.ToString() << ">";
-    OS << "< Address6: " << F->Result->A6.ToString() << ">";
-    return OS.str();
-}
-
 static auto ProxyAccessBindAddress4      = xNetAddress{};
 static auto ProxyAccessBindAddress6      = xNetAddress{};
 static auto ProxyAccessBindUdpAddress4   = xNetAddress{};
@@ -39,11 +23,11 @@ static auto ProxyAccessBindUdpAddress6   = xNetAddress{};
 static auto ProxyAccessExportUdpAddress4 = xNetAddress{};
 static auto ProxyAccessExportUdpAddress6 = xNetAddress{};
 static auto LocalRelayServerId           = (uint64_t)0;
+static auto LocalAuthFilePath            = std::string();
 static auto LocalBindingDeviceFile       = std::string{};
 
 static void LoadConfig() {
-    auto filename = "./test_assets/local_pa_relay.ini";
-    auto CL       = xel::xConfigLoader(filename);
+    auto CL = ServiceEnvironment.LoadConfig();
     CL.Optional(ProxyAccessBindAddress4, "PA_BindAddress4");
     CL.Optional(ProxyAccessBindAddress6, "PA_BindAddress6");
 
@@ -54,6 +38,7 @@ static void LoadConfig() {
 
     CL.Require(LocalRelayServerId, "LocalRelayServerId");
     CL.Require(LocalBindingDeviceFile, "LocalBindingDeviceFile");
+    CL.Require(LocalAuthFilePath, "LocalAuthFilePath");
 
     Logger->I("Begin Config");
     Logger->I("BindAddress4=%s", ProxyAccessBindAddress4.ToString().c_str());
@@ -69,10 +54,10 @@ static void LoadConfig() {
 }
 
 int main(int argc, char ** argv) {
-    X_VAR xServiceEnvironmentGuard(argc, argv, ServiceConsoleLogger);
+    X_VAR xServiceEnvironmentGuard(argc, argv);
     LoadConfig();
 
-    X_RESOURCE_GUARD_ASSERTED(LocalAuthService, "./test_assets/");
+    X_RESOURCE_GUARD_ASSERTED(LocalAuthService, LocalAuthFilePath);
     X_RESOURCE_GUARD_ASSERTED(LocalRelayService, LocalRelayServerId, LocalBindingDeviceFile);
     X_RESOURCE_GUARD_ASSERTED(ProxyAccessService, ProxyAccessBindAddress4, ProxyAccessBindAddress6);
     X_RESOURCE_GUARD_ASSERTED(LocalDnsService);

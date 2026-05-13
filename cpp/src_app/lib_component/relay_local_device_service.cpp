@@ -29,8 +29,8 @@ static size_t EstimateMaxUdpChannelPoolSize(size_t LocalAddressSize) {
 std::string xRelayLocalBindingOption::ToString() const {
     auto OS = std::ostringstream();
     OS << "[ ";
-    OS << "B:" << BindAddress.ToString() << " ";
-    OS << "E:" << ExportAddress.ToString() << " ";
+    OS << "B:" << BindAddress.IpToString() << " ";
+    OS << "E:" << ExportAddress.IpToString() << " ";
     OS << (EnableUdp ? "udp" : "no-udp") << " ";
     OS << "]";
     return OS.str();
@@ -40,8 +40,8 @@ std::string xRelayLocalDevice::ToString() const {
     auto OS = std::ostringstream();
     OS << "[ ";
     OS << "DeviceId:" << DeviceId << " ";
-    OS << "B:" << BindAddress.ToString() << " ";
-    OS << "E:" << ExportAddress.ToString() << " ";
+    OS << "B:" << BindAddress.IpToString() << " ";
+    OS << "E:" << ExportAddress.IpToString() << " ";
     OS << "EnableTcp:" << YN(EnableTcp) << " ";
     OS << "EnableUdp:" << YN(EnableUdp) << " ";
     OS << "]";
