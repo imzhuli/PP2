@@ -202,19 +202,18 @@ const xRelayLocalDevice * xRelayLocalBindingService::GetDevice(uint64_t DeviceId
 void xRelayLocalBindingService::AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) {
     Future.SetReady();
     if (!(Request.Strategy & DSS_STATIC_EXPORT_ADDRESS)) {
-        DEBUG_LOG();
+        DEBUG_LOG("only DSS_STATIC_EXPORT_ADDRESS strategy is supported");
         return;
     }
     auto Iter = LocalDeviceExportAddressMap.find(Request.Condition.ExportAddress);
     if (Iter == LocalDeviceExportAddressMap.end()) {
-        DEBUG_LOG();
+        DEBUG_LOG("no device found by export address");
         return;
     }
     Future.Result = {
         .RelayServerId     = 0,
         .RelaySideDeviceId = Iter->second,
     };
-    DEBUG_LOG();
     return;
 }
 
@@ -235,11 +234,6 @@ void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_
         return;
     }
     DnsFuture->CreateConnectionFutureHandle = Future;
-    if (DnsFuture->IsReady) {
-        CreateConnectionWithDnsResult(DnsFuture);
-        DnsFutureManager.ReleaseFuture(DnsFuture);
-        return;
-    }
 }
 
 void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) {
