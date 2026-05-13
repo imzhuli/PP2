@@ -87,6 +87,8 @@ int main(int argc, char ** argv) {
     }
     ProxyAccessService.BindAuthService(&LocalAuthService);
     ProxyAccessService.BindDeviceLocatorService(&LocalRelayService);
+    ProxyAccessService.BindRelayService(&LocalRelayService);
+    LocalRelayService.BindProxyService(&ProxyAccessService);
     LocalRelayService.BindDnsService(&LocalDnsService);
 
     auto AuditTimer = xTimer();

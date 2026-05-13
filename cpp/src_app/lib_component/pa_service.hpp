@@ -37,6 +37,7 @@ struct xPA_ClientConnection
     xPA_AcquireDeviceConnectionFuture * AcquireDeviceConnectionFuture = nullptr;
     xPA_AcquireDeviceUdpChannelFuture * AcquireDeviceUdpChannelFuture = nullptr;
     xDeviceReference                    DeviceReference               = {};
+    uint64_t                            RelaySideConnectionId         = {};
     struct {
         uint64_t StartupTimestampMS = 0;
     } Debug;
@@ -44,15 +45,17 @@ struct xPA_ClientConnection
 
 struct xPA_ClientUdpChannel
     : public xUdpChannel {
-    uint64_t               UdpChannelId     = 0;
-    xPA_ClientConnection * ParentConnection = 0;
-    xPA_UdpDataProcessor   DataProcessor    = {};
+    uint64_t               UdpChannelId          = 0;
+    xPA_ClientConnection * ParentConnection      = 0;
+    xPA_UdpDataProcessor   DataProcessor         = {};
+    uint64_t               RelaySideUdpChannelId = {};
 };
 
 class xProxyAccessService final
     : xTcpServer::iListener
     , xTcpConnection::iListener
-    , xUdpChannel::iListener {
+    , xUdpChannel::iListener
+    , public xProxyAbstractService {
 public:
     bool Init(const xNetAddress & BindAddress4, const xNetAddress & BindAddress6);
     void Clean();
@@ -72,6 +75,9 @@ protected:  // override:
     void   OnFlush(xTcpConnection * TcpConnectionPtr) override;
     size_t OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) override;
     void   OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override;
+    void   PostData(uint64_t ProxyClientConnectionId, ubyte * DataPtr, size_t DataSize) override;
+    void   PostData(uint64_t ProxyClientUdpChannelId, const xNetAddress & SourceAddress, ubyte * DataPtr, size_t DataSize) override;
+    void   CloseConnection(uint64_t ProxyClientConnectionId) override;
 
 protected:  // process data:
     void ProcessReadyAuthFuture();
@@ -84,11 +90,14 @@ protected:  // process data:
     size_t OnS5Challenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnS5AuthInfo(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnS5Target(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
+    size_t OnS5Data(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
     size_t OnHttpChallenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
 
-    xPA_AuthFuture *          RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView);
-    xDeviceRequest            ConvertAuthResultToDeviceRequirement(const xAuthResult & AuthResult);
-    xPA_AcquireDeviceFuture * RequestDevice(xPA_ClientConnection * Connection, const xDeviceRequest & Request);
+    xPA_AuthFuture *                    RequestAuthentication(xPA_ClientConnection * Connection, std::string_view AuthView);
+    xDeviceRequest                      ConvertAuthResultToDeviceRequirement(const xAuthResult & AuthResult);
+    xPA_AcquireDeviceFuture *           RequestDevice(xPA_ClientConnection * Connection, const xDeviceRequest & Request);
+    xPA_AcquireDeviceConnectionFuture * RequestDeviceConnection(xPA_ClientConnection * Connection, const xNetAddress & TargetAddress);
+    xPA_AcquireDeviceConnectionFuture * RequestDeviceConnection(xPA_ClientConnection * Connection, const std::string_view & TargetHostnameView, uint16_t TargetPort);
 
     void OnAuthResult(xPA_AuthFuture * Future);
     void SendS5AuthError(xPA_ClientConnection * Connection);
@@ -96,10 +105,13 @@ protected:  // process data:
     void OnS5AuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future);
     void OnAcquireDeviceResult(xPA_AcquireDeviceFuture * Future);
     void OnS5AcquireDeviceResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceFuture * Future);
+    void OnAcquireDeviceConnectionResult(xPA_AcquireDeviceConnectionFuture * Future);
+    void OnS5AcquireDeviceConnectionResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceConnectionFuture * Future);
 
 protected:
-    void KeepAlive(xPA_ClientConnection * Connection);
+    bool KeepAlive(xPA_ClientConnection * Connection);
     void DeferKill(xPA_ClientConnection * Connection);
+    void DeferGracefulKill(xPA_ClientConnection * Connection);
     void ReleaseAuthFuture(xPA_ClientConnection * Connection);
     void ReleaseAcquireDeviceFuture(xPA_ClientConnection * Connection);
     void ReleaseAcquireDeviceConnectionFuture(xPA_ClientConnection * Connection);
@@ -107,6 +119,7 @@ protected:
     void DestroyConnection(xPA_ClientConnection * Connection);
 
     void DeferKillInitTimeoutConnection();
+    void DeferGracefulKillConnection();
     void ExcuteKillConnection();
     void ClearTimeoutFuture();
 
@@ -120,6 +133,7 @@ private:
     xPA_ClientConnectionTimeoutList       ClientConnectionInitTimeoutList;
     xPA_ClientConnectionTimeoutList       ClientConnectionTimeoutList;
     xPA_ClientConnectionTimeoutList       ClientConnectionKillList;
+    xPA_ClientConnectionTimeoutList       ClientConnectionGracefulKillList;
 
     xFuturePoolManager<xPA_AuthFuture>                    AuthFutureManager;
     xFuturePoolManager<xPA_AcquireDeviceFuture>           AcquireDeviceFutureManager;

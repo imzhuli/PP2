@@ -134,6 +134,10 @@ void xRelayLocalBindingService::Clean() {
     Reset(Audit);
 }
 
+void xRelayLocalBindingService::BindProxyService(xProxyAbstractService * ProxyService) {
+    X_RUNTIME_ASSERT(!Steal(this->ProxyService, ProxyService));
+}
+
 void xRelayLocalBindingService::BindDnsService(xDnsAbstractService * DnsService) {
     X_RUNTIME_ASSERT(!Steal(this->DnsService, DnsService));
 }
@@ -214,69 +218,42 @@ void xRelayLocalBindingService::AcquireDevice(const xDeviceRequest & Request, xA
     return;
 }
 
-void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const std::string & TargetHostname, uint16_t TargetPort, xRelayCreateConnectionFuture & Future) {
+void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideConnectionId, const std::string_view & TargetHostnameView, uint16_t TargetPort, xRelayCreateConnectionFuture & Future) {
     auto DnsFuture = DnsFutureManager.AcquireFuture();
     if (!DnsFuture) {
         Future.SetReady();
         return;
     }
-    DnsFuture->RelayServerId      = RelayServerId;
-    DnsFuture->DeviceId           = DeviceId;
-    DnsFuture->PASideConnectionId = PASideConnectionId;
+    DnsFuture->RelayServerId         = RelayServerId;
+    DnsFuture->RelaySideDeviceId     = DeviceId;
+    DnsFuture->ProxySideConnectionId = ProxySideConnectionId;
+    DnsFuture->TargetPort            = TargetPort;
 
-    if (!DnsService->ResolveDns(TargetHostname, *DnsFuture)) {
+    if (!DnsService->ResolveDns(TargetHostnameView, *DnsFuture)) {
         DnsFutureManager.ReleaseFuture(DnsFuture);
         Future.SetReady();
         return;
     }
     if (DnsFuture->IsReady) {
-        if (DnsFuture->Result) {
-            auto & Result = *DnsFuture->Result;
-            if (Result.A4) {
-                CreateConnection(RelayServerId, DeviceId, PASideConnectionId, Result.A4, Future);
-            } else if (Result.A6) {
-                CreateConnection(RelayServerId, DeviceId, PASideConnectionId, Result.A6, Future);
-            } else {
-                DEBUG_LOG("no target address found");
-                Future.SetReady();
-            }
-        } else {
-            DEBUG_LOG("no target address found");
-            Future.SetReady();
-        }
+        CreateConnectionWithDnsResult(DnsFuture);
         DnsFutureManager.ReleaseFuture(DnsFuture);
         return;
     }
+    DnsFuture->CreateConnectionFutureHandle = Future;
 }
 
-void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) {
-    assert(PASideConnectionId);
+void xRelayLocalBindingService::CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) {
+    assert(ProxySideConnectionId);
     auto Device = GetDevice(DeviceId);
     if (!Device) {
         Future.SetReady();
         return;
     }
-    auto ConnectionId = LocalConnectionPool.Acquire();
-    if (!ConnectionId) {
-        Future.SetReady();
-        return;
-    }
-    auto & Connection = LocalConnectionPool[ConnectionId];
-    if (!Connection.Init(ServiceIoContext, TargetAddress, Device->BindAddress, this)) {
-        LocalConnectionPool.Release(ConnectionId);
-        Future.SetReady();
-        return;
-    }
-    Connection.DeviceId                     = DeviceId;
-    Connection.ConnectionId                 = ConnectionId;
-    Connection.PASideConnectionId           = PASideConnectionId;
-    Connection.CreateConnectionFutureHandle = xFutureHandle(Future);
-
-    ++Audit.ConnectionCount;
+    CreateConnection(ProxySideConnectionId, Device->BindAddress, TargetAddress, Future);
     return;
 }
 
-void xRelayLocalBindingService::CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideUdpChannelId, xNetAddress::eType Type, xRelayCreateUdpChannelFuture & Future) {
+void xRelayLocalBindingService::CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideUdpChannelId, xNetAddress::eType Type, xRelayCreateUdpChannelFuture & Future) {
     assert(Type == xNetAddress::IPV4 || Type == xNetAddress::IPV6);
     Future.SetReady();  // always has immediate result
     auto Device = GetDevice(DeviceId);
@@ -292,8 +269,8 @@ void xRelayLocalBindingService::CreateUdpChannel(uint64_t RelayServerId, uint64_
         LocalUdpChannelPool.Release(UdpChannelId);
         return;
     }
-    UdpChannel.UdpChannelId       = UdpChannelId;
-    UdpChannel.PASideUdpChannelId = PASideUdpChannelId;
+    UdpChannel.UdpChannelId          = UdpChannelId;
+    UdpChannel.ProxySideUdpChannelId = ProxySideUdpChannelId;
 
     ++Audit.UdpChannelCount;
     return;
@@ -304,6 +281,8 @@ void xRelayLocalBindingService::DestroyConnection(uint64_t RelayServerId, uint64
     if (!Connection) {
         return;
     }
+    // clear pa side futures:
+    Connection->ClearFutures();
     DeferDestroyConnection(Connection);
 }
 
@@ -336,10 +315,8 @@ void xRelayLocalBindingService::KeepAlive(xRelayLocalDeviceUdpChannel * UdpChann
 void xRelayLocalBindingService::DeferDestroyConnection(xRelayLocalDeviceConnection * Connection) {
     assert(Connection == LocalConnectionPool.CheckAndGet(Connection->ConnectionId));
     if (!Steal(Connection->DeleteMark, true)) {
-        if (Connection->CreateConnectionFutureHandle) {
-            if (auto Future = Steal(Connection->CreateConnectionFutureHandle).Get<xRelayCreateConnectionFuture>()) {
-                Future->SetReady();
-            }
+        if (auto Future = Steal(Connection->CreateConnectionFutureHandle).Get<xRelayCreateConnectionFuture>()) {
+            Future->SetReady();
         }
         ConnectionKillList.GrabTail(*Connection);
     }
@@ -352,10 +329,65 @@ void xRelayLocalBindingService::DeferDestroyUdpChannel(xRelayLocalDeviceUdpChann
     }
 }
 
+void xRelayLocalBindingService::CreateConnection(uint64_t ProxySideConnectionId, const xNetAddress & DeviceBindAddress, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) {
+    auto ConnectionId = LocalConnectionPool.Acquire();
+    if (!ConnectionId) {
+        Future.SetReady();
+        return;
+    }
+    auto & Connection = LocalConnectionPool[ConnectionId];
+    if (!Connection.Init(ServiceIoContext, TargetAddress, DeviceBindAddress, this)) {
+        LocalConnectionPool.Release(ConnectionId);
+        Future.SetReady();
+        return;
+    }
+    Connection.ConnectionId                 = ConnectionId;
+    Connection.ProxySideConnectionId        = ProxySideConnectionId;
+    Connection.CreateConnectionFutureHandle = xFutureHandle(Future);
+    ++Audit.ConnectionCount;
+}
+
+void xRelayLocalBindingService::CreateConnectionWithDnsResult(xRelayDnsResultFuture * DnsFuture) {
+    assert(DnsFuture);
+    auto Future = DnsFuture->CreateConnectionFutureHandle.Get<xRelayCreateConnectionFuture>();
+    if (!Future) {
+        DEBUG_LOG("source request lost");
+        return;
+    }
+
+    auto & Result = DnsFuture->Result;
+    if (Result) {
+        auto Device = GetDevice(DnsFuture->RelaySideDeviceId);
+        if (!Device) {
+            DEBUG_LOG("device lost");
+            Future->SetReady();
+            return;
+        }
+        auto TargetAddress = Device->BindAddress.Is4() ? Result->A4 : Result->A6;
+        if (!TargetAddress) {
+            DEBUG_LOG("no target address found");
+            Future->SetReady();
+            return;
+        }
+        TargetAddress.Port = DnsFuture->TargetPort;
+        CreateConnection(DnsFuture->RelayServerId, DnsFuture->RelaySideDeviceId, DnsFuture->ProxySideConnectionId, TargetAddress, *Future);
+    } else {
+        DEBUG_LOG("no dns result found");
+        Future->SetReady();
+    }
+}
+
 void xRelayLocalBindingService::ProcessDnsResults() {
     auto & DnsReadyList = DnsFutureManager.GetReadyFutureList();
-    while (auto P = static_cast<xRelayDnsResultFuture *>(DnsReadyList.PopHead())) {
-        DnsFutureManager.ReleaseFuture(P);
+    while (auto DnsFuture = static_cast<xRelayDnsResultFuture *>(DnsReadyList.PopHead())) {
+        auto Future = DnsFuture->CreateConnectionFutureHandle.Get<xRelayCreateConnectionFuture>();
+        if (!Future) {
+            DEBUG_LOG("Dns result source request future lost");
+            // pass through
+        } else {
+            CreateConnectionWithDnsResult(DnsFuture);
+        }
+        DnsFutureManager.ReleaseFuture(DnsFuture);
     }
 }
 
@@ -431,21 +463,36 @@ void xRelayLocalBindingService::OnConnected(xTcpConnection * TcpConnectionPtr) {
 
 void xRelayLocalBindingService::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
     auto Connection = static_cast<xRelayLocalDeviceConnection *>(TcpConnectionPtr);
+    ProxyService->CloseConnection(Connection->ProxySideConnectionId);
     DeferDestroyConnection(Connection);
+}
+
+size_t xRelayLocalBindingService::OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) {
+    auto Connection = static_cast<xRelayLocalDeviceConnection *>(TcpConnectionPtr);
+    if (Connection->DeleteMark) {
+        DEBUG_LOG("connection lost");
+        return 0;
+    }
+    ProxyService->PostData(Connection->ProxySideConnectionId, DataPtr, DataSize);
+    return DataSize;
 }
 
 void xRelayLocalBindingService::PostData(uint64_t RelayServerId, uint64_t ConnectionId, const void * Payload, size_t PayloadSize) {
     auto Connection = LocalConnectionPool.CheckAndGet(ConnectionId);
     if (!Connection || Connection->DeleteMark || !Connection->IsConnected()) {
+        DEBUG_LOG("Connection lost");
         return;
     }
+    DEBUG_LOG("Post connection data: size=%zi", PayloadSize);
     Connection->PostData(Payload, PayloadSize);
 }
 
 void xRelayLocalBindingService::PostData(uint64_t RelayServerId, uint64_t UdpChannelId, const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) {
     auto UdpChannel = LocalUdpChannelPool.CheckAndGet(UdpChannelId);
     if (!UdpChannel || UdpChannel->DeleteMark) {
+        DEBUG_LOG("UdpChannel lost");
         return;
     }
+    DEBUG_LOG("Post udp channel data: size=%zi", PayloadSize);
     UdpChannel->PostData(TargetAddress, Payload, PayloadSize);
 }

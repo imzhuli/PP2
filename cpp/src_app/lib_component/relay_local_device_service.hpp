@@ -8,9 +8,10 @@
 
 struct xRelayDnsResultFuture : xDnsReultFuture {
     uint64_t      RelayServerId;
-    uint64_t      DeviceId;
-    uint64_t      PASideConnectionId;
-    xFutureHandle FutureHandle;  // create connection/udpchannel future handle;
+    uint64_t      RelaySideDeviceId;
+    uint64_t      ProxySideConnectionId;
+    xFutureHandle CreateConnectionFutureHandle;  // create connection future handle;
+    uint16_t      TargetPort;
 };
 
 struct xRelayLocalDevice {
@@ -31,11 +32,12 @@ using xRelayLocalDeviceConnectionTimeoutList = xList<xRelayLocalDeviceConnection
 struct xRelayLocalDeviceConnection final
     : xRelayLocalDeviceConnectionTimeoutNode
     , xTcpConnection {
-    uint64_t      DeviceId     = 0;
-    uint64_t      ConnectionId = 0;
-    uint64_t      PASideConnectionId;
+    uint64_t      ConnectionId          = 0;
+    uint64_t      ProxySideConnectionId = 0;
     xFutureHandle CreateConnectionFutureHandle;
     bool          DeleteMark = false;
+
+    void ClearFutures() { Reset(CreateConnectionFutureHandle); }
 };
 
 struct xRelayLocalDeviceUdpChannelTimeoutNode : xListNode {
@@ -46,10 +48,10 @@ using xRelayLocalDeviceUdpChannelTimeoutList = xList<xRelayLocalDeviceUdpChannel
 struct xRelayLocalDeviceUdpChannel final
     : xRelayLocalDeviceUdpChannelTimeoutNode
     , xUdpChannel {
-    uint64_t DeviceId           = 0;
-    uint64_t UdpChannelId       = 0;
-    uint64_t PASideUdpChannelId = 0;
-    bool     DeleteMark         = false;
+    uint64_t DeviceId              = 0;
+    uint64_t UdpChannelId          = 0;
+    uint64_t ProxySideUdpChannelId = 0;
+    bool     DeleteMark            = false;
 };
 
 struct xRelayLocalBindingOption {
@@ -71,15 +73,16 @@ public:
     bool Init(uint64_t ServerId, const std::string & AddressPairFile);
     bool Init(uint64_t ServerId, const std::vector<xRelayLocalBindingOption> & BindAddressPairList);
     void Clean();
+    void BindProxyService(xProxyAbstractService * ProxyService);
     void BindDnsService(xDnsAbstractService * DnsService);
     void Tick(uint64_t NowMS);
 
     auto OutputAudit() const -> std::string;
 
     void AcquireDevice(const xDeviceRequest & Request, xAcquireDeviceFuture & Future) override;
-    void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const std::string & TargetHostname, uint16_t TargetPort, xRelayCreateConnectionFuture & Future) override;
-    void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) override;
-    void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideUdpChannelId, xNetAddress::eType Type, xRelayCreateUdpChannelFuture & Future) override;
+    void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideConnectionId, const std::string_view & TargetHostnameView, uint16_t TargetPort, xRelayCreateConnectionFuture & Future) override;
+    void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) override;
+    void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideUdpChannelId, xNetAddress::eType Type, xRelayCreateUdpChannelFuture & Future) override;
     void DestroyConnection(uint64_t RelayServerId, uint64_t ConnectionId) override;
     void DestroyUdpChannel(uint64_t RelayServerId, uint64_t UdpChannelId) override;
     void PostData(uint64_t RelayServerId, uint64_t ConnectionId, const void * Payload, size_t PayloadSize) override;
@@ -99,6 +102,9 @@ private:
     void CleanDyingUdpChannels();
     void CleanAllConnections();
     void CleanAllUdpChannels();
+
+    void CreateConnection(uint64_t ProxySideConnectionId, const xNetAddress & DeviceBindAddress, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future);
+    void CreateConnectionWithDnsResult(xRelayDnsResultFuture * DnsFuture);
     void ProcessDnsResults();
 
     const xRelayLocalDevice * FindDeviceByExportAddress(const xNetAddress & ExportAddress);
@@ -107,10 +113,8 @@ private:  // listener
     void   OnConnected(xTcpConnection * TcpConnectionPtr) override;
     void   OnPeerClose(xTcpConnection * TcpConnectionPtr) override;
     void   OnFlush(xTcpConnection * TcpConnectionPtr) override {}
-    size_t OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) override {
-        return DataSize;
-    }
-    void OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override {
+    size_t OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize);
+    void   OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override {
         Pure();
     }
 
@@ -125,7 +129,8 @@ private:
     xel::xIndexedStorage<xRelayLocalDeviceConnection> LocalConnectionPool;
     xel::xIndexedStorage<xRelayLocalDeviceUdpChannel> LocalUdpChannelPool;
 
-    xDnsAbstractService *                     DnsService = nullptr;
+    xProxyAbstractService *                   ProxyService = nullptr;
+    xDnsAbstractService *                     DnsService   = nullptr;
     xFuturePoolManager<xRelayDnsResultFuture> DnsFutureManager;
 
     xRelayLocalDeviceConnectionTimeoutList ConnectionEstablishTimeoutList;

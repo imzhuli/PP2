@@ -5,15 +5,8 @@
 struct xPA_ClientConnection;
 struct xPA_ClientUdpChannel;
 
-struct xProxyAbstractRelayConnection {
-    uint64_t ConnectionId;
-
-    virtual bool IsOpen() const      = 0;
-    virtual bool IsConnected() const = 0;
-    virtual bool IsClosing() const   = 0;
-    virtual bool IsClosed() const    = 0;
-
-    virtual void RequestCreateConnection(uint64_t DeviceId, const xNetAddress & RemoteAddress)                       = 0;
-    virtual void RequestPostData(uint64_t DeviceId, uint64_t ConnectionId, const void * Payload, size_t PayloadSize) = 0;
-    virtual void ProcessRelayResults()                                                                               = 0;
+struct xProxyAbstractService {
+    virtual void PostData(uint64_t ProxyClientConnectionId, ubyte * DataPtr, size_t DataSize)                                    = 0;
+    virtual void PostData(uint64_t ProxyClientUdpChannelId, const xNetAddress & SourceAddress, ubyte * DataPtr, size_t DataSize) = 0;
+    virtual void CloseConnection(uint64_t ProxyClientConnectionId)                                                               = 0;
 };

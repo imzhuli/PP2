@@ -70,18 +70,18 @@ void xAuthLocalService::Validate(const std::string_view AccountPassView, xAuthRe
     }
 
     Future.SetReady();
-    Future.Result = {};
-    auto & Result = *Future.Result;
-    auto   Iter   = AuthLocalMap.find(AccountPassView);
+    auto & Result = Future.Result;
+    Result        = {};
+    auto Iter     = AuthLocalMap.find(AccountPassView);
     if (Iter == AuthLocalMap.end()) {
         return;
     }
     auto & LocalRecord = Iter->second;
     DEBUG_LOG("FoundAuthRecord:%s", LocalRecord.ToString().c_str());
-    Result.ProxyAccessAddress = LocalRecord.ProxyClientAddress;
-    Result.ExportAddress      = LocalRecord.StaticExportAddress;
-    Result.EnableTcp          = LocalRecord.EnableTcp;
-    Result.EnableUdp          = LocalRecord.EnableUdp;
+    Result->ProxyAccessAddress = LocalRecord.ProxyClientAddress;
+    Result->ExportAddress      = LocalRecord.StaticExportAddress;
+    Result->EnableTcp          = LocalRecord.EnableTcp;
+    Result->EnableUdp          = LocalRecord.EnableUdp;
     return;
 }
 

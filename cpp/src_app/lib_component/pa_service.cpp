@@ -5,26 +5,25 @@
 static constexpr const size_t   PA_CLIENT_AUTH_TIMEOUT_MS        = 5'000;
 static constexpr const uint64_t PA_FUTURE_TIMEOUT_MS             = 2'000;
 static constexpr const size_t   PA_AUDIT_TIMEOUT_MS              = 5'000;
+static constexpr const size_t   PA_GRACEFUL_KILL_TIMEOUT_MS      = 60'000;
 static constexpr const size_t   PA_MAX_CLIENT_CONNECTION         = 20'0000;
 static constexpr const size_t   PA_MAX_CLIENT_REQUEST_PER_SECOND = 5'0000;
 
-static ubyte S5_CONNECTION_IPV4_FAILED[] = {
+static ubyte S5_CONNECTION_ESTABLISHED[] = {
     '\x05',                          // version
-    '\x01',                          // generic error
+    '\x00',                          // connection established
     '\x00',                          // reserved
     '\x01',                          // type=ipv4
     '\x00', '\x00', '\x00', '\x00',  // addr.ipv4
     '\x00', '\x00',                  // port
 };
-static ubyte S5_CONNECTION_IPV6_FAILED[] = {
+
+static ubyte S5_CONNECTION_GENERIC_ERROR[] = {
     '\x05',                          // version
     '\x01',                          // generic error
     '\x00',                          // reserved
-    '\x04',                          // type=ipv6
-    '\x00', '\x00', '\x00', '\x00',  // addr.ipv6
-    '\x00', '\x00', '\x00', '\x00',  // addr.ipv6
-    '\x00', '\x00', '\x00', '\x00',  // addr.ipv6
-    '\x00', '\x00', '\x00', '\x00',  // addr.ipv6
+    '\x01',                          // type=ipv4
+    '\x00', '\x00', '\x00', '\x00',  // addr.ipv4
     '\x00', '\x00',                  // port
 };
 
@@ -168,8 +167,7 @@ void xProxyAccessService::ProcessReadyAcquireDeviceConnectionFuture() {
     auto & FutureList = AcquireDeviceConnectionFutureManager.GetReadyFutureList();
     while (auto P = static_cast<xPA_AcquireDeviceConnectionFuture *>(FutureList.PopHead())) {
         DEBUG_LOG();
-        (void)P;
-        AcquireDeviceConnectionFutureManager.ReleaseFuture(P);
+        OnAcquireDeviceConnectionResult(P);
     }
 }
 
@@ -214,19 +212,26 @@ void xProxyAccessService::EnableUdp6(const xNetAddress & BindAddress, const xNet
     Logger->I("EnableUdp6: %s -> %s", BindAddress.IpToString().c_str(), ExportAddress.IpToString().c_str());
 }
 
-void xProxyAccessService::KeepAlive(xPA_ClientConnection * Connection) {
+bool xProxyAccessService::KeepAlive(xPA_ClientConnection * Connection) {
     if (Connection->DeleteMark) {
-        return;
+        return false;
     }
     Connection->TimestampMS = LocalTicker();
     ClientConnectionTimeoutList.GrabTail(*Connection);
+    return true;
 }
 
 void xProxyAccessService::DeferKill(xPA_ClientConnection * Connection) {
+    Reset(Connection->DeleteMark, true);
+    ClientConnectionKillList.GrabTail(*Connection);
+}
+
+void xProxyAccessService::DeferGracefulKill(xPA_ClientConnection * Connection) {
     if (Steal(Connection->DeleteMark, true)) {
         return;
     }
-    ClientConnectionKillList.GrabTail(*Connection);
+    Connection->TimestampMS = LocalTicker();
+    ClientConnectionGracefulKillList.GrabTail(*Connection);
 }
 
 void xProxyAccessService::ReleaseAuthFuture(xPA_ClientConnection * Connection) {
@@ -300,6 +305,16 @@ void xProxyAccessService::DeferKillInitTimeoutConnection() {
     }
 }
 
+void xProxyAccessService::DeferGracefulKillConnection() {
+    auto KillTimepoint = LocalTicker() - PA_GRACEFUL_KILL_TIMEOUT_MS;
+    auto Cond          = [this, KillTimepoint](const xPA_ClientConnectionTimeoutNode & N) {
+        return N.TimestampMS <= KillTimepoint;
+    };
+    while (auto P = ClientConnectionGracefulKillList.PopHead(Cond)) {
+        ClientConnectionKillList.AddTail(*P);
+    }
+}
+
 void xProxyAccessService::ExcuteKillConnection() {
     while (auto Connection = static_cast<xPA_ClientConnection *>(ClientConnectionKillList.PopHead())) {
         DestroyConnection(Connection);
@@ -332,6 +347,14 @@ void xProxyAccessService::OnConnected(xTcpConnection * TcpConnectionPtr) {
 
 void xProxyAccessService::OnPeerClose(xTcpConnection * TcpConnectionPtr) {
     auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnectionPtr);
+    if (ClientConnection->DeleteMark) {
+        return;
+    }
+    if (ClientConnection->Type == xPA_ClientConnection::eType::S5_TCP && ClientConnection->RelaySideConnectionId) {
+        RelayService->DestroyConnection(ClientConnection->DeviceReference.RelayServerId, ClientConnection->RelaySideConnectionId);
+    } else if (ClientConnection->Type == xPA_ClientConnection::eType::S5_UDP && ClientConnection->BindUdpChannel) {
+        RelayService->DestroyUdpChannel(ClientConnection->DeviceReference.RelayServerId, ClientConnection->BindUdpChannel->RelaySideUdpChannelId);
+    }
     DeferKill(ClientConnection);
 }
 
@@ -345,12 +368,14 @@ size_t xProxyAccessService::OnData(xTcpConnection * TcpConnectionPtr, ubyte * Da
 }
 
 void xProxyAccessService::OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) {
-    auto ClientUdpChannel = static_cast<xPA_ClientUdpChannel *>(UdpChannelPtr);
-    assert(ClientUdpChannel->ParentConnection);
-    KeepAlive(ClientUdpChannel->ParentConnection);
+    auto ClientUdpChannel       = static_cast<xPA_ClientUdpChannel *>(UdpChannelPtr);
+    auto ParentClientConnection = ClientUdpChannel->ParentConnection;
 
-    // todo: relay message;
-    Pass();
+    assert(ParentClientConnection);
+    KeepAlive(ParentClientConnection);
+
+    auto & D = ParentClientConnection->DeviceReference;
+    RelayService->PostData(D.RelayServerId, ClientUdpChannel->RelaySideUdpChannelId, RemoteAddress, DataPtr, DataSize);
 }
 
 size_t xProxyAccessService::KillConnectionOnData(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
@@ -510,18 +535,30 @@ size_t xProxyAccessService::OnS5Target(xPA_ClientConnection * Connection, ubyte 
         TargetAddress.Port           = R.R2();
         DEBUG_LOG("target domain: %s, port=%u", DomainName, (unsigned)TargetAddress.Port);
     }
+
+    // the packet is complete
+    Connection->DataProcessor = &xProxyAccessService::KillConnectionOnData;
     if (Operation == 0x01) {  // build tcp connection
         DEBUG_LOG("Operation: Connection");
-        Connection->DataProcessor = &xProxyAccessService::KillConnectionOnData;
-        auto Future               = AcquireDeviceConnectionFutureManager.AcquireFuture();
-        if (!(Connection->AcquireDeviceConnectionFuture = Future)) {
-            if (AddrType = 0x01) {  // ipv4
-                Connection->PostData(S5_CONNECTION_IPV4_FAILED, sizeof(S5_CONNECTION_IPV4_FAILED));
-                return 0;
-            } else if (AddrType == 0x04) {  // ipv6
-                Connection->PostData(S5_CONNECTION_IPV6_FAILED, sizeof(S5_CONNECTION_IPV6_FAILED));
+        if (AddrType == 0x01 || AddrType == 0x04) {  // by address
+            auto Future = RequestDeviceConnection(Connection, TargetAddress);
+            if (!(Connection->AcquireDeviceConnectionFuture = Future)) {
+                Connection->PostData(S5_CONNECTION_GENERIC_ERROR, sizeof(S5_CONNECTION_GENERIC_ERROR));
                 return 0;
             }
+            Connection->Type = xPA_ClientConnection::eType::S5_TCP;
+        } else if (AddrType == 0x03) {  // by domain name
+            auto Future = RequestDeviceConnection(Connection, { DomainName, DomainNameLength }, TargetAddress.Port);
+            if (!(Connection->AcquireDeviceConnectionFuture = Future)) {
+                Connection->PostData(S5_CONNECTION_GENERIC_ERROR, sizeof(S5_CONNECTION_GENERIC_ERROR));
+                return 0;
+            }
+            Connection->Type = xPA_ClientConnection::eType::S5_TCP;
+        } else {  // invalid address type
+            DEBUG_LOG("invalid address type");
+            ReleaseAcquireDeviceConnectionFuture(Connection);
+            Connection->PostData(S5_CONNECTION_GENERIC_ERROR, sizeof(S5_CONNECTION_GENERIC_ERROR));
+            return 0;
         }
     } else if (Operation == 0x03) {  // udp
         DEBUG_LOG("Operation: UdpChannel");
@@ -536,7 +573,16 @@ size_t xProxyAccessService::OnS5Target(xPA_ClientConnection * Connection, ubyte 
         Connection->PostData(W.Origin(), W.Offset());
         return 0;
     }
-    return 0;
+    return R.Offset();
+}
+
+size_t xProxyAccessService::OnS5Data(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
+    if (!KeepAlive(Connection)) {
+        return 0;
+    }
+    auto & Device = Connection->DeviceReference;
+    RelayService->PostData(Device.RelayServerId, Connection->RelaySideConnectionId, DataPtr, DataSize);
+    return DataSize;
 }
 
 size_t xProxyAccessService::OnHttpChallenge(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize) {
@@ -548,7 +594,6 @@ xPA_AuthFuture * xProxyAccessService::RequestAuthentication(xPA_ClientConnection
     if (!Future) {
         return nullptr;
     }
-    assert(AuthService);
     Future->ClientConnection = Connection;
     AuthService->Validate(AuthView, *Future);
     return Future;
@@ -563,9 +608,38 @@ xPA_AcquireDeviceFuture * xProxyAccessService::RequestDevice(xPA_ClientConnectio
     if (!Future) {
         return nullptr;
     }
-    assert(DeviceLocatorService);
     Future->ClientConnection = Connection;
     DeviceLocatorService->AcquireDevice(Request, *Future);
+    return Future;
+}
+
+xPA_AcquireDeviceConnectionFuture * xProxyAccessService::RequestDeviceConnection(xPA_ClientConnection * Connection, const xNetAddress & TargetAddress) {
+    auto Future = AcquireDeviceConnectionFutureManager.AcquireFuture();
+    if (!Future) {
+        return nullptr;
+    }
+    Future->ClientConnection = Connection;
+    RelayService->CreateConnection(
+        Connection->DeviceReference.RelayServerId,      //
+        Connection->DeviceReference.RelaySideDeviceId,  //
+        Connection->ConnectionId,                       //
+        TargetAddress, *Future
+    );
+    return Future;
+}
+
+xPA_AcquireDeviceConnectionFuture * xProxyAccessService::RequestDeviceConnection(xPA_ClientConnection * Connection, const std::string_view & TargetHostnameView, uint16_t TargetPort) {
+    auto Future = AcquireDeviceConnectionFutureManager.AcquireFuture();
+    if (!Future) {
+        return nullptr;
+    }
+    Future->ClientConnection = Connection;
+    RelayService->CreateConnection(
+        Connection->DeviceReference.RelayServerId,      //
+        Connection->DeviceReference.RelaySideDeviceId,  //
+        Connection->ConnectionId,                       //
+        TargetHostnameView, TargetPort, *Future
+    );
     return Future;
 }
 
@@ -596,7 +670,6 @@ void xProxyAccessService::SendS5AuthAccepted(xPA_ClientConnection * Connection) 
     } else {
         Connection->PostData("\x01\x00", 2);
     }
-    Connection->DataProcessor = &xProxyAccessService::OnS5Target;
 }
 
 void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future) {
@@ -637,5 +710,64 @@ void xProxyAccessService::OnS5AcquireDeviceResult(xPA_ClientConnection * Connect
         return;
     }
     Connection->DeviceReference = *Result;
+    Connection->DataProcessor   = &xProxyAccessService::OnS5Target;
     SendS5AuthAccepted(Connection);
+}
+
+void xProxyAccessService::OnAcquireDeviceConnectionResult(xPA_AcquireDeviceConnectionFuture * Future) {
+    auto Connection = Future->ClientConnection;
+    assert(Connection->AcquireDeviceConnectionFuture == Future);
+    X_SCOPE_GUARD([=, this] {
+        ReleaseAcquireDeviceConnectionFuture(Connection);
+    });
+    if (Connection->Type == xPA_ClientConnection::eType::S5_TCP) {
+        return OnS5AcquireDeviceConnectionResult(Connection, Future);
+    }
+}
+
+void xProxyAccessService::OnS5AcquireDeviceConnectionResult(xPA_ClientConnection * Connection, xPA_AcquireDeviceConnectionFuture * Future) {
+    DEBUG_LOG();
+    auto & Result = Future->Result;
+    if (!Result) {
+        Connection->PostData(S5_CONNECTION_GENERIC_ERROR, sizeof(S5_CONNECTION_GENERIC_ERROR));
+        return;
+    }
+    Connection->RelaySideConnectionId = *Result;
+    Connection->DataProcessor         = &xProxyAccessService::OnS5Data;
+    Connection->PostData(S5_CONNECTION_ESTABLISHED, sizeof(S5_CONNECTION_ESTABLISHED));
+}
+
+void xProxyAccessService::PostData(uint64_t ProxyClientConnectionId, ubyte * DataPtr, size_t DataSize) {
+    auto Connection = ClientConnectionPool.CheckAndGet(ProxyClientConnectionId);
+    if (!Connection) {
+        DEBUG_LOG("Connection lost, ConnectionId=%" PRIx64 "", ProxyClientConnectionId);
+        return;
+    }
+    assert(!Connection->DeleteMark);
+
+    DEBUG_LOG("Connection data ConnectionId=%" PRIx64 ", size=%zi", ProxyClientConnectionId, DataSize);
+    assert(!Connection->AcquireDeviceConnectionFuture);  // SHOULD NOT HAPPEN: post data before AcquireDeviceConnectionResult
+    Connection->PostData(DataPtr, DataSize);
+    KeepAlive(Connection);
+    return;
+}
+
+void xProxyAccessService::PostData(uint64_t ProxyClientUdpChannelId, const xNetAddress & SourceAddress, ubyte * DataPtr, size_t DataSize) {
+    auto UdpChannel = ClientUdpChannelPool.CheckAndGet(ProxyClientUdpChannelId);
+    if (UdpChannel) {
+        DEBUG_LOG("udp channel lost, UdpChannelId=%" PRIx64 ", size=%zi", ProxyClientUdpChannelId, DataSize);
+        return;
+    }
+    auto ClientConnection = UdpChannel->ParentConnection;
+    assert(ClientConnection);
+    DEBUG_LOG("UdpChannel data, UdpChannelId=%" PRIx64 ", from: %s, size=%zi", ProxyClientUdpChannelId, SourceAddress.ToString().c_str(), DataSize);
+    return;
+}
+
+void xProxyAccessService::CloseConnection(uint64_t ProxyClientConnectionId) {
+    auto Connection = ClientConnectionPool.CheckAndGet(ProxyClientConnectionId);
+    if (!Connection) {
+        DEBUG_LOG("Connection lost, ConnectionId=%" PRIx64 "", ProxyClientConnectionId);
+        return;
+    }
 }

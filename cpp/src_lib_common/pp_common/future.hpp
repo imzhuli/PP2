@@ -95,8 +95,7 @@ public:
     template <typename T>
         requires std::is_base_of_v<xFutureBase, T>
     T * Get() const {
-        assert(bool(*this));
-        return static_cast<T *>(Manager->GetFuture(FutureId));
+        return static_cast<T *>(Manager ? Manager->GetFuture(FutureId) : nullptr);
     }
 
 private:
