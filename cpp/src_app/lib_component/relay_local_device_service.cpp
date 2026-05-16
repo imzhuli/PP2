@@ -319,6 +319,7 @@ bool xRelayLocalBindingService::KeepAlive(xRelayLocalDeviceUdpChannel * UdpChann
 void xRelayLocalBindingService::DeferDestroyConnection(xRelayLocalDeviceConnection * Connection) {
     assert(Connection == LocalConnectionPool.CheckAndGet(Connection->ConnectionId));
     if (!Steal(Connection->DeleteMark, true)) {
+        DEBUG_LOG("ConnectionId=%" PRIu64 "", Connection->ConnectionId);
         if (auto Future = Steal(Connection->CreateConnectionFutureHandle).Get<xRelayCreateConnectionFuture>()) {
             Future->SetReady();
         }
@@ -416,6 +417,7 @@ void xRelayLocalBindingService::DeferDestroyIdleUdpChannels() {
 
 void xRelayLocalBindingService::CleanDyingConnections() {
     while (auto P = static_cast<xRelayLocalDeviceConnection *>(ConnectionKillList.PopHead())) {
+        DEBUG_LOG("ConnectionId=%" PRIu64 "", P->ConnectionId);
         P->Clean();
         LocalConnectionPool.Release(P->ConnectionId);
         --Audit.ConnectionCount;

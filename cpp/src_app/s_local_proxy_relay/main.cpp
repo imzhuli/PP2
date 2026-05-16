@@ -78,7 +78,7 @@ int main(int argc, char ** argv) {
 
     auto AuditTimer = xTimer();
     while (ServiceRunState) {
-        ServiceUpdateOnce(LocalRelayService, ProxyAccessService, LocalDnsService);
+        ServiceUpdateOnce(LocalRelayService, ProxyAccessService, LocalDnsService, LocalAuthService);
         if (AuditTimer.TestAndTag(LocalAuditTimeout)) {
             AuditLogger->I("LocalAudit:\n%s%s%s%s", ProxyAccessService.OutputAudit().c_str(), LocalAuthService.OutputAudit().c_str(), LocalRelayService.OutputAudit().c_str(), LocalDnsService.OutputAudit().c_str());
         }

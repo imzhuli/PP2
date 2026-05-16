@@ -33,7 +33,7 @@ static xList<xRelayIdContext> ProtectedRelayIdContextList;
 static xTcpService            RelayConnectionService;
 
 static void ProtectRelayServerId(uint64_t Id) {
-    DEBUG_LOG("Id=%" PRIx64 "", Id);
+    DEBUG_LOG("Id=%" PRIu64 "", Id);
 
     auto Index = Low32(Id);
     assert(Index && Index < RelayIdManager.MaxObjectId);
@@ -55,7 +55,7 @@ static void ActivateProtectedReylayContext(xRelayIdContext & C, uint64_t OwnerId
     assert(C.ProtectionStartTimestampMS);
     assert(xListNode::IsLinked(C));
 
-    DEBUG_LOG("Id=%" PRIx64 ", Owner=%" PRIx64 "", C.ProtectedRelayId, OwnerId);
+    DEBUG_LOG("Id=%" PRIu64 ", Owner=%" PRIu64 "", C.ProtectedRelayId, OwnerId);
 
     C.OwnerId                    = OwnerId;
     C.ProtectionStartTimestampMS = 0;
@@ -99,7 +99,7 @@ ALLOC_NEW_ID:
     Context.ProtectedRelayId = NewId;
     Context.OwnerId          = OwnerId;
 
-    DEBUG_LOG("NewRelayId: %" PRIx64 ", Owner=%" PRIx64 "", Context.ProtectedRelayId, Context.OwnerId);
+    DEBUG_LOG("NewRelayId: %" PRIu64 ", Owner=%" PRIu64 "", Context.ProtectedRelayId, Context.OwnerId);
     return NewId;
 }
 
@@ -108,7 +108,7 @@ static void ReleaseRelayServerId(uint64_t NowMS) {
         return N.ProtectionStartTimestampMS <= KillTimepointMs;
     };
     while (auto P = ProtectedRelayIdContextList.PopHead(Pred)) {
-        DEBUG_LOG("Id=%" PRIx64 "", P->ProtectedRelayId);
+        DEBUG_LOG("Id=%" PRIu64 "", P->ProtectedRelayId);
         auto Index = Low32(P->ProtectedRelayId);
         assert(RelayIdManager.IsInUse(Index));
         RelayIdManager.Release(Index);

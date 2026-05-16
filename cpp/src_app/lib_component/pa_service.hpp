@@ -35,6 +35,7 @@ struct xPA_ClientConnection
     xPA_AcquireDeviceFuture *           AcquireDeviceFuture           = nullptr;
     xPA_AcquireDeviceConnectionFuture * AcquireDeviceConnectionFuture = nullptr;
     xPA_AcquireDeviceUdpChannelFuture * AcquireDeviceUdpChannelFuture = nullptr;
+    uint64_t                            LocalAuthId                   = {};
     xDeviceReference                    DeviceReference               = {};
     uint64_t                            RelaySideConnectionId         = {};
 
@@ -116,11 +117,13 @@ protected:  // process data:
 
     void SendS5AuthError(xPA_ClientConnection * Connection);
     void SendS5AuthAccepted(xPA_ClientConnection * Connection);
+    void SendS5AuthLimited(xPA_ClientConnection * Connection);
     void Send200(xPA_ClientConnection * Connection);
     void Send404(xPA_ClientConnection * Connection);
     void Send407(xPA_ClientConnection * Connection);
     void Send500(xPA_ClientConnection * Connection);
     void Send502(xPA_ClientConnection * Connection);
+    void Send503(xPA_ClientConnection * Connection);
 
     void OnAuthResult(xPA_AuthFuture * Future);
     void OnS5AuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future);

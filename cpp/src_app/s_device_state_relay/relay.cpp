@@ -13,7 +13,7 @@ static auto Connections = std::vector<std::unique_ptr<xTcpServiceClientConnectio
 static void DispatchData(const void * DataPtr, size_t DataSize) {
     // DEBUG_LOG("Dispatching data:\n%s", HexShow(DataPtr, DataSize).c_str());
     for (auto & H : Connections) {
-        DEBUG_LOG("ToConnection:%" PRIx64 "", H->GetConnectionId());
+        DEBUG_LOG("ToConnection:%" PRIu64 "", H->GetConnectionId());
         H->PostData(DataPtr, DataSize);
     }
 }

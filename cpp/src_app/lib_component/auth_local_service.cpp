@@ -6,6 +6,8 @@
 #include <rapidcsv.hpp>
 #include <system_error>
 
+namespace fs = std::filesystem;
+
 #ifndef NDEBUG
 static constexpr const auto RELOAD_TIMEOUT   = 15s;
 static constexpr const auto RESULE_POOL_SIZE = 20000;
@@ -13,6 +15,9 @@ static constexpr const auto RESULE_POOL_SIZE = 20000;
 static constexpr const auto RELOAD_TIMEOUT   = 5 * 60s;
 static constexpr const auto RESULE_POOL_SIZE = 10'0000;
 #endif
+
+static constexpr const size_t LOCAL_AUDIT_NODE_POOL_SIZE       = 50000;
+static constexpr const size_t LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS = 30'000;
 
 std::string xAuthLocalRecord::ToString() const {
     auto OS = std::ostringstream();
@@ -24,9 +29,25 @@ std::string xAuthLocalRecord::ToString() const {
     return OS.str();
 }
 
-namespace fs = std::filesystem;
+std::string xAuthLocalUsageAuditNode::ToString() const {
+    auto OS = std::ostringstream();
+    OS << "xAuthLocalUsageAuditNode:" << endl;
+    OS << "\tLocalAuthId:" << LocalAuthId << endl;
+    OS << "\tReferenceCount:" << ReferenceCount << endl;
+    OS << "\tGlobalAuthId:" << GlobalAuthId << endl;
+    OS << "\tLocalTcpUploadSize:" << Audit.LocalTcpUploadSize << endl;
+    OS << "\tLocalTcpDownloadSize:" << Audit.LocalTcpDownloadSize << endl;
+    OS << "\tLocalUdpUploadSize:" << Audit.LocalUdpUploadSize << endl;
+    OS << "\tLocalUdpDownloadSize:" << Audit.LocalUdpDownloadSize << endl;
+
+    return OS.str();
+}
 
 bool xAuthLocalService::Init(const std::string & AuthFileDir) {
+    if (!LocalAuditNodePool.Init(LOCAL_AUDIT_NODE_POOL_SIZE)) {
+        return false;
+    }
+
     if (!fs::is_directory(AuthFileDir, XR(std::error_code()))) {
         Logger->E("Failed to open AuthFileDir");
         return false;
@@ -46,18 +67,46 @@ void xAuthLocalService::Clean() {
 
     Reset(AuthLocalMap);
     Reset(AuthFileDir);
+
+    LocalAuditNodePool.Clean();
+}
+
+void xAuthLocalService::Tick(uint64_t NowMS) {
+    LocalTicker.Update(NowMS);
+    CheckAndResportLocalAudit();
+}
+
+void xAuthLocalService::CheckAndResportLocalAudit() {
+    auto NowMS         = LocalTicker();
+    auto KillTimepoint = NowMS - LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS;
+    auto Cond          = [=](const xAuthLocalUsageAuditNode & N) {
+        return N.TimestampMS <= KillTimepoint;
+    };
+    while (auto P = LocalAuditTimeoutList.PopHead(Cond)) {
+        // TODO: DO REPORT HERE
+        DEBUG_LOG("%s", P->ToString().c_str());
+
+        if (P->ReferenceCount) {
+            P->TimestampMS = NowMS;
+            LocalAuditTimeoutList.AddTail(*P);
+        } else {
+            --Audit.UnReleasedAuthInfoCount;
+            LocalAuditNodePool.Release(P->LocalAuthId);
+        }
+    }
 }
 
 std::string xAuthLocalService::OutputAudit() const {
     auto OS = std::ostringstream();
     OS << "xAuthLocalService:" << endl;
+    OS << "\tUnReleasedAuthInfoCount:" << Audit.UnReleasedAuthInfoCount << endl;
     OS << "\tCachedAuthInfoMapVersion:" << Audit.CachedAuthInfoMapVersion << endl;
     OS << "\tCachedAuthInfoCount:" << Audit.CachedAuthInfoCount << endl;
     return OS.str();
 }
 
-void xAuthLocalService::Validate(const std::string_view AccountPassView, xAuthResultFuture & Future) {
-    DEBUG_LOG("ValidateAccountPass:\n%s", HexShow(AccountPassView).c_str());
+void xAuthLocalService::AcquireAuthInfo(const std::string_view AccountPassView, xAuthResultFuture & Future) {
+    DEBUG_LOG("\n%s", HexShow(AccountPassView).c_str());
 
     // check and update auth map;
     auto NewMap = LastReloadInfo.AuthMap.exchange(nullptr);
@@ -69,19 +118,55 @@ void xAuthLocalService::Validate(const std::string_view AccountPassView, xAuthRe
     }
 
     Future.SetReady();
-    auto & Result = Future.Result;
-    Result        = {};
-    auto Iter     = AuthLocalMap.find(AccountPassView);
+    auto Iter = AuthLocalMap.find(AccountPassView);
     if (Iter == AuthLocalMap.end()) {
         return;
     }
     auto & LocalRecord = Iter->second;
+    ++CheckAndSetLocalAuthId(LocalRecord)->ReferenceCount;
+
     DEBUG_LOG("FoundAuthRecord:%s", LocalRecord.ToString().c_str());
+
+    auto & Result              = Future.Result;
+    Result                     = {};
+    Result->LocalAuthId        = LocalRecord.LocalAuthId;
     Result->ProxyAccessAddress = LocalRecord.ProxyClientAddress;
     Result->ExportAddress      = LocalRecord.StaticExportAddress;
     Result->EnableTcp          = LocalRecord.EnableTcp;
     Result->EnableUdp          = LocalRecord.EnableUdp;
     return;
+}
+
+void xAuthLocalService::ReleaseAuthInfo(uint64_t LocalAuthId, const xLocalUsageAudit & Usage) {
+    assert(LocalAuthId);
+    assert(LocalAuditNodePool.CheckAndGet(LocalAuthId)->LocalAuthId == LocalAuthId);
+
+    auto & LocalAuditNode       = LocalAuditNodePool[LocalAuthId];
+    //
+    auto & Audit                = LocalAuditNode.Audit;
+    Audit.LocalTcpUploadSize   += Usage.LocalTcpUploadSize;
+    Audit.LocalTcpDownloadSize += Usage.LocalTcpDownloadSize;
+    Audit.LocalUdpUploadSize   += Usage.LocalUdpUploadSize;
+    Audit.LocalUdpDownloadSize += Usage.LocalUdpDownloadSize;
+
+    --LocalAuditNode.ReferenceCount;
+}
+
+xAuthLocalUsageAuditNode * xAuthLocalService::CheckAndSetLocalAuthId(xAuthLocalRecord & LocalRecord) {
+    if (LocalRecord.LocalAuthId) {
+        assert(LocalAuditNodePool.CheckAndGet(LocalRecord.LocalAuthId));
+        return &LocalAuditNodePool[LocalRecord.LocalAuthId];
+    }
+    auto LocalAuthId = LocalAuditNodePool.Acquire();
+    X_RUNTIME_ASSERT(LocalRecord.LocalAuthId = LocalAuthId);
+
+    auto & LocalAuditNode      = LocalAuditNodePool[LocalAuthId];
+    LocalAuditNode.LocalAuthId = LocalAuthId;
+    LocalAuditNode.TimestampMS = LocalAuditNode.Audit.CollectionStartTimestampMS = LocalTicker();
+    LocalAuditTimeoutList.AddTail(LocalAuditNode);
+    ++Audit.UnReleasedAuthInfoCount;
+
+    return &LocalAuditNode;
 }
 
 static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {

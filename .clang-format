@@ -41,7 +41,7 @@ AlignConsecutiveAssignments:
     AlignCompound: true
     PadOperators: false
     AcrossEmptyLines: false
-    AcrossComments: false
+    AcrossComments: true
 
 BreakBeforeBraces: Custom
 BraceWrapping:

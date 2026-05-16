@@ -19,9 +19,10 @@ struct xStringEqual {
 };
 
 struct xAuthLocalRecord final {
-    xCountryId  CountryId = 0;
-    bool        EnableTcp = true;
-    bool        EnableUdp = false;
+    uint64_t    LocalAuthId = 0;
+    xCountryId  CountryId   = 0;
+    bool        EnableTcp   = true;
+    bool        EnableUdp   = false;
     xNetAddress ProxyClientAddress;
     xNetAddress StaticExportAddress;
 
@@ -29,22 +30,40 @@ struct xAuthLocalRecord final {
 };
 using xAuthLocalMap = std::unordered_map<std::string, xAuthLocalRecord, xStringHash, xStringEqual>;
 
+struct xAuthLocalUsageAuditNode final : xListNode {
+    uint64_t LocalAuthId;
+    size_t   ReferenceCount = 0;
+    uint64_t TimestampMS;
+
+    uint64_t         GlobalAuthId;
+    xLocalUsageAudit Audit;
+
+    std::string ToString() const;
+};
+
 class xAuthLocalService final : public xAuthAbstractService {
 public:
     bool        Init(const std::string & AuthFilePath);
     void        Clean();
+    void        Tick(uint64_t NowMS);
     std::string OutputAudit() const;
 
-    void Validate(const std::string_view AccountPassView, xAuthResultFuture & Future) override;
+    void AcquireAuthInfo(const std::string_view AccountPassView, xAuthResultFuture & Future) override;
+    void ReleaseAuthInfo(uint64_t LocalAuthId, const xLocalUsageAudit & Usage) override;
 
 private:
+    void CheckAndResportLocalAudit();
     void ReloadAuthFile();
+    auto CheckAndSetLocalAuthId(xAuthLocalRecord & LocalRecord) -> xAuthLocalUsageAuditNode *;
 
 private:
-    xel::xRunState        RunState;
-    std::filesystem::path AuthFileDir;
-    xAuthLocalMap         AuthLocalMap;
-    std::thread           ReloadAuthFileThread;
+    xRunState                                 RunState;
+    std::filesystem::path                     AuthFileDir;
+    xAuthLocalMap                             AuthLocalMap;
+    xIndexedStorage<xAuthLocalUsageAuditNode> LocalAuditNodePool;
+    xList<xAuthLocalUsageAuditNode>           LocalAuditTimeoutList;
+    std::thread                               ReloadAuthFileThread;
+    xTicker                                   LocalTicker;
 
     struct {
         std::vector<std::filesystem::path>           FileList;
@@ -53,6 +72,7 @@ private:
     } LastReloadInfo;
 
     struct {
+        size_t UnReleasedAuthInfoCount  = 0;
         size_t CachedAuthInfoCount      = 0;
         size_t CachedAuthInfoMapVersion = 0;
     } Audit;

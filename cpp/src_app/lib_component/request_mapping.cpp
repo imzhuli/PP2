@@ -28,7 +28,7 @@ void xTcpServiceRequestMap::Tick(uint64_t NowMS) {
         return R.SourceRequestTimestampMS <= KillTimepointMS;
     };
     while (auto P = SourceRequestTimeoutQueue.PopHead(Cond)) {
-        // DEBUG_LOG("ReleaseTimeoutRequest: Rid=%" PRIx64 ", SourceConnectionId=%" PRIx64 ", SourceRequestId:%" PRIx64 "", P->RequestId, P->SourceHandle.GetConnectionId(), P->SourceRequestId);
+        // DEBUG_LOG("ReleaseTimeoutRequest: Rid=%" PRIu64 ", SourceConnectionId=%" PRIu64 ", SourceRequestId:%" PRIu64 "", P->RequestId, P->SourceHandle.GetConnectionId(), P->SourceRequestId);
         SourceRequestPool.Release(P->RequestId);
         --Audit.TotalRequestCount;
     }

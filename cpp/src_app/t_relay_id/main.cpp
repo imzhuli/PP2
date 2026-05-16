@@ -6,7 +6,7 @@ int main(int, char **) {
 
     for (int I = 0; I < 10; ++I) {
         auto Id = RIM.Acquire(eRelayServerType::DEVICE);
-        printf("%" PRIx64 ", %s\n", Id, YN(RIM.Validate(Id)));
+        printf("%" PRIu64 ", %s\n", Id, YN(RIM.Validate(Id)));
     }
 
     return 0;

@@ -129,13 +129,13 @@ static void OnConsumerConnected(const xTcpServiceClientConnectionHandle & Source
 static bool OnConsumerPacket(const xTcpServiceClientConnectionHandle & SourceHandle, xPacketCommandId CmdId, xPacketRequestId RequestId, ubyte * Payload, size_t PayloadSize) {
     auto Source = SourceRequestMap.GetAndRelease(RequestId);
     if (!Source.SourceHandle.IsValid()) {
-        DEBUG_LOG("no source found, response requestId=%" PRIx64 "", RequestId);
+        DEBUG_LOG("no source found, response requestId=%" PRIu64 "", RequestId);
         return true;
     }
     ubyte DataBuffer[MaxPacketSize];
     auto  PostSize = BuildPacket(DataBuffer, CmdId, Source.SourceRequestId, Payload, PayloadSize);
     Source.SourceHandle.PostData(DataBuffer, PostSize);
-    DEBUG_LOG("ResponseRequestId=%" PRIx64 " -> SourceRequestId=%" PRIx64 "", RequestId, Source.SourceRequestId);
+    DEBUG_LOG("ResponseRequestId=%" PRIu64 " -> SourceRequestId=%" PRIu64 "", RequestId, Source.SourceRequestId);
     return true;
 }
 

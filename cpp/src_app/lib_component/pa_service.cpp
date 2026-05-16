@@ -47,6 +47,7 @@ static constexpr auto HTTP_404 = "HTTP/1.1 404 Not Found\r\n\r\n"sv;
 static constexpr auto HTTP_407 = "HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"generic\"\r\nConnection: close\r\n\r\n"sv;
 static constexpr auto HTTP_500 = "HTTP/1.1 500 Server Error\r\n\r\n"sv;
 static constexpr auto HTTP_502 = "HTTP/1.1 502 Bad Gateway\r\n\r\n"sv;
+static constexpr auto HTTP_503 = "HTTP/1.1 503 Service Unavailable\r\nX-Proxy-Error-Code: RESOURCE_EXHAUSTED\r\nRetry-After: 600\r\n\r\n"sv;
 
 //////////
 
@@ -290,8 +291,12 @@ void xProxyAccessService::ReleaseAcquireDeviceUdpChannelFuture(xPA_ClientConnect
 }
 
 void xProxyAccessService::DestroyConnection(xPA_ClientConnection * Connection) {
-    DEBUG_LOG("ConnectionId=%" PRIx64 ", LifeTime=%" PRIu64 "", Connection->ConnectionId, LocalTicker() - Connection->Debug.StartupTimestampMS);
+    DEBUG_LOG("ConnectionId=%" PRIu64 ", LifeTime=%" PRIu64 "", Connection->ConnectionId, LocalTicker() - Connection->Debug.StartupTimestampMS);
     assert(Connection == ClientConnectionPool.CheckAndGet(Connection->ConnectionId));
+    if (Connection->LocalAuthId) {
+        AuthService->ReleaseAuthInfo(Connection->LocalAuthId, {});
+    }
+
     Connection->AuthFuture ? ReleaseAuthFuture(Connection) : Pass();
     Connection->AcquireDeviceFuture ? ReleaseAcquireDeviceFuture(Connection) : Pass();
     Connection->AcquireDeviceConnectionFuture ? ReleaseAcquireDeviceConnectionFuture(Connection) : Pass();
@@ -385,7 +390,8 @@ void xProxyAccessService::OnPeerClose(xTcpConnection * TcpConnection) {
     if (ClientConnection->DeleteMark) {
         return;
     }
-    if (ClientConnection->Type == xPA_ClientConnection::eType::S5_TCP && ClientConnection->RelaySideConnectionId) {
+    if (ClientConnection->RelaySideConnectionId) {
+        assert(ClientConnection->Type == xPA_ClientConnection::eType::S5_TCP || ClientConnection->Type == xPA_ClientConnection::eType::HTTP_NORMAL || ClientConnection->Type == xPA_ClientConnection::eType::HTTP_RAW);
         RelayService->DestroyConnection(ClientConnection->DeviceReference.RelayServerId, ClientConnection->RelaySideConnectionId);
     } else if (ClientConnection->Type == xPA_ClientConnection::eType::S5_UDP && ClientConnection->BindUdpChannel) {
         RelayService->DestroyUdpChannel(ClientConnection->DeviceReference.RelayServerId, ClientConnection->BindUdpChannel->RelaySideUdpChannelId);
@@ -465,7 +471,7 @@ size_t xProxyAccessService::OnGuessProxyType(xPA_ClientConnection * Connection, 
         DEBUG_LOG("invalid challenge size");
         return InvalidDataSize;
     }
-    DEBUG_LOG("OnGuessProxyType: ConnectionId=%" PRIx64 "\n%s", Connection->ConnectionId, xel::HexShow({ (const char *)DataPtr, DataSize }).c_str());
+    DEBUG_LOG("OnGuessProxyType: ConnectionId=%" PRIu64 "\n%s", Connection->ConnectionId, xel::HexShow({ (const char *)DataPtr, DataSize }).c_str());
     if ('\x05' == (char)DataPtr[0]) {
         return OnS5Challenge(Connection, DataPtr, DataSize);
     }
@@ -938,7 +944,7 @@ xPA_AuthFuture * xProxyAccessService::RequestAuthentication(xPA_ClientConnection
         return nullptr;
     }
     Future->ClientConnection = Connection;
-    AuthService->Validate(AuthView, *Future);
+    AuthService->AcquireAuthInfo(AuthView, *Future);
     return Future;
 }
 
@@ -997,6 +1003,11 @@ xPA_AcquireDeviceUdpChannelFuture * xProxyAccessService::RequestDeviceUdpChannel
     return Future;
 }
 
+void xProxyAccessService::SendS5AuthLimited(xPA_ClientConnection * Connection) {
+    Connection->PostData("\x05\xFF", 2);  // no-auth failed
+    DEBUG_LOG("resource limited");
+}
+
 void xProxyAccessService::SendS5AuthError(xPA_ClientConnection * Connection) {
     if (Connection->NoAuth) {
         Connection->PostData("\x05\xFF", 2);  // no-auth failed
@@ -1035,6 +1046,10 @@ void xProxyAccessService::Send502(xPA_ClientConnection * Connection) {
     Connection->PostData(HTTP_502.data(), HTTP_502.size());
 }
 
+void xProxyAccessService::Send503(xPA_ClientConnection * Connection) {
+    Connection->PostData(HTTP_503.data(), HTTP_503.size());
+}
+
 void xProxyAccessService::OnAuthResult(xPA_AuthFuture * Future) {
     auto Connection = Future->ClientConnection;
     assert(Connection->AuthFuture == Future);
@@ -1054,16 +1069,17 @@ void xProxyAccessService::OnAuthResult(xPA_AuthFuture * Future) {
 
 void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future) {
     auto Result = Future->Result ? &*Future->Result : nullptr;
-    if (!Result || !Result->ProxyAccessAddress) {
+    if (!Result) {
         SendS5AuthError(Connection);
         return;
     }
+    Connection->LocalAuthId = Result->LocalAuthId;
     // Acquire device
-    auto DeviceRequest = xDeviceRequest{
-        .Condition = {
-            .ExportAddress = Result->ProxyAccessAddress,
+    auto DeviceRequest      = xDeviceRequest{
+             .Condition = {
+                 .ExportAddress = Result->ProxyAccessAddress,
         },
-        .Strategy = DSS_STATIC_EXPORT_ADDRESS,
+             .Strategy = DSS_STATIC_EXPORT_ADDRESS,
     };
     if (!(Connection->AcquireDeviceFuture = RequestDevice(Connection, DeviceRequest))) {
         DEBUG_LOG();
@@ -1074,16 +1090,17 @@ void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xPA_
 
 void xProxyAccessService::OnHttpAuthResult(xPA_ClientConnection * Connection, xPA_AuthFuture * Future) {
     auto Result = Future->Result ? &*Future->Result : nullptr;
-    if (!Result || !Result->ProxyAccessAddress) {
+    if (!Result) {
         Send407(Connection);
         return;
     }
+    Connection->LocalAuthId = Result->LocalAuthId;
     // Acquire device
-    auto DeviceRequest = xDeviceRequest{
-        .Condition = {
-            .ExportAddress = Result->ProxyAccessAddress,
+    auto DeviceRequest      = xDeviceRequest{
+             .Condition = {
+                 .ExportAddress = Result->ProxyAccessAddress,
         },
-        .Strategy = DSS_STATIC_EXPORT_ADDRESS,
+             .Strategy = DSS_STATIC_EXPORT_ADDRESS,
     };
     if (!(Connection->AcquireDeviceFuture = RequestDevice(Connection, DeviceRequest))) {
         DEBUG_LOG();
@@ -1211,7 +1228,7 @@ void xProxyAccessService::OnAcquireDeviceUdpChannelResult(xPA_AcquireDeviceUdpCh
     }
     UdpChannel->RelaySideUdpChannelId = *Result;
     //
-    auto & UdpBindAddress = UdpChannel->GetBindAddress();
+    auto & UdpBindAddress             = UdpChannel->GetBindAddress();
     assert(UdpBindAddress);
     DEBUG_LOG("Enable udp channel at local address: %s", UdpBindAddress.ToString().c_str());
 
@@ -1238,13 +1255,13 @@ void xProxyAccessService::OnAcquireDeviceUdpChannelResult(xPA_AcquireDeviceUdpCh
 void xProxyAccessService::PostData(uint64_t ProxyClientConnectionId, ubyte * DataPtr, size_t DataSize) {
     auto Connection = ClientConnectionPool.CheckAndGet(ProxyClientConnectionId);
     if (!Connection) {
-        DEBUG_LOG("Connection lost, ConnectionId=%" PRIx64 "", ProxyClientConnectionId);
+        DEBUG_LOG("Connection lost, ConnectionId=%" PRIu64 "", ProxyClientConnectionId);
         return;
     }
     if (!KeepAlive(Connection)) {
         return;
     }
-    DEBUG_LOG("Connection data ConnectionId=%" PRIx64 ", size=%zi", ProxyClientConnectionId, DataSize);
+    // DEBUG_LOG("Connection data ConnectionId=%" PRIu64 ", size=%zi", ProxyClientConnectionId, DataSize);
     assert(!Connection->AcquireDeviceConnectionFuture);  // SHOULD NOT HAPPEN: post data before AcquireDeviceConnectionResult
     Connection->PostData(DataPtr, DataSize);
     return;
@@ -1253,7 +1270,7 @@ void xProxyAccessService::PostData(uint64_t ProxyClientConnectionId, ubyte * Dat
 void xProxyAccessService::PostData(uint64_t ProxyClientUdpChannelId, const xNetAddress & SourceAddress, ubyte * DataPtr, size_t DataSize) {
     auto UdpChannel = ClientUdpChannelPool.CheckAndGet(ProxyClientUdpChannelId);
     if (!UdpChannel) {
-        DEBUG_LOG("udp channel lost, UdpChannelId=%" PRIx64 ", size=%zi", ProxyClientUdpChannelId, DataSize);
+        DEBUG_LOG("udp channel lost, UdpChannelId=%" PRIu64 ", size=%zi", ProxyClientUdpChannelId, DataSize);
         return;
     }
     if (DataSize >= PA_MAX_UDP_PACKET_SIZE) {  // drop large packets
@@ -1286,7 +1303,7 @@ void xProxyAccessService::PostData(uint64_t ProxyClientUdpChannelId, const xNetA
         return;
     }
     W.W(DataPtr, DataSize);
-    DEBUG_LOG("UdpChannel data, UdpChannelId=%" PRIx64 ", from: %s, data=\n%s", ProxyClientUdpChannelId, SourceAddress.ToString().c_str(), HexShow(Buffer, W.Offset()).c_str());
+    DEBUG_LOG("UdpChannel data, UdpChannelId=%" PRIu64 ", from: %s, data=\n%s", ProxyClientUdpChannelId, SourceAddress.ToString().c_str(), HexShow(Buffer, W.Offset()).c_str());
     UdpChannel->PostData(UdpChannel->LastClientIpAddress, Buffer, W.Offset());
     return;
 }
@@ -1294,7 +1311,7 @@ void xProxyAccessService::PostData(uint64_t ProxyClientUdpChannelId, const xNetA
 void xProxyAccessService::CloseConnection(uint64_t ProxyClientConnectionId) {
     auto Connection = ClientConnectionPool.CheckAndGet(ProxyClientConnectionId);
     if (!Connection) {
-        DEBUG_LOG("Connection lost, ConnectionId=%" PRIx64 "", ProxyClientConnectionId);
+        DEBUG_LOG("Connection lost, ConnectionId=%" PRIu64 "", ProxyClientConnectionId);
         return;
     }
     DeferGracefulKill(Connection);
