@@ -8,6 +8,7 @@ struct xAuthResult;
 class xAuthAbstract;
 
 struct xAuthResult {
+    uint64_t    GlobalAuthId;
     uint64_t    LocalAuthId;
     xCountryId  CountryId;
     xNetAddress ProxyAccessAddress;

@@ -8,11 +8,12 @@ public:
     bool Init();
     void Clean();
 
-    uint64_t AcquireServerId();
+    uint64_t AcquireServerId(xServerType Type = 0);
     uint64_t RegainServerId(uint64_t ServerId);
     bool     ReleaseServerId(uint64_t ServerId);
 
-    size_t GetMaxServerId() const { return IdManager.MaxObjectId; };
+    static xServerType ExtractServerType(uint64_t ServerId);
+    static uint32_t    ExtractServerIndex(uint64_t ServerId);
 
 private:
     uint32_t GenerateRandom();

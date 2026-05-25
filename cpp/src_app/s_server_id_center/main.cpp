@@ -1,4 +1,4 @@
-#include "./server_id_manager.hpp"
+#include "../lib_component/server_id_manager.hpp"
 
 #include <object/object.hpp>
 #include <pp_common/_.hpp>

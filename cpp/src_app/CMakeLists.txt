@@ -85,6 +85,8 @@ set(target_list
 	t_sign
 	#t_server_list_client
 
+	t_server_id
+
 
 	############ other:
 	)

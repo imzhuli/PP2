@@ -132,10 +132,8 @@ using std::function;
 // min_defs:
 using xVersion = uint32_t;
 
-using xServerId     = uint64_t;
-using xAccountId    = uint64_t;
-using xTerminalId   = uint64_t;
-using xConnectionId = uint64_t;
+using xServerType = uint8_t;
+using xServerId   = uint64_t;
 
 struct xServerInfo {
     xServerId   ServerId = {};
