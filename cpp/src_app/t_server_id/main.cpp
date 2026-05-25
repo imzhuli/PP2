@@ -7,16 +7,19 @@ static uint64_t IDA[xObjectIdManager::MaxObjectId * 2] = {};
 int main(int, char **) {
     X_VAR xResourceGuard(M);
 
+    size_t Counter = 0;
     for (auto & R : IDA) {
-        R = M.AcquireServerId(0xFF);
+        R = M.AcquireServerId((uint8_t)Counter);
+        ++Counter;
     }
 
-    size_t Counter = 0;
+    Counter = 0;
     for (auto & R : IDA) {
         if (!R) {
             continue;
         }
-        RuntimeAssert(0xFF == xServerIdManager::ExtractServerType(R));
+        cout << std::hex << R << std::dec << endl;
+        RuntimeAssert((uint8_t)Counter == xServerIdManager::ExtractServerType(R));
         RuntimeAssert(Counter == xServerIdManager::ExtractServerIndex(R));
         ++Counter;
     }
