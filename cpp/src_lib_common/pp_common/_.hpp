@@ -135,6 +135,9 @@ using xVersion = uint32_t;
 using xServerType = uint8_t;
 using xServerId   = uint64_t;
 
+constexpr const xServerType ST_SERVER_LIST      = 0x00;
+constexpr const xServerType ST_TARGET_COLLECTOR = 0x01;
+
 struct xServerInfo {
     xServerId   ServerId = {};
     xNetAddress Address  = {};

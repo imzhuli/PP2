@@ -1,8 +1,11 @@
-#include "./server_id.hpp"
+#include "./server_id_client.hpp"
+
+#include "./server_id_manager.hpp"
 
 #include <fstream>
+#include <pp_common/service_runtime.hpp>
 #include <pp_protocol/command.hpp>
-#include <pp_protocol/internal/server_id.hpp>
+#include <pp_protocol/p_register_server.hpp>
 
 uint64_t LoadLocalServerId(const std::string & LocalServerIdFilename) {
     auto File  = LocalServerIdFilename;
@@ -29,31 +32,55 @@ void DumpLocalServerId(const std::string & LocalServerIdFilename, uint64_t Local
 
 //////////////////////////////////////////////////////
 
-bool xServerIdClient::Init(xIoContext * ICP, uint64_t FirstTryServerId) {
-    if (!ClientWrapper.Init(ICP)) {
+bool xServerIdClient::Init(const xServerIdClientOptions & Options, const xNetAddress & ServerIdCenterAddress) {
+    if (!ClientWrapper.Init(ServiceIoContext)) {
         return false;
     }
     ClientWrapper.OnServerConnected = Delegate(&xServerIdClient::OnServerConnected, this);
     ClientWrapper.OnServerPacket    = Delegate(&xServerIdClient::OnServerPacket, this);
 
-    LocalServerId             = FirstTryServerId;
+    ServerType = Options.ServerType;
+    if ((LocalServerId = Options.PreviousServerId)) {
+        auto CheckType = xServerIdManager::ExtractServerType(LocalServerId);
+        if (CheckType != ServerType) {
+            Logger->I("ServerType dont match, reset LocalServerId to zero");
+            Reset(LocalServerId);
+        }
+    }
+    ClientWrapper.UpdateTarget(ServerIdCenterAddress);
     return LocalServerIdDirty = true;
 }
 
-bool xServerIdClient::Init(xIoContext * ICP, const std::string & LocalServerIdFilename) {
-    if (!ClientWrapper.Init(ICP)) {
+bool xServerIdClient::Init(const xServerIdClientOptions & Options, const xNetAddress & ServerIdCenterAddress, const std::string & LocalServerIdFilename) {
+    if (!ClientWrapper.Init(ServiceIoContext)) {
         return false;
     }
     ClientWrapper.OnServerConnected = Delegate(&xServerIdClient::OnServerConnected, this);
     ClientWrapper.OnServerPacket    = Delegate(&xServerIdClient::OnServerPacket, this);
 
-    this->LocalServerId       = LoadLocalServerId(this->LocalServerIdFilename = LocalServerIdFilename);
+    ServerType = Options.ServerType;
+    if ((LocalServerId = LoadLocalServerId(this->LocalServerIdFilename = LocalServerIdFilename))) {
+        auto CheckType = xServerIdManager::ExtractServerType(LocalServerId);
+        if (CheckType != ServerType) {
+            Logger->I("ServerType dont match, reset LocalServerId to zero");
+            Reset(LocalServerId);
+        }
+    } else if ((LocalServerId = Options.PreviousServerId)) {
+        auto CheckType = xServerIdManager::ExtractServerType(LocalServerId);
+        if (CheckType != ServerType) {
+            Logger->I("ServerType dont match, reset LocalServerId to zero");
+            Reset(LocalServerId);
+        }
+    }
+    ClientWrapper.UpdateTarget(ServerIdCenterAddress);
     return LocalServerIdDirty = true;
 }
 
 void xServerIdClient::Clean() {
+    Reset(ServerType);
     Reset(LocalServerId);
     ClientWrapper.Clean();
+    ClientWrapper.UpdateTarget({});
 }
 
 void xServerIdClient::Tick(uint64_t NowMS) {
@@ -61,19 +88,22 @@ void xServerIdClient::Tick(uint64_t NowMS) {
 }
 
 void xServerIdClient::OnServerConnected() {
-    auto Req             = xPP_AcquireServerId();
+    DEBUG_LOG();
+    auto Req             = xPP_RegisterServer();
+    Req.ServerType       = ServerType;
     Req.PreviousServerId = LocalServerId;
-    ClientWrapper.PostMessage(Cmd_AcquireServerId, 0, Req);
+    Req.ExportAddress    = {};
+    ClientWrapper.PostMessage(Cmd_RegisterService, 0, Req);
 }
 
 bool xServerIdClient::OnServerPacket(xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
-    if (CommandId != Cmd_AcquireServerIdResp) {
+    if (CommandId != Cmd_RegisterServiceResp) {
         return false;
     }
 
-    auto Resp = xPP_AcquireServerIdResp();
+    auto Resp = xPP_RegisterServerResp();
     if (!Resp.Deserialize(PayloadPtr, PayloadSize)) {
-        X_DEBUG_PRINTF("invalid packet");
+        DEBUG_LOG("invalid packet");
         return false;
     }
     if (LocalServerId != Resp.NewServerId) {

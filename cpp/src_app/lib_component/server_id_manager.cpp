@@ -64,6 +64,8 @@ bool xServerIdManager::Init() {
 }
 
 void xServerIdManager::Clean() {
+    assert(RandomPool);
+
     RandomGeneratorHolder.Destroy();
     delete[] Steal(RandomPool);
     auto IMC = xScopeCleaner(IdManager);
@@ -97,7 +99,6 @@ uint64_t xServerIdManager::AcquireServerId(xServerType Type) {
 }
 
 uint64_t xServerIdManager::RegainServerId(uint64_t ServerId) {
-
     auto [Id, Random16, Checksum] = ExtractServerId(ServerId);
     auto [Type, ObjectId]         = ExtractServerIdInternal(Id);
 
@@ -129,7 +130,6 @@ uint64_t xServerIdManager::RegainServerId(uint64_t ServerId) {
 }
 
 bool xServerIdManager::ReleaseServerId(uint64_t ServerId) {
-
     auto [Id, Random16, Checksum] = ExtractServerId(ServerId);
     auto [Type, ObjectId]         = ExtractServerIdInternal(Id);
 

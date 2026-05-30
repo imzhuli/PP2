@@ -26,17 +26,19 @@ static constexpr const xPacketCommandId Cmd_BackendChallengeResp      = Cmd_Back
 static constexpr const xPacketCommandId Cmd_BackendAuthByUserPass     = Cmd_BackendBase + 0x201;
 static constexpr const xPacketCommandId Cmd_BackendAuthByUserPassResp = Cmd_BackendBase + 0x202;
 
+// server id & server list:
+static constexpr const xPacketCommandId Cmd_ServerManagementBase = 0x01'000;
+static constexpr const xPacketCommandId Cmd_RegisterService      = Cmd_ServerManagementBase + 0x01;
+static constexpr const xPacketCommandId Cmd_RegisterServiceResp  = Cmd_ServerManagementBase + 0x02;
+
 //
-static constexpr const xPacketCommandId Cmd_RelayServerManagementBase = 0x01'000;
+static constexpr const xPacketCommandId Cmd_RelayServerManagementBase = 0x02'000;
 static constexpr const xPacketCommandId Cmd_AcquireRelayServerId      = Cmd_RelayServerManagementBase + 0x01;
 static constexpr const xPacketCommandId Cmd_AcquireRelayServerIdResp  = Cmd_RelayServerManagementBase + 0x02;
 
 // server management:
-static constexpr const xPacketCommandId Cmd_ServerManagementBase    = 0x05'000;
 static constexpr const xPacketCommandId Cmd_AcquireServerId         = Cmd_ServerManagementBase + 0x101;
 static constexpr const xPacketCommandId Cmd_AcquireServerIdResp     = Cmd_ServerManagementBase + 0x102;
-static constexpr const xPacketCommandId Cmd_RegisterService         = Cmd_ServerManagementBase + 0x103;
-static constexpr const xPacketCommandId Cmd_RegisterServiceResp     = Cmd_ServerManagementBase + 0x104;
 static constexpr const xPacketCommandId Cmd_DownloadServiceList     = Cmd_ServerManagementBase + 0x105;
 static constexpr const xPacketCommandId Cmd_DownloadServiceListResp = Cmd_ServerManagementBase + 0x106;
 

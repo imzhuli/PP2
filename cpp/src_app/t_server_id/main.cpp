@@ -1,41 +1,18 @@
+#include "../lib_component/server_id_client.hpp"
 #include "../lib_component/server_id_manager.hpp"
 
-static auto M = xServerIdManager();
+#include <pp_common/service_runtime.hpp>
 
-static uint64_t IDA[xObjectIdManager::MaxObjectId * 2] = {};
+static auto ServerAddress = xel::xNetAddress::Parse("127.0.0.1:11000");
+static auto Client        = xServerIdClient();
 
-int main(int, char **) {
-    X_VAR xResourceGuard(M);
+int main(int argc, char ** argv) {
+    X_VAR xServiceEnvironmentGuard(argc, argv, ServiceConsoleLogger);
 
-    size_t Counter = 0;
-    for (auto & R : IDA) {
-        R = M.AcquireServerId((uint8_t)Counter);
-        ++Counter;
-    }
+    X_RESOURCE_GUARD_ASSERTED(Client, xServerIdClientOptions{ .ServerType = ST_TARGET_COLLECTOR, .PreviousServerId = 0x80080001096567cb }, ServerAddress);
 
-    Counter = 0;
-    for (auto & R : IDA) {
-        if (!R) {
-            continue;
-        }
-        cout << std::hex << R << std::dec << endl;
-        RuntimeAssert((uint8_t)Counter == xServerIdManager::ExtractServerType(R));
-        RuntimeAssert(Counter == xServerIdManager::ExtractServerIndex(R));
-        ++Counter;
-    }
-
-    for (auto & R : IDA) {
-        if (!R) {
-            continue;
-        }
-        xel::RuntimeAssert(M.ReleaseServerId(R));
-    }
-
-    for (auto & R : IDA) {
-        if (!R) {
-            continue;
-        }
-        xel::RuntimeAssert(R == M.RegainServerId(R));
+    while (ServiceRunState) {
+        ServiceUpdateOnce(Client);
     }
 
     return 0;

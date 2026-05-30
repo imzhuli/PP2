@@ -1,4 +1,4 @@
-#include "../lib_client/server_id.hpp"
+#include "../lib_component/server_id_client.hpp"
 #include "./mindef.hpp"
 
 #include <map>
@@ -227,8 +227,7 @@ int main(int argc, char ** argv) {
     TcpService.OnClientClean     = OnClientClean;
     TcpService.OnClientPacket    = OnClientPacket;
 
-    X_RESOURCE_GUARD(ServerIdClient, ServiceIoContext, ServiceEnvironment.DefaultLocalServerIdFilePath);
-    ServerIdClient.SetServerAddress(ServerIdCenterAddress);
+    X_RESOURCE_GUARD(ServerIdClient, xServerIdClientOptions{ .ServerType = ST_SERVER_LIST }, ServerIdCenterAddress, ServiceEnvironment.DefaultLocalServerIdFilePath);
     ServerIdClient.OnServerIdUpdated = [](uint64_t UpdatedServerId) { Logger->I("update local server id: %" PRIu64 "", UpdatedServerId); };
 
     InsertServiceInfo(eServiceType::ServerIdCenter, 0, ServerIdCenterAddress);
