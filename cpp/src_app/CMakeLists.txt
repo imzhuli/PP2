@@ -34,7 +34,6 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
 endif()
 
 aux_source_directory("./lib_backend_connection"      LIB_SRC)
-aux_source_directory("./lib_client"                  LIB_SRC)
 aux_source_directory("./lib_component/abstract"      LIB_SRC)
 aux_source_directory("./lib_component"               LIB_SRC)
 aux_source_directory("./lib_util"                    LIB_SRC)
@@ -61,7 +60,8 @@ endfunction()
 set(target_list
 
 	s_server_id_center
-	s_server_list
+	s_small_server_list
+
 	s_config_center
 	s_dispatcher
 	
@@ -83,7 +83,7 @@ set(target_list
 	t_lang
 	t_relay_id
 	t_sign
-	#t_server_list_client
+	t_server_list_client
 
 	t_server_id
 

@@ -27,7 +27,7 @@ int main(int argc, char ** argv) {
 
     Daemonize();
 
-    Address6ChallengeService.OnPacketCallback = &OnUdpPacket;
+    Address6ChallengeService.OnPacket = &OnUdpPacket;
 
     while (ServiceRunState) {
         ServiceUpdateOnce();

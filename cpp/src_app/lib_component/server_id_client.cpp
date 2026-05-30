@@ -39,9 +39,10 @@ bool xServerIdClient::Init(const xServerIdClientOptions & Options, const xNetAdd
     ClientWrapper.OnServerConnected = Delegate(&xServerIdClient::OnServerConnected, this);
     ClientWrapper.OnServerPacket    = Delegate(&xServerIdClient::OnServerPacket, this);
 
-    ServerType = Options.ServerType;
+    ServerType    = Options.ServerType;
+    ExportAddress = Options.ExportAddress;
     if ((LocalServerId = Options.PreviousServerId)) {
-        auto CheckType = xServerIdManager::ExtractServerType(LocalServerId);
+        auto CheckType = ExtractServerType(LocalServerId);
         if (CheckType != ServerType) {
             Logger->I("ServerType dont match, reset LocalServerId to zero");
             Reset(LocalServerId);
@@ -58,15 +59,16 @@ bool xServerIdClient::Init(const xServerIdClientOptions & Options, const xNetAdd
     ClientWrapper.OnServerConnected = Delegate(&xServerIdClient::OnServerConnected, this);
     ClientWrapper.OnServerPacket    = Delegate(&xServerIdClient::OnServerPacket, this);
 
-    ServerType = Options.ServerType;
+    ServerType    = Options.ServerType;
+    ExportAddress = Options.ExportAddress;
     if ((LocalServerId = LoadLocalServerId(this->LocalServerIdFilename = LocalServerIdFilename))) {
-        auto CheckType = xServerIdManager::ExtractServerType(LocalServerId);
+        auto CheckType = ExtractServerType(LocalServerId);
         if (CheckType != ServerType) {
             Logger->I("ServerType dont match, reset LocalServerId to zero");
             Reset(LocalServerId);
         }
     } else if ((LocalServerId = Options.PreviousServerId)) {
-        auto CheckType = xServerIdManager::ExtractServerType(LocalServerId);
+        auto CheckType = ExtractServerType(LocalServerId);
         if (CheckType != ServerType) {
             Logger->I("ServerType dont match, reset LocalServerId to zero");
             Reset(LocalServerId);
@@ -78,6 +80,7 @@ bool xServerIdClient::Init(const xServerIdClientOptions & Options, const xNetAdd
 
 void xServerIdClient::Clean() {
     Reset(ServerType);
+    Reset(ExportAddress);
     Reset(LocalServerId);
     ClientWrapper.Clean();
     ClientWrapper.UpdateTarget({});
@@ -88,16 +91,16 @@ void xServerIdClient::Tick(uint64_t NowMS) {
 }
 
 void xServerIdClient::OnServerConnected() {
-    DEBUG_LOG();
     auto Req             = xPP_RegisterServer();
     Req.ServerType       = ServerType;
     Req.PreviousServerId = LocalServerId;
-    Req.ExportAddress    = {};
+    Req.ExportAddress    = ExportAddress;
     ClientWrapper.PostMessage(Cmd_RegisterService, 0, Req);
 }
 
 bool xServerIdClient::OnServerPacket(xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize) {
     if (CommandId != Cmd_RegisterServiceResp) {
+        DEBUG_LOG("invalid command id");
         return false;
     }
 

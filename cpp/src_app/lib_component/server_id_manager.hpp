@@ -3,6 +3,15 @@
 #include <pp_common/_.hpp>
 #include <random>
 
+struct xServerIdInternal {
+    xServerType Type;
+    uint32_t    ObjectId;
+};
+
+xServerType       ExtractServerType(uint64_t ServerId);
+uint32_t          ExtractServerObjectId(uint64_t ServerId);
+xServerIdInternal ExtractServerIdInternal(uint64_t ServerId);
+
 class xServerIdManager {
 public:
     bool Init();
@@ -13,8 +22,6 @@ public:
     bool     ReleaseServerId(uint64_t ServerId);
 
     static constexpr size_t MaxServerIdCount() { return 0x040000; }
-    static xServerType      ExtractServerType(uint64_t ServerId);
-    static uint32_t         ExtractServerIndex(uint64_t ServerId);
 
 private:
     uint16_t GenerateRandom();

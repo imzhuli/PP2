@@ -22,11 +22,11 @@ public:
     bool EnableServerType(xServerType Type);
     void DisableServerType(xServerType Type);
 
-    using xOnNewServerRegister    = std::function<void(xServerId Id, const xNetAddress & ExportAddress)>;
-    using xOnRemoveServerRegister = std::function<void(xServerId Id)>;
+    using xOnNewServerId    = std::function<void(xServerId Id, const xNetAddress & ExportAddress)>;
+    using xOnRemoveServerId = std::function<void(xServerId Id)>;
 
-    xOnNewServerRegister    OnNewServerRegister    = Noop<>;
-    xOnRemoveServerRegister OnRemoveServerRegister = Noop<>;
+    xOnNewServerId    OnNewServerId    = Noop<>;
+    xOnRemoveServerId OnRemoveServerId = Noop<>;
 
 private:
     auto GetServerIdManagerByServerId(uint64_t Serverid) -> xServerIdManager *;

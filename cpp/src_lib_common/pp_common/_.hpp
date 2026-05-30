@@ -145,6 +145,7 @@ struct xServerInfo {
     std::strong_ordering operator<=>(const xServerInfo &) const = default;
     static bool          LessById(const xServerInfo & LHS, const xServerInfo & RHS) { return LHS.ServerId < RHS.ServerId; }
 };
+constexpr const size_t MAX_SMALL_SERVER_LIST_SIZE = 128;
 
 namespace __pp_common_detail__ {
 

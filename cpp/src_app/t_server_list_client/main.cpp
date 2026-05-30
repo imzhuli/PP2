@@ -1,32 +1,43 @@
-#include "../lib_client/server_list.hpp"
-#include "../lib_client/server_register.hpp"
-
 #include <pp_common/service_runtime.hpp>
+#include <pp_protocol/command.hpp>
+#include <pp_protocol/p_small_server_list.hpp>
 
-xServerListClient SLC;
+static auto ServerListClient = xUdpService();
+static auto TargetAddress    = xNetAddress::Parse("127.0.0.1:11000");
+
+static void OnDownloadListResp(const xUdpServiceChannelHandle & Handle, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * Payload, size_t PayloadSize) {
+    if (CommandId != Cmd_DownloadSmallServerListResp) {
+        return;
+    }
+
+    auto Resp       = xPP_GetSmallServerListResp();
+    auto TempList   = xPP_GetSmallServerListResp::xSmallServerList();
+    Resp.ServerList = &TempList;
+
+    if (!Resp.Deserialize(Payload, PayloadSize)) {
+        return;
+    }
+    Logger->D("OnDownloadListResp: total=%" PRIu32 "", Resp.ServerListSize);
+    for (size_t I = 0; I < Resp.ServerListSize; ++I) {
+        auto & SI = TempList[I];
+        Logger->D("ServerId=%" PRIx64 ", ServerExportAddress=%s", SI.ServerId, SI.Address.ToString().c_str());
+    }
+}
 
 int main(int argc, char ** argv) {
     X_VAR xServiceEnvironmentGuard(argc, argv, ServiceConsoleLogger);
 
-    X_RESOURCE_GUARD(SLC, ServiceIoContext, std::vector{ xNetAddress::Parse("127.0.0.1:10200") });
-    SLC.EnableServerIdCenterUpdate(true);
-    SLC.EnableServerListSlaveUpdate(true);
-    SLC.EnableRelayInfoDispatcherRelayPortUpdate(true);
-    SLC.EnableRelayInfoDispatcherObserverPortUpdate(true);
-    SLC.EnableDeviceStateRelayRelayPortUpdate(true);
-    SLC.EnableDeviceStateRelayObserverPortUpdate(true);
-    SLC.EnableServerTestUpdate(true);
+    X_RESOURCE_GUARD_ASSERTED(ServerListClient, ServiceIoContext, xNetAddress::Make4());
+    ServerListClient.OnPacket = OnDownloadListResp;
 
-    SLC.OnServerListUpdated = [](eServiceType T, xVersion V, std::vector<xServerInfo> && List) {
-        cout << "on server list updated: type=" << (unsigned)T << ", version=" << V << endl;
-        for (const auto & Item : List) {
-            cout << "server_id=" << Item.ServerId << ", server_address=" << Item.Address.ToString() << endl;
-        }
-        cout << "end of server list" << endl;
-    };
-
+    auto Timer = xel::xTimer();
     while (ServiceRunState) {
-        ServiceUpdateOnce(SLC);
+        ServiceUpdateOnce();
+        if (Timer.TestAndTag(5s)) {
+            auto Req       = xPP_GetSmallServerList();
+            Req.ServerType = ST_TARGET_COLLECTOR;
+            ServerListClient.PostMessage(TargetAddress, Cmd_DownloadSmallServerList, 0, Req);
+        }
     }
 
     return 0;

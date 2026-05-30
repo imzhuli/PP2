@@ -70,7 +70,7 @@ void xServerIdService::Tick(uint64_t NowMS) {
 }
 
 xServerIdManager * xServerIdService::GetServerIdManagerByServerId(uint64_t ServerId) {
-    auto Type = xServerIdManager::ExtractServerType(ServerId);
+    auto Type = ExtractServerType(ServerId);
     return (*IdManagerList)[Type];
 }
 
@@ -107,7 +107,7 @@ void xServerIdService::OnCleanClientConnection(const xTcpServiceClientConnection
     DEBUG_LOG("ConnectionId=%" PRIx64 ", ServerId=%" PRIx64 "", Handle.GetConnectionId(), Context->ServerId);
     if (auto ServerId = Context->ServerId) {
         X_PASS_ASSERT(GetServerIdManagerByServerId(ServerId)->ReleaseServerId(ServerId));
-        OnRemoveServerRegister(ServerId);
+        OnRemoveServerId(ServerId);
     }
     ConnectionContextPool.Destroy(Context);
 }
@@ -131,7 +131,7 @@ bool xServerIdService::OnClientConnectionPacket(const xTcpServiceClientConnectio
     }
 
     if (Req.PreviousServerId) {
-        auto OldType = xServerIdManager::ExtractServerType(Req.PreviousServerId);
+        auto OldType = ExtractServerType(Req.PreviousServerId);
         if (OldType != Req.ServerType) {
             DEBUG_LOG("server type conflict with old server id");
             return false;
@@ -154,7 +154,7 @@ bool xServerIdService::OnClientConnectionPacket(const xTcpServiceClientConnectio
     }
     if ((Context->ServerId = NewServerId)) {
         xConnectionContextList::Remove(*Context);
-        OnNewServerRegister(NewServerId, Req.ExportAddress);
+        OnNewServerId(NewServerId, Req.ExportAddress);
     }
     DEBUG_LOG("ConnectionId=%" PRIx64 ", ServerId=%" PRIx64 "", Handle.GetConnectionId(), Context->ServerId);
 

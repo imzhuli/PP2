@@ -8,16 +8,7 @@ namespace {
         uint16_t Checksum;
     };
 
-    struct xServerIdInternal {
-        xServerType Type;
-        uint32_t    ObjectId;
-    };
-
-    uint32_t MakeId(const xServerIdInternal & Internal) {
-        return (static_cast<uint32_t>(Internal.Type) << 19) | Internal.ObjectId;
-    }
-
-    xServerIdComponent ExtractServerId(uint64_t ServerId) {
+    xServerIdComponent ExtractServerIdComponent(uint64_t ServerId) {
         ServerId &= 0x0FFFFFFF'FFFFFFFFu;
         return {
             .Id       = (uint32_t)(ServerId >> 32),
@@ -26,11 +17,15 @@ namespace {
         };
     }
 
-    xServerIdInternal ExtractServerIdInternal(uint32_t Id) {
+    xServerIdInternal ExtractServerIdInternalFromPureId(uint32_t Id) {
         return {
             .Type     = (xServerType)(Id >> 19),
             .ObjectId = Id & 0x07FFFF,
         };
+    }
+
+    uint32_t MakeId(const xServerIdInternal & Internal) {
+        return (static_cast<uint32_t>(Internal.Type) << 19) | Internal.ObjectId;
     }
 
     xServerId CombineServerId(xServerType Type, uint32_t ObjectId, uint16_t Random16, uint16_t Checksum) {
@@ -38,6 +33,22 @@ namespace {
     }
 
 };  // namespace
+
+xServerType ExtractServerType(uint64_t ServerId) {
+    assert(ServerId);
+    return (xServerType)(ServerId >> 51);
+}
+
+uint32_t ExtractServerObjectId(uint64_t ServerId) {
+    assert(ServerId);
+    auto ObjectId = (ServerId >> 32) & 0x0007FFFF;
+    return uint32_t(ObjectId);
+}
+
+xServerIdInternal ExtractServerIdInternal(uint64_t ServerId) {
+    assert(ServerId);
+    return ExtractServerIdInternalFromPureId(uint32_t(ServerId >> 32));
+}
 
 bool xServerIdManager::Init() {
 
@@ -79,11 +90,10 @@ uint16_t xServerIdManager::GenerateRandom() {
 uint16_t xServerIdManager::GenerateCheckSum(uint32_t IdIndex, uint16_t IdRandom) {
     assert(IdIndex);
     assert(IdRandom);
-    auto Sum = IdIndex ^ (static_cast<uint32_t>(IdRandom) << 8);
-    auto S0  = Sum >> 0;
-    auto S1  = Sum >> 7;
-    auto S2  = Sum >> 17;
-    return uint16_t(S0 ^ S1 ^ S2);
+    auto H   = uint16_t(IdIndex >> 16);
+    auto L   = uint16_t(IdIndex);
+    auto Sum = H ^ L ^ IdRandom ^ (IdRandom >> 3) ^ 0x1F77;
+    return Sum;
 }
 
 uint64_t xServerIdManager::AcquireServerId(xServerType Type) {
@@ -99,8 +109,8 @@ uint64_t xServerIdManager::AcquireServerId(xServerType Type) {
 }
 
 uint64_t xServerIdManager::RegainServerId(uint64_t ServerId) {
-    auto [Id, Random16, Checksum] = ExtractServerId(ServerId);
-    auto [Type, ObjectId]         = ExtractServerIdInternal(Id);
+    auto [Id, Random16, Checksum] = ExtractServerIdComponent(ServerId);
+    auto [Type, ObjectId]         = ExtractServerIdInternalFromPureId(Id);
 
     if (!ObjectId || ObjectId > IdManager.MaxObjectId || !Random16) {
         // X_DEBUG_PRINTF("invalid server id: out of range");
@@ -130,8 +140,8 @@ uint64_t xServerIdManager::RegainServerId(uint64_t ServerId) {
 }
 
 bool xServerIdManager::ReleaseServerId(uint64_t ServerId) {
-    auto [Id, Random16, Checksum] = ExtractServerId(ServerId);
-    auto [Type, ObjectId]         = ExtractServerIdInternal(Id);
+    auto [Id, Random16, Checksum] = ExtractServerIdComponent(ServerId);
+    auto [Type, ObjectId]         = ExtractServerIdInternalFromPureId(Id);
 
     if (!ObjectId || ObjectId > IdManager.MaxObjectId || !Random16) {
         // X_DEBUG_PRINTF("out of range");
@@ -151,15 +161,4 @@ bool xServerIdManager::ReleaseServerId(uint64_t ServerId) {
     RR = 0;
     IdManager.Release(ObjectId);
     return true;
-}
-
-xServerType xServerIdManager::ExtractServerType(uint64_t ServerId) {
-    assert(ServerId);
-    return (xServerType)(ServerId >> 51);
-}
-
-uint32_t xServerIdManager::ExtractServerIndex(uint64_t ServerId) {
-    assert(ServerId);
-    auto Index = (ServerId >> 32) & 0x0007FFFF;
-    return (uint32_t)(Index - 1);
 }

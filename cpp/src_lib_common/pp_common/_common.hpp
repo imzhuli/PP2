@@ -14,22 +14,6 @@ static constexpr const uint32_t MAX_DEVICE_SELECTOR_DISPATCHER_COUNT   = 100;
 static constexpr const uint32_t MAX_BACKEND_SERVER_COUNT               = 100;
 static constexpr const uint32_t MAX_DEVICE_SELECTOR_COUNT              = 1000;
 
-/* shared defines */
-enum struct eServiceType : uint16_t {  // used for service list, one program can have multiple services
-    Unspecified     = 0,
-    ServerIdCenter  = 1,
-    ServerListSlave = 2,
-
-    RelayInfoDispatcher_RelayPort    = 3,
-    RelayInfoDispatcher_ObserverPort = 4,
-
-    DeviceStateRelay_RelayPort    = 5,
-    DeviceStateRelay_ObserverPort = 6,
-
-    ServerTest     = 255,
-    MAX_TYPE_INDEX = 256,
-};
-
 enum struct eRelayServerType : uint8_t {
     UNSPECIFIED = 0,
     DEVICE      = 1,
