@@ -16,27 +16,11 @@ public:
 
 struct xPP_GetSmallServerListResp : public xBinaryMessage {  // from proxy_access to relay server
 public:
-    void SerializeMembers() override {
-        assert(ServerList && ServerListSize < MAX_SMALL_SERVER_LIST_SIZE);
-        W(ServerListSize);  //
-        for (size_t I = 0; I < ServerListSize; ++I) {
-            auto & Ref = (*ServerList)[I];
-            W(Ref.ServerId);
-            W(Ref.Address);
-        }
-    }
-
-    void DeserializeMembers() override {
-        R(ServerListSize);  //
-        assert(ServerList && ServerListSize < MAX_SMALL_SERVER_LIST_SIZE);
-        for (size_t I = 0; I < ServerListSize; ++I) {
-            auto & Ref = (*ServerList)[I];
-            R(Ref.ServerId);
-            R(Ref.Address);
-        }
-    }
+    void SerializeMembers() override;
+    void DeserializeMembers() override;
 
     using xSmallServerList = std::array<xServerInfo, MAX_SMALL_SERVER_LIST_SIZE>;
+    uint64_t           VersionTimestampMS;
     uint32_t           ServerListSize;
     xSmallServerList * ServerList;
 };

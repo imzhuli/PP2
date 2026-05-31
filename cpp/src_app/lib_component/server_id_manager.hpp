@@ -31,6 +31,5 @@ private:
     xObjectIdManager IdManager;
     uint16_t *       RandomPool = nullptr;
 
-    xHolder<std::mt19937>                   RandomGeneratorHolder;
-    std::uniform_int_distribution<uint32_t> RandomDistribution;
+    xHolder<std::mt19937> RandomGeneratorHolder;
 };

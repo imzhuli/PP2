@@ -22,7 +22,6 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AccessModifierOffset: -4
 
 AlignConsecutiveMacros: true
-AlignConsecutiveDeclarations: true
 AlignEscapedNewlines: true
 PenaltyBreakAssignment: 1
 SpaceBeforeParens: ControlStatements
@@ -36,21 +35,28 @@ AlignOperands: DontAlign
 AlwaysBreakAfterReturnType: None
 PenaltyReturnTypeOnItsOwnLine: 200
 
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AlignCompound: true
+  PadOperators: false
+  AcrossEmptyLines: false
+  AcrossComments: true
+
 AlignConsecutiveAssignments:
-    Enabled: true
-    AlignCompound: true
-    PadOperators: false
-    AcrossEmptyLines: false
-    AcrossComments: true
+  Enabled: true
+  AlignCompound: true
+  PadOperators: false
+  AcrossEmptyLines: false
+  AcrossComments: true
 
 BreakBeforeBraces: Custom
 BraceWrapping:
-    AfterEnum: false
-    AfterStruct: false
-    AfterClass: false
-    AfterFunction: false
-    SplitEmptyFunction: false
-    SplitEmptyRecord: false
+  AfterEnum: false
+  AfterStruct: false
+  AfterClass: false
+  AfterFunction: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
 
 BreakConstructorInitializers: BeforeComma
 BreakInheritanceList: BeforeComma

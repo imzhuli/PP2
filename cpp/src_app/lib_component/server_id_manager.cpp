@@ -84,7 +84,7 @@ void xServerIdManager::Clean() {
 }
 
 uint16_t xServerIdManager::GenerateRandom() {
-    return (RandomDistribution(*RandomGeneratorHolder) ^ 0x784C6565u) | 0x01U;
+    return ((*RandomGeneratorHolder)() ^ 0x784C6565u) | 0x01U;
 }
 
 uint16_t xServerIdManager::GenerateCheckSum(uint32_t IdIndex, uint16_t IdRandom) {
@@ -101,8 +101,8 @@ uint64_t xServerIdManager::AcquireServerId(xServerType Type) {
     if (!ObjectId) {
         return 0;
     }
-    auto Random16 = GenerateRandom();
-    auto Checksum = GenerateCheckSum(MakeId({ Type, ObjectId }), Random16);
+    auto Random16            = GenerateRandom();
+    auto Checksum            = GenerateCheckSum(MakeId({ Type, ObjectId }), Random16);
 
     RandomPool[ObjectId - 1] = Random16;
     return CombineServerId(Type, ObjectId, Random16, Checksum);

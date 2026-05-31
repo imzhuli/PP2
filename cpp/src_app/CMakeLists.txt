@@ -61,6 +61,7 @@ set(target_list
 
 	s_server_id_center
 	s_small_server_list
+	s_target_collector
 
 	s_config_center
 	s_dispatcher
