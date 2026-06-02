@@ -1,5 +1,6 @@
 #include "../lib_component/server_id_client.hpp"
 #include "../lib_component/small_server_list_downloader.hpp"
+#include "./reporter.hpp"
 
 #include <pp_common/service_runtime.hpp>
 

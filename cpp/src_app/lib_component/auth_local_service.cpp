@@ -130,6 +130,7 @@ void xAuthLocalService::AcquireAuthInfo(const std::string_view AccountPassView, 
     auto & Result              = Future.Result;
     Result                     = {};
     Result->LocalAuthId        = LocalRecord.LocalAuthId;
+    Result->GlobalAuthId       = LocalRecord.GlobalAuthId;
     Result->ProxyAccessAddress = LocalRecord.ProxyClientAddress;
     Result->ExportAddress      = LocalRecord.StaticExportAddress;
     Result->EnableTcp          = LocalRecord.EnableTcp;
@@ -173,6 +174,7 @@ static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
     auto   Doc      = rapidcsv::Document(FilePath.string(), rapidcsv::LabelParams(0, 0));
     size_t RowCount = Doc.GetRowCount();  // 数据行数（不含表头）
 
+    auto AuthIdIndex          = Doc.GetColumnIdx("auth_id");
     auto AccountIndex         = Doc.GetColumnIdx("account");
     auto PasswordIndex        = Doc.GetColumnIdx("password");
     auto CountryCodeIndex     = Doc.GetColumnIdx("country_code");
@@ -190,7 +192,7 @@ static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
             DEBUG_LOG("AuthRow expired");
             continue;
         }
-
+        auto AuthId          = (uint64_t)strtoumax(Doc.GetCell<std::string>(AuthIdIndex, Row).c_str(), nullptr, 10);
         auto Account         = Doc.GetCell<std::string>(AccountIndex, Row);
         auto Password        = Doc.GetCell<std::string>(PasswordIndex, Row);
         auto CountryCode     = Doc.GetCell<std::string>(CountryCodeIndex, Row);
@@ -203,6 +205,7 @@ static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
         auto   AccountKey = CombineAccountPass(Account, Password);
         auto & Node       = TargetMap[AccountKey];
 
+        Node.GlobalAuthId        = AuthId;
         Node.CountryId           = CountryCodeToCountryId(CountryCode.c_str());
         Node.ProxyClientAddress  = ProxyIp;
         Node.StaticExportAddress = ExportAddress;
