@@ -1,3 +1,4 @@
+#include "../lib_component/audit_service.hpp"
 #include "../lib_component/auth_local_service.hpp"
 #include "../lib_component/dns_local_service.hpp"
 #include "../lib_component/pa_service.hpp"
@@ -9,6 +10,7 @@ static auto LocalAuthService   = xAuthLocalService();
 static auto LocalRelayService  = xRelayLocalBindingService();
 static auto ProxyAccessService = xProxyAccessService();
 static auto LocalDnsService    = xDnsLocalService();
+static auto AuditService       = xAuditService();
 static auto LocalAuditTimeout =
 #ifndef NDEBUG
     1min;
@@ -22,6 +24,7 @@ static auto ProxyAccessBindUdpAddress4   = xNetAddress{};
 static auto ProxyAccessBindUdpAddress6   = xNetAddress{};
 static auto ProxyAccessExportUdpAddress4 = xNetAddress{};
 static auto ProxyAccessExportUdpAddress6 = xNetAddress{};
+static auto SmallServerListServer        = xNetAddress{};
 static auto LocalRelayServerId           = (uint64_t)0;
 static auto LocalAuthFilePath            = std::string();
 static auto LocalBindingDeviceFile       = std::string{};
@@ -39,6 +42,8 @@ static void LoadConfig() {
     CL.Require(LocalRelayServerId, "LocalRelayServerId");
     CL.Require(LocalBindingDeviceFile, "LocalBindingDeviceFile");
     CL.Require(LocalAuthFilePath, "LocalAuthFilePath");
+
+    CL.Require(SmallServerListServer, "SmallServerListServer");
 
     Logger->I("Begin Config");
     Logger->I("BindAddress4=%s", ProxyAccessBindAddress4.ToString().c_str());
@@ -61,6 +66,7 @@ int main(int argc, char ** argv) {
     X_RESOURCE_GUARD_ASSERTED(LocalRelayService, LocalRelayServerId, LocalBindingDeviceFile);
     X_RESOURCE_GUARD_ASSERTED(ProxyAccessService, ProxyAccessBindAddress4, ProxyAccessBindAddress6);
     X_RESOURCE_GUARD_ASSERTED(LocalDnsService);
+    X_RESOURCE_GUARD_ASSERTED(AuditService, SmallServerListServer, SmallServerListServer.Decay());
 
     if (ProxyAccessBindUdpAddress4) {
         X_RUNTIME_ASSERT(ProxyAccessExportUdpAddress4);
@@ -73,12 +79,13 @@ int main(int argc, char ** argv) {
     ProxyAccessService.BindAuthService(&LocalAuthService);
     ProxyAccessService.BindDeviceLocatorService(&LocalRelayService);
     ProxyAccessService.BindRelayService(&LocalRelayService);
+    ProxyAccessService.BindAuditService(&AuditService);
     LocalRelayService.BindProxyService(&ProxyAccessService);
     LocalRelayService.BindDnsService(&LocalDnsService);
 
     auto AuditTimer = xTimer();
     while (ServiceRunState) {
-        ServiceUpdateOnce(LocalRelayService, ProxyAccessService, LocalDnsService, LocalAuthService);
+        ServiceUpdateOnce(LocalRelayService, ProxyAccessService, LocalDnsService, LocalAuthService, AuditService);
         if (AuditTimer.TestAndTag(LocalAuditTimeout)) {
             AuditLogger->I("LocalAudit:\n%s%s%s%s", ProxyAccessService.OutputAudit().c_str(), LocalAuthService.OutputAudit().c_str(), LocalRelayService.OutputAudit().c_str(), LocalDnsService.OutputAudit().c_str());
         }

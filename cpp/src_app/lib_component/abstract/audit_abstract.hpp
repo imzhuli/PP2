@@ -23,3 +23,7 @@ struct xAuditAbstractService {
     virtual void ReportUsage(const xAuditUsage & UsageInfo)                      = 0;
     virtual void ReportBlockAccount(const xAuditBlockAccount & BlockAccountInfo) = 0;
 };
+
+struct xTargetReporterAbstractService {
+    virtual void ReportTarget(uint64_t & GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count) = 0;
+};

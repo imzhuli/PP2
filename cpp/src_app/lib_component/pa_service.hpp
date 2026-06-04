@@ -2,6 +2,7 @@
 #include "./abstract/device_abstract.hpp"
 #include "./abstract/pa_abstract.hpp"
 #include "./abstract/relay_abstract.hpp"
+#include "./audit_service.hpp"
 #include "./pa_future.hpp"
 
 class xProxyAccessService;
@@ -81,6 +82,7 @@ public:
     void BindAuthService(xAuthAbstractService * Service) { AuthService = Service; }
     void BindDeviceLocatorService(xDeviceLocatorAbstractService * Service) { DeviceLocatorService = Service; }
     void BindRelayService(xRelayAbstractService * Service) { RelayService = Service; }
+    void BindAuditService(xAuditService * Service) { AuditService = Service; }
     void EnableUdp4(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
     void EnableUdp6(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
 
@@ -158,6 +160,10 @@ protected:
     void ClearTimeoutFuture();
 
 private:
+    void ReportTarget(uint64_t GlobalAuthId, const xNetAddress & Address);
+    void ReportTarget(uint64_t GlobalAuthId, const std::string_view & TargetHost);
+
+private:
     xTicker      LocalTicker;
     xTcpServer * TcpServer4 = nullptr;
     xTcpServer * TcpServer6 = nullptr;
@@ -177,6 +183,7 @@ private:
     xAuthAbstractService *          AuthService          = nullptr;
     xDeviceLocatorAbstractService * DeviceLocatorService = nullptr;
     xRelayAbstractService *         RelayService         = nullptr;
+    xAuditService *                 AuditService         = nullptr;
 
     xNetAddress BindUdpAddress4   = {};
     xNetAddress BindUdpAddress6   = {};

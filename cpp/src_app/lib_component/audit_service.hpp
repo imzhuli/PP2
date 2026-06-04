@@ -1,11 +1,18 @@
 #pragma once
 #include "./abstract/audit_abstract.hpp"
-#include "./abstract/target_reporter_abstract.hpp"
 #include "./small_server_list_downloader.hpp"
 
 #include <object/object.hpp>
 #include <pp_common/_.hpp>
 #include <random>
+
+struct xSmallServerList {
+    using xServerListContainer = std::array<xServerInfo, MAX_SMALL_SERVER_LIST_SIZE>;
+    using xServerListSize      = size_t;
+    xServerType          Type;
+    xServerListContainer Container;
+    xServerListSize      Size = 0;
+};
 
 class xAuditService final
     : public xTargetReporterAbstractService
@@ -27,6 +34,10 @@ private:
     xel::xTcpClientPool        TcpReporter;
     xel::xUdpService           UdpReporter;
     xSmallServerListDownloader ServerListDownloader;
+    //
+    xSmallServerList           AuditServerList;
+    xSmallServerList           TargetCollectServerList;
+    xTcpClientPool             AuditClientPool;
 
     struct xAudit {
         size_t NoServerReport = 0;

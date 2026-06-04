@@ -5,7 +5,7 @@
 #include <pp_protocol/p_small_server_list.hpp>
 
 #ifndef NDEBUG
-static constexpr const uint64_t UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS = 60'000;
+static constexpr const uint64_t UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS = 5'000;
 #else
 static constexpr const uint64_t UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS = 10 * 60'000;
 #endif

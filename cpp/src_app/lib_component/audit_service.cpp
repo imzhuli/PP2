@@ -42,7 +42,12 @@ bool xAuditService::Init(const xNetAddress & ServerListServerAddress, const xNet
         TcpReporter.Clean();
         return false;
     }
+    if (!AuditClientPool.Init(ServiceIoContext, 3 * MAX_SMALL_SERVER_LIST_SIZE)) {
+        TcpReporter.Clean();
+        UdpReporter.Clean();
+    }
     if (!ServerListDownloader.Init(ServerListServerAddress, LocalBindAddress.Decay())) {
+        AuditClientPool.Clean();
         TcpReporter.Clean();
         UdpReporter.Clean();
         return false;
@@ -56,6 +61,7 @@ bool xAuditService::Init(const xNetAddress & ServerListServerAddress, const xNet
 
 void xAuditService::Clean() {
     ServerListDownloader.Clean();
+    AuditClientPool.Clean();
     UdpReporter.Clean();
     TcpReporter.Clean();
 }
@@ -73,13 +79,67 @@ std::string xAuditService::OutputAudit() {
 }
 
 void xAuditService::OnServerListUpdated(xServerType ServerType, const xServerInfo * ServerList, size_t ServerListSize, uint64_t VersionTimestampMS) {
-    auto OS = std::ostringstream();
-    OS << "OnServerListUpdated, Type=" << ServerType << ", VersionTimestampMS=" << VersionTimestampMS << endl;
-    for (size_t I = 0; I < ServerListSize; ++I) {
-        auto & SI = ServerList[I];
-        OS << "\tServerId=" << SI.ServerId << ", ServerExportAddress=" << SI.Address.ToString() << endl;
+    if (ServerType == ST_TARGET_COLLECTOR) {  // udp servers , simply replace the old list
+        DEBUG_LOG("renew target collector server list");
+        for (size_t I = 0; I < ServerListSize; ++I) {
+            auto & SI = ServerList[I];
+            auto & DI = TargetCollectServerList.Container[I];
+            DI        = SI;
+            DEBUG_LOG("target collector server info: %" PRIx64 ", Address=%s", SI.ServerId, SI.Address.ToString().c_str());
+        }
+        TargetCollectServerList.Size = ServerListSize;
+        return;
     }
-    DEBUG_LOG("%s", OS.str().c_str());
+
+    if (ServerType == ST_AUDIT_COLLECTOR) {
+        auto OldList  = AuditServerList.Container.data();
+        auto OldSize  = AuditServerList.Size;
+        auto OldIndex = size_t(0);
+        auto NewList  = ServerList;
+        auto NewSize  = ServerListSize;
+        auto NewIndex = size_t(0);
+        DEBUG_LOG("renew audit collector server list");
+        while (true) {
+            if (NewIndex == NewSize) {
+                for (; OldIndex < OldSize; ++OldIndex) {
+                    auto & RemovedServerInfo = OldList[OldIndex];
+                    DEBUG_LOG("remove audit collector server info: %" PRIx64 ", Address=%s", RemovedServerInfo.ServerId, RemovedServerInfo.Address.ToString().c_str());
+                }
+                break;
+            }
+            if (OldIndex == OldSize) {
+                for (; NewIndex < NewSize; ++NewIndex) {
+                    auto & AddedServerInfo = NewList[NewIndex];
+                    DEBUG_LOG("add audit collector server info: %" PRIx64 ", Address=%s", AddedServerInfo.ServerId, AddedServerInfo.Address.ToString().c_str());
+                }
+                break;
+            }
+            auto & FromOld = OldList[OldIndex];
+            auto & FromNew = NewList[NewIndex];
+            if (FromOld.ServerId == FromNew.ServerId) {
+                if (FromOld.Address == FromNew.Address) {
+                    DEBUG_LOG("remain audit collector server info: %" PRIx64 ", Address=%s", FromOld.ServerId, FromOld.Address.ToString().c_str());
+                } else {
+                    DEBUG_LOG("remove audit collector server info: %" PRIx64 ", Address=%s", FromOld.ServerId, FromOld.Address.ToString().c_str());
+                    DEBUG_LOG("add audit collector server info: %" PRIx64 ", Address=%s", FromNew.ServerId, FromNew.Address.ToString().c_str());
+                }
+                ++OldIndex;
+                ++NewIndex;
+            } else if (FromOld.ServerId < FromNew.ServerId) {  // remove old
+                DEBUG_LOG("remove audit collector server info: %" PRIx64 ", Address=%s", FromOld.ServerId, FromOld.Address.ToString().c_str());
+                ++OldIndex;
+            } else {
+                DEBUG_LOG("add audit collector server info: %" PRIx64 ", Address=%s", FromNew.ServerId, FromNew.Address.ToString().c_str());
+                ++NewIndex;
+            }
+        }
+        for (size_t I = 0; I < NewSize; ++I) {
+            auto & SI = ServerList[I];
+            auto & DI = AuditServerList.Container[I];
+            DI        = SI;
+        }
+        AuditServerList.Size = NewSize;
+    }
 }
 
 void xAuditService::ReportTarget(uint64_t & GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count) {

@@ -1334,3 +1334,17 @@ void xProxyAccessService::CloseConnection(uint64_t ProxyClientConnectionId) {
     }
     DeferGracefulKill(Connection);
 }
+
+void xProxyAccessService::ReportTarget(uint64_t GlobalAuthId, const xNetAddress & Address) {
+    if (!AuditService) {
+        return;
+    }
+    AuditService->ReportTarget(GlobalAuthId, Address, {}, 1);
+}
+
+void xProxyAccessService::ReportTarget(uint64_t GlobalAuthId, const std::string_view & TargetHost) {
+    if (!AuditService) {
+        return;
+    }
+    AuditService->ReportTarget(GlobalAuthId, {}, TargetHost, 1);
+}
