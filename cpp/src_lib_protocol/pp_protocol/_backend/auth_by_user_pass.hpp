@@ -23,10 +23,10 @@ public:
     void SerializeMembers() override {
         W(ErrorCode);
         if (!ErrorCode) {
-            W(TypeFlags, AuditId, ContinentId, CountryId, StateId, CityId, Duration, Random);
+            W(TypeFlags, AuthId, ContinentId, CountryId, StateId, CityId, Duration, Random);
             W(AutoChangeIpOnDeviceOffline, EnableUdp, Ipv6Prefered);
             W(PoolFlags, ServerToken, ExportIp);
-            W(Redirect, AuditIdForThirdPartyResource);
+            W(Redirect, AuthIdForThirdPartyResource);
         }
         if (xBinaryMessageWriter::HasError()) {
             X_DEBUG_PRINTF("HasError");
@@ -35,10 +35,10 @@ public:
     void DeserializeMembers() override {
         R(ErrorCode);
         if (!ErrorCode) {
-            R(TypeFlags, AuditId, ContinentId, CountryId, StateId, CityId, Duration, Random);
+            R(TypeFlags, AuthId, ContinentId, CountryId, StateId, CityId, Duration, Random);
             R(AutoChangeIpOnDeviceOffline, EnableUdp, Ipv6Prefered);
             R(PoolFlags, ServerToken, ExportIp);
-            R(Redirect, AuditIdForThirdPartyResource);
+            R(Redirect, AuthIdForThirdPartyResource);
         }
         if (xBinaryMessageReader::HasError()) {
             X_DEBUG_PRINTF("HasError");
@@ -54,7 +54,7 @@ public:
 public:
     uint32_t     ErrorCode;
     uint16_t     TypeFlags;
-    xAuditId     AuditId;
+    xAuthId      AuthId;
     xContinentId ContinentId;
     xCountryId   CountryId;
     xStateId     StateId;
@@ -68,5 +68,5 @@ public:
     std::string  ServerToken;
     xNetAddress  ExportIp;
     std::string  Redirect;
-    uint32_t     AuditIdForThirdPartyResource;
+    uint32_t     AuthIdForThirdPartyResource;
 };

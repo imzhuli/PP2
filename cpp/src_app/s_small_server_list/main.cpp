@@ -134,14 +134,18 @@ int main(int argc, char ** argv) {
         [] {
             EnableServerType(ST_SERVER_LIST);
             EnableServerType(ST_TARGET_COLLECTOR);
+            EnableServerType(ST_AUDIT_COLLECTOR);
             ServerIdService.EnableServerType(ST_SERVER_LIST);
             ServerIdService.EnableServerType(ST_TARGET_COLLECTOR);
+            ServerIdService.EnableServerType(ST_AUDIT_COLLECTOR);
         },
         [] {
             DisableServerType(ST_SERVER_LIST);
             DisableServerType(ST_TARGET_COLLECTOR);
+            DisableServerType(ST_AUDIT_COLLECTOR);
             ServerIdService.DisableServerType(ST_SERVER_LIST);
             ServerIdService.DisableServerType(ST_TARGET_COLLECTOR);
+            ServerIdService.DisableServerType(ST_AUDIT_COLLECTOR);
         }
     );
     ServerIdService.OnNewServerId    = OnNewServerId;

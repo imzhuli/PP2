@@ -9,7 +9,6 @@ class xAuthAbstract;
 
 struct xAuthResult {
     uint64_t    LocalAuthId;
-    uint64_t    GlobalAuthId;
     xCountryId  CountryId;
     xNetAddress ProxyAccessAddress;
     xNetAddress ExportAddress;
@@ -22,13 +21,11 @@ struct xAuthResult {
     std::string ToString() const;
 };
 
-struct xLocalUsageAudit {
-    uint64_t CollectionStartTimestampMS = {};
-    uint64_t CollectionEndTimestampMS   = {};
-    uint64_t LocalTcpUploadSize         = {};
-    uint64_t LocalTcpDownloadSize       = {};
-    uint64_t LocalUdpUploadSize         = {};
-    uint64_t LocalUdpDownloadSize       = {};
+struct xLocalUsage {
+    uint64_t TotalTcpBytesFromClient = {};
+    uint64_t TotalTcpBytesToClient   = {};
+    uint64_t TotalUdpBytesFromClient = {};
+    uint64_t TotalUdpBytesToClient   = {};
 };
 
 struct xAuthResultFuture : xFutureBase {
@@ -38,7 +35,7 @@ struct xAuthResultFuture : xFutureBase {
 class xAuthAbstractService : xAbstract {
 public:
     virtual void AcquireAuthInfo(const std::string_view AccountPassView, xAuthResultFuture & Future) = 0;
-    virtual void ReleaseAuthInfo(uint64_t LocalAuthId, const xLocalUsageAudit & Audit)               = 0;
+    virtual void ReleaseAuthInfo(uint64_t LocalAuthId, const xLocalUsage & Audit)                    = 0;
 };
 
 extern std::string CombineAccountPass(std::string_view AccountView, std::string_view PassView);

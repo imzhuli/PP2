@@ -14,8 +14,8 @@ static constexpr const xPacketCommandId Cmd_BackendBase           = 0x04'000;
 static constexpr const xPacketCommandId Cmd_AuditTerminalInfo     = Cmd_BackendBase + 0x01;  // 旧版, 弃用
 static constexpr const xPacketCommandId Cmd_AuditTerminalInfoResp = Cmd_BackendBase + 0x02;  // 一般不处理返回
 
-static constexpr const xPacketCommandId Cmd_AuditUsageByAuditId         = Cmd_BackendBase + 0x03;  //
-static constexpr const xPacketCommandId Cmd_AuditUsageByAuditIdResp     = Cmd_BackendBase + 0x04;  // 一般不处理返回
+static constexpr const xPacketCommandId Cmd_AuditUsageByAuthId          = Cmd_BackendBase + 0x03;  //
+static constexpr const xPacketCommandId Cmd_AuditUsageByAuthIdResp      = Cmd_BackendBase + 0x04;  // 一般不处理返回
 static constexpr const xPacketCommandId Cmd_AuditTerminalInfo2          = Cmd_BackendBase + 0x05;  // 2025-03-09 新增, 无返回
 static constexpr const xPacketCommandId Cmd_DeviceRelayServerInfo2      = Cmd_BackendBase + 0x06;  // 2025-03-09 新增, 无返回
 static constexpr const xPacketCommandId Cmd_DeviceRelayServerInfoSingle = Cmd_BackendBase + 0x07;  // 2025-05-28 新增, 无返回

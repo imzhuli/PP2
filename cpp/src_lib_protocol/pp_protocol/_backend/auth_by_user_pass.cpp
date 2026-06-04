@@ -6,7 +6,7 @@ std::string xPPB_BackendAuthByUserPassResp::ToString() const {
     auto O = std::ostringstream();
     O << "EC: " << (uint32_t)ErrorCode << endl;
 
-    O << "AuditId:" << AuditId << endl;
+    O << "AuthId:" << AuthId << endl;
     O << "ContinentId:" << ContinentId << endl;
     O << "CountryId:" << CountryId << endl;
     O << "StateId:" << StateId << endl;
@@ -19,7 +19,7 @@ std::string xPPB_BackendAuthByUserPassResp::ToString() const {
     O << "PoolFlags:" << PoolFlags << endl;
     O << "ServerToken:" << ServerToken << endl;
     O << "Redirect:" << Redirect << endl;
-    O << "AuditIdForThirdPartyResource:" << AuditIdForThirdPartyResource << endl;
+    O << "AuthIdForThirdPartyResource:" << AuthIdForThirdPartyResource << endl;
 
     return O.str();
 }

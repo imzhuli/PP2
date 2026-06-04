@@ -61,6 +61,8 @@ set(target_list
 
 	s_server_id_center
 	s_small_server_list
+
+	s_audit_collector
 	s_target_collector
 
 	s_config_center
@@ -81,7 +83,6 @@ set(target_list
 	t_echo_client	
 	t_echo_server
 
-	t_lang
 	t_relay_id
 	t_sign
 	t_server_list_client

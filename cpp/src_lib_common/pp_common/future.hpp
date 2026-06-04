@@ -7,10 +7,12 @@ class xFutureManager;
 class xFutureBase;
 class xFutureHandle;
 
+template <typename T, typename U = ::xel::xNone>
+using xExpected = std::expected<T, U>;
 template <typename T>
-using xExpected = std::expected<T, xNone>;
+using xUnexpected = std::unexpected<T>;
 
-constexpr const auto UnexpctedResult = std::unexpected(None);
+constexpr const auto UnexpctedResult = xUnexpected(None);
 
 struct xFutureNode : xListNode {
     uint64_t StartTimestampMS = {};

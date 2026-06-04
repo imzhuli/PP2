@@ -123,17 +123,13 @@ void xSmallServerListDownloader::OnUdpPacket(const xUdpServiceChannelHandle &, x
     }
 
     bool VersionChange = (PNode->VersionTimestampMS != Resp.VersionTimestampMS);
-    if (Resp.ServerListSize == 0) {
-        PNode->ServerListSize = 0;
-    } else {
+    if (VersionChange) {
         for (size_t I = 0; I < Resp.ServerListSize; ++I) {
             PNode->ServerList[I] = Resp.ServerList[I];
         }
-        PNode->ServerListSize = Resp.ServerListSize;
-    }
-    if (VersionChange) {
+        PNode->ServerListSize     = Resp.ServerListSize;
         PNode->VersionTimestampMS = Resp.VersionTimestampMS;
-        OnServerListUpdated(PNode->ServerList->data(), PNode->ServerListSize, PNode->VersionTimestampMS);
+        OnServerListUpdated(ServerType, PNode->ServerList->data(), PNode->ServerListSize, PNode->VersionTimestampMS);
     }
     return;
 }

@@ -4,7 +4,7 @@
 #include <random>
 
 class xSmallServerListDownloader final {
-    using xOnServerListUpdated = std::function<void(const xServerInfo * ServerList, size_t ServerListSize, uint64_t VersionTimestampMS)>;
+    using xOnServerListUpdated = std::function<void(xServerType ServerType, const xServerInfo * ServerList, size_t ServerListSize, uint64_t VersionTimestampMS)>;
 
 public:
     bool Init(const xNetAddress & ServerListServerMasterAddress, const xNetAddress & LocalBindAddress);

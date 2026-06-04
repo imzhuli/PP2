@@ -137,6 +137,7 @@ using xServerId   = uint64_t;
 
 constexpr const xServerType ST_SERVER_LIST      = 0x00;
 constexpr const xServerType ST_TARGET_COLLECTOR = 0x01;
+constexpr const xServerType ST_AUDIT_COLLECTOR  = 0x02;
 
 struct xServerInfo {
     xServerId   ServerId = {};

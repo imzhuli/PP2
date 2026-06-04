@@ -1,10 +1,10 @@
 #include "./_.hpp"
 #include "./_region.hpp"
 
-using xAuditId = uint64_t;
+using xAuthId = uint64_t;
 
 struct xTcpClientAuthResult {
-    xAuditId    AuditId;
+    xAuthId     AuthId;
     xCountryId  CountryId;
     xStateId    StateId;
     xCityId     CityId;
@@ -17,7 +17,7 @@ struct xTcpClientAuthResult {
 };
 
 struct xAuditAccountInfo {
-    uint64_t AuditId = {};
+    uint64_t AuthId = {};
 
     uint64_t TotalTcpCount        = {};
     uint64_t TotalTcpUploadSize   = {};

@@ -1,0 +1,25 @@
+#pragma once
+#include <pp_common/_.hpp>
+#include <pp_common/_error.hpp>
+
+struct xAuditUsage {
+    uint64_t AuthId;
+    uint64_t StartTimestampMS;
+    uint64_t DurationMS;
+    uint64_t TotalTcpBytesFromClient;
+    uint64_t TotalTcpBytesToClient;
+    uint64_t TotalUdpBytesFromClient;
+    uint64_t TotalUdpBytesToClient;
+};
+
+struct xAuditBlockAccount {
+    uint64_t            AuthId;
+    uint64_t            StartTimestampMS;
+    uint64_t            DurationMS;
+    eBlockAccountReason Reason;
+};
+
+struct xAuditAbstractService {
+    virtual void ReportUsage(const xAuditUsage & UsageInfo)                      = 0;
+    virtual void ReportBlockAccount(const xAuditBlockAccount & BlockAccountInfo) = 0;
+};

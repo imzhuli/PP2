@@ -294,7 +294,15 @@ void xProxyAccessService::DestroyConnection(xPA_ClientConnection * Connection) {
     DEBUG_LOG("ConnectionId=%" PRIu64 ", LifeTime=%" PRIu64 "", Connection->ConnectionId, LocalTicker() - Connection->Debug.StartupTimestampMS);
     assert(Connection == ClientConnectionPool.CheckAndGet(Connection->ConnectionId));
     if (Connection->LocalAuthId) {
-        AuthService->ReleaseAuthInfo(Connection->LocalAuthId, {});
+        AuthService->ReleaseAuthInfo(
+            Connection->LocalAuthId,
+            {
+                .TotalTcpBytesFromClient = Connection->TotalTcpBytesFromClient,
+                .TotalTcpBytesToClient   = Connection->TotalTcpBytesToClient,
+                .TotalUdpBytesFromClient = Connection->TotalUdpBytesFromClient,
+                .TotalUdpBytesToClient   = Connection->TotalUdpBytesToClient,
+            }
+        );
     }
 
     Connection->AuthFuture ? ReleaseAuthFuture(Connection) : Pass();
@@ -409,7 +417,11 @@ void xProxyAccessService::OnFlush(xTcpConnection * TcpConnection) {
 
 size_t xProxyAccessService::OnData(xTcpConnection * TcpConnection, ubyte * DataPtr, size_t DataSize) {
     auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnection);
-    return (this->*ClientConnection->DataProcessor)(ClientConnection, DataPtr, DataSize);
+    auto ConsumedSize     = (this->*ClientConnection->DataProcessor)(ClientConnection, DataPtr, DataSize);
+    if (ConsumedSize != xel::InvalidDataSize) {
+        ClientConnection->TotalTcpBytesFromClient += DataSize;
+    }
+    return ConsumedSize;
 }
 
 void xProxyAccessService::OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & SourceAddress) {
@@ -422,6 +434,12 @@ void xProxyAccessService::OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, s
         return;
     }
     ClientUdpChannel->LastClientIpAddress = SourceAddress;
+
+    auto ParentClientConnection = ClientUdpChannel->ParentConnection;
+    assert(ParentClientConnection);
+
+    ParentClientConnection->TotalUdpBytesFromClient += DataSize;
+    KeepAlive(ParentClientConnection);
 
     // extract target info:
     auto R = xel::xStreamReader(DataPtr);
@@ -457,8 +475,6 @@ void xProxyAccessService::OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, s
     if (!PayloadSize) {  // empty packet
         return;
     }
-
-    auto ParentClientConnection = ClientUdpChannel->ParentConnection;
     RelayService->PostData(ParentClientConnection->DeviceReference.RelayServerId, ClientUdpChannel->RelaySideUdpChannelId, TargetAddress, R, PayloadSize);
 }
 
@@ -1253,17 +1269,18 @@ void xProxyAccessService::OnAcquireDeviceUdpChannelResult(xPA_AcquireDeviceUdpCh
 }
 
 void xProxyAccessService::PostData(uint64_t ProxyClientConnectionId, ubyte * DataPtr, size_t DataSize) {
-    auto Connection = ClientConnectionPool.CheckAndGet(ProxyClientConnectionId);
-    if (!Connection) {
+    auto ClientConnection = ClientConnectionPool.CheckAndGet(ProxyClientConnectionId);
+    if (!ClientConnection) {
         DEBUG_LOG("Connection lost, ConnectionId=%" PRIu64 "", ProxyClientConnectionId);
         return;
     }
-    if (!KeepAlive(Connection)) {
+    if (!KeepAlive(ClientConnection)) {
         return;
     }
     // DEBUG_LOG("Connection data ConnectionId=%" PRIu64 ", size=%zi", ProxyClientConnectionId, DataSize);
-    assert(!Connection->AcquireDeviceConnectionFuture);  // SHOULD NOT HAPPEN: post data before AcquireDeviceConnectionResult
-    Connection->PostData(DataPtr, DataSize);
+    assert(!ClientConnection->AcquireDeviceConnectionFuture);  // SHOULD NOT HAPPEN: post data before AcquireDeviceConnectionResult
+    ClientConnection->PostData(DataPtr, DataSize);
+    ClientConnection->TotalTcpBytesToClient += DataSize;
     return;
 }
 
@@ -1305,6 +1322,7 @@ void xProxyAccessService::PostData(uint64_t ProxyClientUdpChannelId, const xNetA
     W.W(DataPtr, DataSize);
     DEBUG_LOG("UdpChannel data, UdpChannelId=%" PRIu64 ", from: %s, data=\n%s", ProxyClientUdpChannelId, SourceAddress.ToString().c_str(), HexShow(Buffer, W.Offset()).c_str());
     UdpChannel->PostData(UdpChannel->LastClientIpAddress, Buffer, W.Offset());
+    ClientConnection->TotalUdpBytesToClient += W.Offset();
     return;
 }
 

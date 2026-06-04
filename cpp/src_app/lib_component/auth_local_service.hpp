@@ -19,25 +19,28 @@ struct xStringEqual {
 };
 
 struct xAuthLocalRecord final {
-    uint64_t    LocalAuthId  = 0;
-    uint64_t    GlobalAuthId = 0;
-    xCountryId  CountryId    = 0;
-    bool        EnableTcp    = true;
-    bool        EnableUdp    = false;
+    uint64_t    LocalAuthId   = 0;
+    uint64_t    GlobalAuthId  = 0;
+    xCountryId  CountryId     = 0;
+    bool        EnableTcp     = true;
+    bool        EnableUdp     = false;
+    uint64_t    BandwithLimit = 0;
     xNetAddress ProxyClientAddress;
     xNetAddress StaticExportAddress;
+    //
+    uint64_t    BlockStartTimestampMS = 0;
 
     std::string ToString() const;
 };
 using xAuthLocalMap = std::unordered_map<std::string, xAuthLocalRecord, xStringHash, xStringEqual>;
 
 struct xAuthLocalUsageAuditNode final : xListNode {
-    uint64_t LocalAuthId;
-    size_t   ReferenceCount = 0;
-    uint64_t TimestampMS;
-
-    uint64_t         GlobalAuthId;
-    xLocalUsageAudit Audit;
+    uint64_t    LocalAuthId           = 0;
+    uint64_t    GlobalAuthId          = 0;
+    size_t      ReferenceCount        = 0;
+    uint64_t    LastReportTimestampMS = 0;
+    //
+    xLocalUsage Audit;
 
     std::string ToString() const;
 };
@@ -50,7 +53,7 @@ public:
     std::string OutputAudit() const;
 
     void AcquireAuthInfo(const std::string_view AccountPassView, xAuthResultFuture & Future) override;
-    void ReleaseAuthInfo(uint64_t LocalAuthId, const xLocalUsageAudit & Usage) override;
+    void ReleaseAuthInfo(uint64_t LocalAuthId, const xLocalUsage & Usage) override;
 
 private:
     void CheckAndResportLocalAudit();

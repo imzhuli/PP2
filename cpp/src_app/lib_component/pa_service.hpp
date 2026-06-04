@@ -38,6 +38,11 @@ struct xPA_ClientConnection
     uint64_t                            LocalAuthId                   = {};
     xDeviceReference                    DeviceReference               = {};
     uint64_t                            RelaySideConnectionId         = {};
+    //
+    size64_t                            TotalTcpBytesFromClient       = 0;
+    size64_t                            TotalTcpBytesToClient         = 0;
+    size64_t                            TotalUdpBytesFromClient       = 0;
+    size64_t                            TotalUdpBytesToClient         = 0;
 
     struct xHttpData {
         std::string TargetHost = {};

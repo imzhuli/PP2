@@ -6,7 +6,7 @@ public:
     void SerializeMembers() override;
     void DeserializeMembers() override;
 
-    uint64_t         AuditId;  // global authid / auditid
+    uint64_t         AuthId;  // global authid / AuthId
     xNetAddress      TargetAddress;
     std::string_view TargetHostView;
     //
