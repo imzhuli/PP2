@@ -143,6 +143,7 @@ void xAuthLocalService::AcquireAuthInfo(const std::string_view AccountPassView, 
     auto & Result              = Future.Result;
     Result                     = {};
     Result->LocalAuthId        = LocalRecord.LocalAuthId;
+    Result->GlobalAuthId       = LocalRecord.GlobalAuthId;
     Result->ProxyAccessAddress = LocalRecord.ProxyClientAddress;
     Result->ExportAddress      = LocalRecord.StaticExportAddress;
     Result->EnableTcp          = LocalRecord.EnableTcp;

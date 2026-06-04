@@ -80,14 +80,7 @@ std::string xAuditService::OutputAudit() {
 
 void xAuditService::OnServerListUpdated(xServerType ServerType, const xServerInfo * ServerList, size_t ServerListSize, uint64_t VersionTimestampMS) {
     if (ServerType == ST_TARGET_COLLECTOR) {  // udp servers , simply replace the old list
-        DEBUG_LOG("renew target collector server list");
-        for (size_t I = 0; I < ServerListSize; ++I) {
-            auto & SI = ServerList[I];
-            auto & DI = TargetCollectServerList.Container[I];
-            DI        = SI;
-            DEBUG_LOG("target collector server info: %" PRIx64 ", Address=%s", SI.ServerId, SI.Address.ToString().c_str());
-        }
-        TargetCollectServerList.Size = ServerListSize;
+        DEBUG_LOG("renew target collector server list (always use ServerListDownloader.GetServerListView())");
         return;
     }
 
@@ -148,6 +141,7 @@ void xAuditService::ReportTarget(uint64_t & GlobalAuthId, const xel::xNetAddress
         ++Audit.NoServerReport;
         return;
     }
+
     auto ShortDomain   = ExtractSecondLevelDomain(TargetHost);
     auto Req           = xPP_TargetCollect();
     Req.AuthId         = GlobalAuthId;
@@ -158,7 +152,7 @@ void xAuditService::ReportTarget(uint64_t & GlobalAuthId, const xel::xNetAddress
     ubyte Buffer[xel::MaxPacketSize];
     auto  RSize        = WriteMessage(Buffer, sizeof(Buffer), Cmd_TargetRport, Req);
     auto  Hash         = Req.Hash;
-    auto  SelectTarget = ServerList[ServerListSize % Hash];
+    auto  SelectTarget = ServerList[Hash % ServerListSize];
     DEBUG_LOG("SelectReportTarget: %s", SelectTarget.Address.ToString().c_str());
 
     UdpReporter.PostData(SelectTarget.Address, Buffer, RSize);

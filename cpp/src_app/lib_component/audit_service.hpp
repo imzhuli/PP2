@@ -36,7 +36,6 @@ private:
     xSmallServerListDownloader ServerListDownloader;
     //
     xSmallServerList           AuditServerList;
-    xSmallServerList           TargetCollectServerList;
     xTcpClientPool             AuditClientPool;
 
     struct xAudit {

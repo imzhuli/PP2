@@ -2,6 +2,9 @@
 
 std::string xAuthResult::ToString() const {
     auto SS = std::ostringstream();
+
+    SS << "LocalAuthId:" << LocalAuthId << endl;
+    SS << "GlobalAuthId:" << GlobalAuthId << endl;
     SS << "CountryId:" << CountryId << endl;
     SS << "ProxyAccessAddress:" << ProxyAccessAddress << endl;
     SS << "ExportAddress:" << ExportAddress << endl;

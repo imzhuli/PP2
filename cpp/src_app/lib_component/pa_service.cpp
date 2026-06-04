@@ -975,6 +975,7 @@ xPA_AcquireDeviceFuture * xProxyAccessService::RequestDevice(xPA_ClientConnectio
 }
 
 xPA_AcquireDeviceConnectionFuture * xProxyAccessService::RequestDeviceConnection(xPA_ClientConnection * Connection, const xNetAddress & TargetAddress) {
+    ReportTarget(Connection->GlobalAuthId, TargetAddress.Ip());
     auto Future = AcquireDeviceConnectionFutureManager.AcquireFuture();
     if (!Future) {
         return nullptr;
@@ -990,6 +991,7 @@ xPA_AcquireDeviceConnectionFuture * xProxyAccessService::RequestDeviceConnection
 }
 
 xPA_AcquireDeviceConnectionFuture * xProxyAccessService::RequestDeviceConnection(xPA_ClientConnection * Connection, const std::string_view & TargetHostnameView, uint16_t TargetPort) {
+    ReportTarget(Connection->GlobalAuthId, TargetHostnameView);
     auto Future = AcquireDeviceConnectionFutureManager.AcquireFuture();
     if (!Future) {
         return nullptr;
@@ -1089,13 +1091,15 @@ void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xPA_
         SendS5AuthError(Connection);
         return;
     }
-    Connection->LocalAuthId = Result->LocalAuthId;
+    Connection->LocalAuthId  = Result->LocalAuthId;
+    Connection->GlobalAuthId = Result->GlobalAuthId;
+
     // Acquire device
-    auto DeviceRequest      = xDeviceRequest{
-             .Condition = {
-                 .ExportAddress = Result->ProxyAccessAddress,
+    auto DeviceRequest = xDeviceRequest{
+        .Condition = {
+            .ExportAddress = Result->ProxyAccessAddress,
         },
-             .Strategy = DSS_STATIC_EXPORT_ADDRESS,
+        .Strategy = DSS_STATIC_EXPORT_ADDRESS,
     };
     if (!(Connection->AcquireDeviceFuture = RequestDevice(Connection, DeviceRequest))) {
         DEBUG_LOG();
@@ -1110,13 +1114,15 @@ void xProxyAccessService::OnHttpAuthResult(xPA_ClientConnection * Connection, xP
         Send407(Connection);
         return;
     }
-    Connection->LocalAuthId = Result->LocalAuthId;
+    Connection->LocalAuthId  = Result->LocalAuthId;
+    Connection->GlobalAuthId = Result->GlobalAuthId;
+
     // Acquire device
-    auto DeviceRequest      = xDeviceRequest{
-             .Condition = {
-                 .ExportAddress = Result->ProxyAccessAddress,
+    auto DeviceRequest = xDeviceRequest{
+        .Condition = {
+            .ExportAddress = Result->ProxyAccessAddress,
         },
-             .Strategy = DSS_STATIC_EXPORT_ADDRESS,
+        .Strategy = DSS_STATIC_EXPORT_ADDRESS,
     };
     if (!(Connection->AcquireDeviceFuture = RequestDevice(Connection, DeviceRequest))) {
         DEBUG_LOG();

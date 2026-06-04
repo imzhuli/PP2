@@ -37,6 +37,7 @@ struct xPA_ClientConnection
     xPA_AcquireDeviceConnectionFuture * AcquireDeviceConnectionFuture = nullptr;
     xPA_AcquireDeviceUdpChannelFuture * AcquireDeviceUdpChannelFuture = nullptr;
     uint64_t                            LocalAuthId                   = {};
+    uint64_t                            GlobalAuthId                  = {};
     xDeviceReference                    DeviceReference               = {};
     uint64_t                            RelaySideConnectionId         = {};
     //
