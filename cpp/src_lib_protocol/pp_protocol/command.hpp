@@ -11,8 +11,9 @@ PPP_CMD(EchoTestResp, 0x02);
 
 // backend base:
 static constexpr const xPacketCommandId Cmd_BackendBase           = 0x04'000;
-static constexpr const xPacketCommandId Cmd_AuditTerminalInfo     = Cmd_BackendBase + 0x01;  // 旧版, 弃用
-static constexpr const xPacketCommandId Cmd_AuditTerminalInfoResp = Cmd_BackendBase + 0x02;  // 一般不处理返回
+static constexpr const xPacketCommandId Cmd_AuditTerminalInfo     = Cmd_BackendBase + 0x01;   // 旧版, 弃用
+static constexpr const xPacketCommandId Cmd_AuditTerminalInfoResp = Cmd_BackendBase + 0x02;   // 一般不处理返回
+static constexpr const xPacketCommandId Cmd_TargetReport          = Cmd_BackendBase + 0x301;  //
 
 static constexpr const xPacketCommandId Cmd_AuditUsageByAuthId          = Cmd_BackendBase + 0x03;  //
 static constexpr const xPacketCommandId Cmd_AuditUsageByAuthIdResp      = Cmd_BackendBase + 0x04;  // 一般不处理返回

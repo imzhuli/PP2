@@ -9,17 +9,18 @@
 namespace fs = std::filesystem;
 
 #ifndef NDEBUG
-static constexpr const auto     RELOAD_TIMEOUT           = 15s;
-static constexpr const size_t   RESULE_POOL_SIZE         = 20000;
-static constexpr const uint64_t ACCOUNT_BLOCK_TIMEOUT_MS = 1 * 60'000;
+static constexpr const auto     RELOAD_TIMEOUT                   = 15s;
+static constexpr const size_t   RESULE_POOL_SIZE                 = 20000;
+static constexpr const uint64_t ACCOUNT_BLOCK_TIMEOUT_MS         = 1 * 60'000;
+static constexpr const size_t   LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS = 1 * 60'000;
 #else
-static constexpr const auto     RELOAD_TIMEOUT           = 5 * 60s;
-static constexpr const size_t   RESULE_POOL_SIZE         = 10'0000;
-static constexpr const uint64_t ACCOUNT_BLOCK_TIMEOUT_MS = 15 * 60'000;
+static constexpr const auto     RELOAD_TIMEOUT                   = 5 * 60s;
+static constexpr const size_t   RESULE_POOL_SIZE                 = 10'0000;
+static constexpr const uint64_t ACCOUNT_BLOCK_TIMEOUT_MS         = 15 * 60'000;
+static constexpr const size_t   LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS = 5 * 60'000;
 #endif
 
-static constexpr const size_t LOCAL_AUDIT_NODE_POOL_SIZE       = 50000;
-static constexpr const size_t LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS = 3 * 60'000;
+static constexpr const size_t LOCAL_AUDIT_NODE_POOL_SIZE = 10'0000;
 
 std::string xAuthLocalRecord::ToString() const {
     auto OS = std::ostringstream();
@@ -75,18 +76,27 @@ void xAuthLocalService::Clean() {
 
 void xAuthLocalService::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
-    CheckAndResportLocalAudit();
+    CheckAndReportLocalAudit();
 }
 
-void xAuthLocalService::CheckAndResportLocalAudit() {
+void xAuthLocalService::CheckAndReportLocalAudit() {
     auto NowMS         = LocalTicker();
     auto KillTimepoint = NowMS - LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS;
     auto Cond          = [=](const xAuthLocalUsageAuditNode & N) {
         return N.LastReportTimestampMS <= KillTimepoint;
     };
     while (auto P = LocalAuditTimeoutList.PopHead(Cond)) {
-        // TODO: DO REPORT HERE
         DEBUG_LOG("%s", P->ToString().c_str());
+        auto UsageInfo                    = xAuditUsage();
+        UsageInfo.AuthId                  = P->GlobalAuthId;
+        UsageInfo.StartTimestampMS        = P->LastReportTimestampMS;
+        UsageInfo.PeriodMS                = NowMS - P->LastReportTimestampMS;
+        UsageInfo.TotalTcpBytesFromClient = Steal(P->Audit.TotalTcpBytesFromClient);
+        UsageInfo.TotalTcpBytesToClient   = Steal(P->Audit.TotalTcpBytesToClient);
+        UsageInfo.TotalUdpBytesFromClient = Steal(P->Audit.TotalUdpBytesFromClient);
+        UsageInfo.TotalUdpBytesToClient   = Steal(P->Audit.TotalUdpBytesToClient);
+
+        AuditService->ReportUsage(UsageInfo);
 
         if (P->ReferenceCount) {
             P->LastReportTimestampMS = NowMS;
@@ -113,6 +123,14 @@ void xAuthLocalService::AcquireAuthInfo(const std::string_view AccountPassView, 
     // check and update auth map;
     auto NewMap = LastReloadInfo.AuthMap.exchange(nullptr);
     if (NewMap) {
+        for (auto & Entry : AuthLocalMap) {
+            auto & LocalRecord = Entry.second;
+            if (LocalRecord.LocalAuthId) {
+                auto & LocalUsageNode = LocalAuditNodePool[LocalRecord.LocalAuthId];
+                --LocalUsageNode.ReferenceCount;
+            }
+        }
+
         AuthLocalMap              = std::move(*NewMap);
         Audit.CachedAuthInfoCount = AuthLocalMap.size();
         ++Audit.CachedAuthInfoMapVersion;
@@ -163,7 +181,6 @@ void xAuthLocalService::ReleaseAuthInfo(uint64_t LocalAuthId, const xLocalUsage 
     Audit.TotalTcpBytesToClient   += Usage.TotalTcpBytesToClient;
     Audit.TotalUdpBytesFromClient += Usage.TotalUdpBytesFromClient;
     Audit.TotalUdpBytesToClient   += Usage.TotalUdpBytesToClient;
-
     --LocalAuditNode.ReferenceCount;
 }
 
@@ -178,6 +195,7 @@ xAuthLocalUsageAuditNode * xAuthLocalService::CheckAndSetLocalAuthId(xAuthLocalR
     auto & LocalAuditNode                = LocalAuditNodePool[LocalAuthId];
     LocalAuditNode.LocalAuthId           = LocalAuthId;
     LocalAuditNode.GlobalAuthId          = LocalRecord.GlobalAuthId;
+    LocalAuditNode.ReferenceCount        = 1;
     LocalAuditNode.LastReportTimestampMS = LocalTicker();
     LocalAuditTimeoutList.AddTail(LocalAuditNode);
 

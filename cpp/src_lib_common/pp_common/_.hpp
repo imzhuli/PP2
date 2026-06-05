@@ -76,6 +76,8 @@ using xel::xResourceGuard;
 using xel::xScopeCleaner;
 using xel::xScopeGuard;
 using xel::xSocket;
+using xel::xSpinlock;
+using xel::xSpinlockGuard;
 using xel::xStreamReader;
 using xel::xStreamWriter;
 using xel::xTcpClient;

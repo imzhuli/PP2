@@ -7,9 +7,10 @@ public:
     void SerializeMembers() override;
     void DeserializeMembers() override;
 
-    uint64_t            AuthId;
-    uint64_t            StartTimestampMS;
-    uint64_t            DurationMS;
+    uint64_t AuthId;
+    uint64_t StartTimestampMS;
+    uint64_t PeriodMS;
+    ;
     eBlockAccountReason Reason;
 };
 
@@ -20,7 +21,8 @@ public:
 
     uint64_t AuthId;
     uint64_t StartTimestampMS;
-    uint64_t DurationMS;
+    uint64_t PeriodMS;
+    ;
 
     uint64_t TotalTcpBytesFromClient;
     uint64_t TotalTcpBytesToClient;

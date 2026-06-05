@@ -5,17 +5,20 @@
 struct xAuditUsage {
     uint64_t AuthId;
     uint64_t StartTimestampMS;
-    uint64_t DurationMS;
+    uint64_t PeriodMS;
     uint64_t TotalTcpBytesFromClient;
     uint64_t TotalTcpBytesToClient;
     uint64_t TotalUdpBytesFromClient;
     uint64_t TotalUdpBytesToClient;
+
+    std::string ToString() const;
 };
 
 struct xAuditBlockAccount {
-    uint64_t            AuthId;
-    uint64_t            StartTimestampMS;
-    uint64_t            DurationMS;
+    uint64_t AuthId;
+    uint64_t StartTimestampMS;
+    uint64_t PeriodMS;
+    ;
     eBlockAccountReason Reason;
 };
 
@@ -25,5 +28,5 @@ struct xAuditAbstractService {
 };
 
 struct xTargetReporterAbstractService {
-    virtual void ReportTarget(uint64_t & GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count) = 0;
+    virtual void ReportTarget(uint64_t GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count) = 0;
 };

@@ -42,7 +42,7 @@ public:
     }
 
     void Tick(uint64_t NowMS) {
-        Ticker.Update(NowMS);
+        LocalTicker.Update(NowMS);
         if (NowMS - LastAuditTimestampMS < AuditTimeoutMS) {
             return;
         }
@@ -55,7 +55,7 @@ public:
         }
         xel::Reset(LastSegMessageCount);
         xel::Reset(LastSegTotalLatency);
-        LastAuditTimestampMS = Ticker();
+        LastAuditTimestampMS = LocalTicker();
     }
 
     xAudit GetAudit() const {
@@ -68,7 +68,7 @@ private:
     size_t TotalFailure = 0;
 
     // audit
-    xTicker Ticker;
+    xTicker LocalTicker;
     xAudit  Audit = {};
 
     xel::xSpinlock AuditLock            = {};
@@ -76,7 +76,6 @@ private:
     uint64_t       LastSegMessageCount  = 0;
     uint64_t       LastSegTotalLatency  = 0;
 };
-static xKfkDeliveryReportCb KfkCB;
 
 /**/
 
@@ -88,6 +87,9 @@ bool xKfkProducer::Init(const std::string & Topic, const std::map<std::string, s
     }
     auto ConfCleaner = xScopeGuard([this] { delete Steal(KfkConf); });
 
+    KfkCB          = new xKfkDeliveryReportCb();
+    auto CBCleaner = xScopeGuard([this] { delete Steal(KfkCB); });
+
     KfkToipcName          = Topic;
     auto TopicNameCleaner = xScopeGuard([this] { Reset(KfkToipcName); });
 
@@ -98,7 +100,7 @@ bool xKfkProducer::Init(const std::string & Topic, const std::map<std::string, s
             return false;
         }
     }
-    if (RdKafka::Conf::CONF_OK != KfkConf->set("dr_cb", &KfkCB, errstr)) {
+    if (RdKafka::Conf::CONF_OK != KfkConf->set("dr_cb", KfkCB, errstr)) {
         X_DEBUG_PRINTF("failed to set kafka producer param: %s, error=%s", "dr_cb", errstr.c_str());
         return false;
     }
@@ -109,6 +111,7 @@ bool xKfkProducer::Init(const std::string & Topic, const std::map<std::string, s
         return false;
     }
 
+    CBCleaner.Dismiss();
     ConfCleaner.Dismiss();
     TopicNameCleaner.Dismiss();
 
@@ -126,6 +129,7 @@ void xKfkProducer::Clean() {
     RunState.Finish();
 
     DestroyProducer();
+    auto CBCleaner        = xScopeGuard([this] { delete Steal(KfkCB); });
     auto ConfCleaner      = xScopeGuard([this] { delete Steal(KfkConf); });
     auto TopicNameCleaner = xScopeGuard([this] { Reset(KfkToipcName); });
     X_DEBUG_PRINTF("done");
@@ -199,11 +203,9 @@ void xKfkProducer::Flush() {
     if (!Producer.KfkProducer) {
         return;
     }
-    Producer.KfkProducer->flush(0);
+    Producer.KfkProducer->flush(5'000);
 }
 
-void xKfkProducer::Poll() {
-    while (RunState) {
-        Producer.KfkProducer->poll(100);
-    }
+void xKfkProducer::Poll(int TimeoutMS) {
+    Producer.KfkProducer->poll(TimeoutMS);
 }

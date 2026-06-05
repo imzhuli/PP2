@@ -1,8 +1,8 @@
 #pragma once
+#include "./abstract/audit_abstract.hpp"
 #include "./abstract/device_abstract.hpp"
 #include "./abstract/pa_abstract.hpp"
 #include "./abstract/relay_abstract.hpp"
-#include "./audit_service.hpp"
 #include "./pa_future.hpp"
 
 class xProxyAccessService;
@@ -83,7 +83,7 @@ public:
     void BindAuthService(xAuthAbstractService * Service) { AuthService = Service; }
     void BindDeviceLocatorService(xDeviceLocatorAbstractService * Service) { DeviceLocatorService = Service; }
     void BindRelayService(xRelayAbstractService * Service) { RelayService = Service; }
-    void BindAuditService(xAuditService * Service) { AuditService = Service; }
+    void BindTargetReportService(xTargetReporterAbstractService * Service) { TargetReportService = Service; }
     void EnableUdp4(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
     void EnableUdp6(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
 
@@ -181,10 +181,10 @@ private:
     xFuturePoolManager<xPA_AcquireDeviceConnectionFuture> AcquireDeviceConnectionFutureManager;
     xFuturePoolManager<xPA_AcquireDeviceUdpChannelFuture> AcquireDeviceUdpChannelFutureManager;
 
-    xAuthAbstractService *          AuthService          = nullptr;
-    xDeviceLocatorAbstractService * DeviceLocatorService = nullptr;
-    xRelayAbstractService *         RelayService         = nullptr;
-    xAuditService *                 AuditService         = nullptr;
+    xAuthAbstractService *           AuthService          = nullptr;
+    xDeviceLocatorAbstractService *  DeviceLocatorService = nullptr;
+    xRelayAbstractService *          RelayService         = nullptr;
+    xTargetReporterAbstractService * TargetReportService  = nullptr;
 
     xNetAddress BindUdpAddress4   = {};
     xNetAddress BindUdpAddress6   = {};

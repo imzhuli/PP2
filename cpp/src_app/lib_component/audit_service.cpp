@@ -135,7 +135,7 @@ void xAuditService::OnServerListUpdated(xServerType ServerType, const xServerInf
     }
 }
 
-void xAuditService::ReportTarget(uint64_t & GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count) {
+void xAuditService::ReportTarget(uint64_t GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count) {
     auto [ServerList, ServerListSize] = ServerListDownloader.GetServerListView(ST_TARGET_COLLECTOR);
     if (!ServerList || !ServerListSize) {
         ++Audit.NoServerReport;
@@ -159,6 +159,7 @@ void xAuditService::ReportTarget(uint64_t & GlobalAuthId, const xel::xNetAddress
 }
 
 void xAuditService::ReportUsage(const xAuditUsage & UsageInfo) {
+    DEBUG_LOG("UsageInfo:%s", UsageInfo.ToString().c_str());
 }
 
 void xAuditService::ReportBlockAccount(const xAuditBlockAccount & BlockAccountInfo) {

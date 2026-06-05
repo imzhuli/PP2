@@ -23,7 +23,7 @@ public:
     void Tick(uint64_t NowMS);
     auto OutputAudit() -> std::string;
 
-    void ReportTarget(uint64_t & GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count) override;
+    void ReportTarget(uint64_t GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count) override;
     void ReportUsage(const xAuditUsage & UsageInfo) override;
     void ReportBlockAccount(const xAuditBlockAccount & BlockAccountInfo) override;
 

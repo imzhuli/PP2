@@ -29,7 +29,7 @@ protected:
 
     auto CreateNativeProducer() -> xTopicProducer;
     void DestroyNativeProducer(xTopicProducer && TP);
-    void Poll();
+    void Poll(int TimeoutMS = 50);
 
 private:
     RdKafka::Conf * KfkConf = nullptr;
@@ -40,4 +40,6 @@ private:
     xTopicProducer Producer;
     xTopicProducer BackupProducer;
     std::thread    PollThread;
+
+    class xKfkDeliveryReportCb * KfkCB = nullptr;
 };

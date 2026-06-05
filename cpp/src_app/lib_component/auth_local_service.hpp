@@ -1,4 +1,5 @@
 #pragma once
+#include "./abstract/audit_abstract.hpp"
 #include "./abstract/auth_abstract.hpp"
 
 #include <filesystem>
@@ -51,23 +52,27 @@ public:
     void        Clean();
     void        Tick(uint64_t NowMS);
     std::string OutputAudit() const;
+    void        BindAuditService(xAuditAbstractService * Service) { AuditService = Service; }
 
     void AcquireAuthInfo(const std::string_view AccountPassView, xAuthResultFuture & Future) override;
     void ReleaseAuthInfo(uint64_t LocalAuthId, const xLocalUsage & Usage) override;
 
 private:
-    void CheckAndResportLocalAudit();
+    void CheckAndReportLocalAudit();
     void ReloadAuthFile();
     auto CheckAndSetLocalAuthId(xAuthLocalRecord & LocalRecord) -> xAuthLocalUsageAuditNode *;
 
 private:
     xRunState                                 RunState;
+    xTicker                                   LocalTicker;
+    //
     std::filesystem::path                     AuthFileDir;
     xAuthLocalMap                             AuthLocalMap;
     xIndexedStorage<xAuthLocalUsageAuditNode> LocalAuditNodePool;
     xList<xAuthLocalUsageAuditNode>           LocalAuditTimeoutList;
     std::thread                               ReloadAuthFileThread;
-    xTicker                                   LocalTicker;
+    //
+    xAuditAbstractService *                   AuditService;
 
     struct {
         std::vector<std::filesystem::path>           FileList;

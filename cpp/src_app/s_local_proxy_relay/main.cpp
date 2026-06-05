@@ -76,10 +76,11 @@ int main(int argc, char ** argv) {
         X_RUNTIME_ASSERT(ProxyAccessExportUdpAddress6);
         ProxyAccessService.EnableUdp6(ProxyAccessBindUdpAddress6, ProxyAccessExportUdpAddress6);
     }
+    LocalAuthService.BindAuditService(&AuditService);
     ProxyAccessService.BindAuthService(&LocalAuthService);
     ProxyAccessService.BindDeviceLocatorService(&LocalRelayService);
     ProxyAccessService.BindRelayService(&LocalRelayService);
-    ProxyAccessService.BindAuditService(&AuditService);
+    ProxyAccessService.BindTargetReportService(&AuditService);
     LocalRelayService.BindProxyService(&ProxyAccessService);
     LocalRelayService.BindDnsService(&LocalDnsService);
 

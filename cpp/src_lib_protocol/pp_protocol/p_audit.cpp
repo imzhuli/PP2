@@ -5,14 +5,14 @@
 void xPP_BlockAccount::SerializeMembers() {
     W(AuthId);
     W(StartTimestampMS);
-    W(DurationMS);
+    W(PeriodMS);
     W(Reason);
 }
 
 void xPP_BlockAccount::DeserializeMembers() {
     R(AuthId);
     R(StartTimestampMS);
-    R(DurationMS);
+    R(PeriodMS);
     R(Reason);
 }
 
@@ -21,7 +21,7 @@ void xPP_BlockAccount::DeserializeMembers() {
 void xPP_AccountUsage::SerializeMembers() {
     W(AuthId);
     W(StartTimestampMS);
-    W(DurationMS);
+    W(PeriodMS);
 
     W(TotalTcpBytesFromClient);
     W(TotalTcpBytesToClient);
@@ -32,7 +32,7 @@ void xPP_AccountUsage::SerializeMembers() {
 void xPP_AccountUsage::DeserializeMembers() {
     R(AuthId);
     R(StartTimestampMS);
-    R(DurationMS);
+    R(PeriodMS);
 
     R(TotalTcpBytesFromClient);
     R(TotalTcpBytesToClient);
