@@ -5,7 +5,7 @@ void xPP_TargetCollect::SerializeMembers() {
 
     auto Writer    = GetWriter();
     auto HashStart = Writer->GetCurrentPosition();
-    W(AuthId);          //
+    W(GlobalAuthId);    //
     W(TargetAddress);   //
     W(TargetHostView);  //
     if (Writer->HasError()) {
@@ -20,7 +20,7 @@ void xPP_TargetCollect::SerializeMembers() {
 }
 
 void xPP_TargetCollect::DeserializeMembers() {
-    R(AuthId);            //
+    R(GlobalAuthId);      //
     R(TargetAddress);     //
     R(TargetHostView);    //
     R(StartTimestampMS);  //

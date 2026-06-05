@@ -2,6 +2,7 @@
 
 #include "../lib_util/rdkafka_wrapper.hpp"
 
+#include <pp_common/service_runtime.hpp>
 #include <pp_protocol/_backend/kfk/target_collect.hpp>
 #include <pp_protocol/command.hpp>
 
@@ -16,6 +17,17 @@ struct xKfkContext {
     std::string  BootstrapServerList = {};
     std::string  Topic               = {};
 };
+
+std::string xTargetCollectReporter::xTargetCollectNode::ToString() const {
+    auto OS = std::ostringstream();
+    OS << "xTargetCollectNode:" << endl;
+    OS << "\tNodeId=" << NodeId << endl;
+    OS << "\tGlobalAuthId=" << GlobalAuthId << endl;
+    OS << "\tTargetAddress=" << TargetAddress.ToString() << endl;
+    OS << "\tTargetHost=" << TargetHost << endl;
+    OS << "\tCount=" << Count << endl;
+    return OS.str();
+}
 
 bool xTargetCollectReporter::Init(const std::string & ConfigFilename) {
 
@@ -87,6 +99,7 @@ void xTargetCollectReporter::Tick(uint64_t NowMS) {
 void xTargetCollectReporter::PostTargetCollect(uint64_t GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count) {
     auto Node = NodePool.Create();
     if (!Node) {
+        DEBUG_LOG("%s", "NodePool OOM");
         return;
     }
     Node->GlobalAuthId  = GlobalAuthId;
@@ -104,12 +117,10 @@ void xTargetCollectReporter::KfkThreadFunc() {
     ubyte Buffer[MaxPacketSize];
     while (RunState) {
         assert(TempFinishedList.IsEmpty());
-        do {
-            X_VAR xSpinlockGuard(SwitchListLock);
-        } while (false);
-
         while (auto PNode = TempPostList.PopHead()) {
             // do post:
+            DEBUG_LOG("%s", PNode->ToString().c_str());
+
             auto R              = xPPB_TargetCollect();
             R.TimeMs            = NowMS;
             R.AuditId           = PNode->GlobalAuthId;
@@ -118,7 +129,7 @@ void xTargetCollectReporter::KfkThreadFunc() {
             R.Port              = 0;
             R.TimePeriodMs      = 1;
             R.TotalRequestCount = PNode->Count;
-            auto MSize          = WriteMessage(Buffer, Cmd_TargetRport, 0, R);
+            auto MSize          = WriteMessage(Buffer, Cmd_BackendTargetReport, R);
 
             auto MsgKey = std::to_string(PNode->GlobalAuthId);
             KfkContext->KR.Post(MsgKey, Buffer, MSize);
@@ -134,60 +145,9 @@ void xTargetCollectReporter::KfkThreadFunc() {
     }
 }
 
-// [[maybe_unused]]
-// static void PostAuditAccoungUsage(xAuditAccountInfoNode & Info) {
-//     DEBUG_LOG("ReportAccountInfo: %s", ToString(Info).c_str());
-
-//     auto R             = xAD_BK_ReportUsageByAuditAccount();
-//     R.LocalTimestampMS = GetTimestampMS();
-
-//     auto & A  = R.AuditInfo;
-//     A.AuthId = Info.AuthId;
-
-//     A.TotalTcpCount        = Steal(Info.TotalTcpCount);
-//     A.TotalTcpUploadSize   = Steal(Info.TotalTcpUploadSize);
-//     A.TotalTcpDownloadSize = Steal(Info.TotalTcpDownloadSize);
-
-//     A.TotalUdpCount        = Steal(Info.TotalUdpCount);
-//     A.TotalUdpUploadSize   = Steal(Info.TotalUdpUploadSize);
-//     A.TotalUdpDownloadSize = Steal(Info.TotalUdpDownloadSize);
-
-//     ubyte Buffer[MaxPacketSize];
-//     auto  MSize = WriteMessage(Buffer, Cmd_AuditUsageByAuthId, 0, R);
-
-//     auto MsgKey = std::to_string(A.AuthId);
-//     KR.Post(MsgKey, Buffer, MSize);
-
-//     DEBUG_LOG("\n%s", HexShow(Buffer, MSize).c_str());
-// }
-
-// int main(int argc, char ** argv) {
-//     auto REG = xRuntimeEnvGuard(argc, argv);
-//     auto CL  = RuntimeEnv.LoadConfig();
-
-//     auto BootstrapServersOpt = ParsePythonStringArray(BootstrapServerList);
-//     RuntimeAssert(BootstrapServersOpt);
-//     auto KfkBootstrapServers = JoinStr(*BootstrapServersOpt, ",");
-//     DEBUG_LOG("KfkBootstrapServers: %s", KfkBootstrapServers.c_str());
-
-//     RuntimeAssert(KR.Init(
-//         Topic,
-//         {
-//             { "security.protocol", SecurityProtocol },
-//             { "sasl.mechanism", SaslMechanism },
-//             { "sasl.username", SaslUsername },
-//             { "sasl.password", SaslPassword },
-//             { "bootstrap.servers", KfkBootstrapServers },
-//         }
-//     ));
-//     auto KRC = xScopeCleaner(KR);
-
-//     X_GUARD(ServerIdClient, ServiceIoContext, ServerIdCenterAddress, RuntimeEnv.DefaultLocalServerIdFilePath);
-//     X_GUARD(RegisterServerClient, ServiceIoContext, ServerListRegisterAddress);
-
-//     while (ServiceRunState) {
-//         ServiceUpdateOnce(ServerIdClient, RegisterServerClient);
-//     }
-
-//     return 0;
-// }
+std::string xTargetCollectReporter::GetAuditOutput() const {
+    if (!KfkContext) {
+        return {};
+    }
+    return KfkContext->KR.GetAuditOutput();
+}

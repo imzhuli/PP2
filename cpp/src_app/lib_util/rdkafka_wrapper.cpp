@@ -1,5 +1,6 @@
 #include "./rdkafka_wrapper.hpp"
 
+#include <pp_common/service_runtime.hpp>
 #include <typeinfo>
 
 /*
@@ -46,15 +47,16 @@ public:
         if (NowMS - LastAuditTimestampMS < AuditTimeoutMS) {
             return;
         }
-
-        auto G = xel::xSpinlockGuard(AuditLock);
-        if (!LastSegMessageCount) {
-            Audit.AuditLastSegAverageLatency = 0;
-        } else {
-            Audit.AuditLastSegAverageLatency = LastSegTotalLatency / LastSegMessageCount / 1000;  // micro -> milli
-        }
-        xel::Reset(LastSegMessageCount);
-        xel::Reset(LastSegTotalLatency);
+        do {
+            auto G = xel::xSpinlockGuard(AuditLock);
+            if (!LastSegMessageCount) {
+                Audit.AuditLastSegAverageLatency = 0;
+            } else {
+                Audit.AuditLastSegAverageLatency = LastSegTotalLatency / LastSegMessageCount / 1000;  // micro -> milli
+            }
+            xel::Reset(LastSegMessageCount);
+            xel::Reset(LastSegTotalLatency);
+        } while (false);
         LastAuditTimestampMS = LocalTicker();
     }
 
@@ -80,15 +82,15 @@ private:
 /**/
 
 bool xKfkProducer::Init(const std::string & Topic, const std::map<std::string, std::string> & KafkaParams) {
+    KfkCB          = new xKfkDeliveryReportCb();
+    auto CBCleaner = xScopeGuard([this] { delete Steal(KfkCB); });
+
     KfkConf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
     if (!KfkConf) {
-        X_DEBUG_PRINTF("Failed to create kafka config");
+        DEBUG_LOG("Failed to create kafka config");
         return false;
     }
     auto ConfCleaner = xScopeGuard([this] { delete Steal(KfkConf); });
-
-    KfkCB          = new xKfkDeliveryReportCb();
-    auto CBCleaner = xScopeGuard([this] { delete Steal(KfkCB); });
 
     KfkToipcName          = Topic;
     auto TopicNameCleaner = xScopeGuard([this] { Reset(KfkToipcName); });
@@ -96,18 +98,18 @@ bool xKfkProducer::Init(const std::string & Topic, const std::map<std::string, s
     std::string errstr;
     for (auto & [K, V] : KafkaParams) {
         if (RdKafka::Conf::CONF_OK != KfkConf->set(K, V, errstr)) {
-            X_DEBUG_PRINTF("failed to set kafka producer param: %s -> %s, error=%s", K.c_str(), V.c_str(), errstr.c_str());
+            DEBUG_LOG("failed to set kafka producer param: %s -> %s, error=%s", K.c_str(), V.c_str(), errstr.c_str());
             return false;
         }
     }
     if (RdKafka::Conf::CONF_OK != KfkConf->set("dr_cb", KfkCB, errstr)) {
-        X_DEBUG_PRINTF("failed to set kafka producer param: %s, error=%s", "dr_cb", errstr.c_str());
+        DEBUG_LOG("failed to set kafka producer param: %s, error=%s", "dr_cb", errstr.c_str());
         return false;
     }
 
     auto FirstCreate = CreateProducer();
     if (!FirstCreate) {
-        X_DEBUG_PRINTF("Failed to create producer with topic");
+        DEBUG_LOG("Failed to create producer with topic");
         return false;
     }
 
@@ -116,9 +118,12 @@ bool xKfkProducer::Init(const std::string & Topic, const std::map<std::string, s
     TopicNameCleaner.Dismiss();
 
     RuntimeAssert(RunState.Start());
-    PollThread = std::thread([this] { Poll(); });
+    PollThread = std::thread{ [this] {
+        while (RunState) {
+            Poll();
+        }
+    } };
 
-    X_DEBUG_PRINTF("done");
     return true;
 }
 
@@ -132,7 +137,7 @@ void xKfkProducer::Clean() {
     auto CBCleaner        = xScopeGuard([this] { delete Steal(KfkCB); });
     auto ConfCleaner      = xScopeGuard([this] { delete Steal(KfkConf); });
     auto TopicNameCleaner = xScopeGuard([this] { Reset(KfkToipcName); });
-    X_DEBUG_PRINTF("done");
+    DEBUG_LOG("done");
 }
 
 bool xKfkProducer::CreateProducer() {
@@ -154,14 +159,14 @@ auto xKfkProducer::CreateNativeProducer() -> xTopicProducer {
 
     Ret.KfkProducer = RdKafka::Producer::create(KfkConf, errstr);
     if (!Ret.KfkProducer) {
-        X_DEBUG_PRINTF("error=%s", errstr.c_str());
+        DEBUG_LOG("error=%s", errstr.c_str());
         return {};
     }
     auto KPG = xScopeGuard([&] { delete Steal(Ret.KfkProducer); });
 
     Ret.KfkTopic = RdKafka::Topic::create(Ret.KfkProducer, KfkToipcName, NULL, errstr);
     if (!Ret.KfkTopic) {
-        X_DEBUG_PRINTF("error=%s", errstr.c_str());
+        DEBUG_LOG("error=%s", errstr.c_str());
         return {};
     }
     auto KTG = xScopeGuard([&] { delete Steal(Ret.KfkTopic); });
@@ -193,7 +198,7 @@ bool xKfkProducer::Post(const std::string & Key, const void * DataPtr, const siz
         NULL                             // 消息头（可选）
     );
     if (resp != RdKafka::ERR_NO_ERROR) {
-        X_DEBUG_PRINTF("failed to post payload");
+        DEBUG_LOG("failed to post payload");
         return false;
     }
     return true;
@@ -208,4 +213,13 @@ void xKfkProducer::Flush() {
 
 void xKfkProducer::Poll(int TimeoutMS) {
     Producer.KfkProducer->poll(TimeoutMS);
+    KfkCB->Tick(xel::GetTimestampMS());
+}
+
+std::string xKfkProducer::GetAuditOutput() const {
+    auto Audit = KfkCB->GetAudit();
+    auto OS    = std::ostringstream();
+    OS << "AuditLastOffset:" << Audit.AuditLastOffset << endl;
+    OS << "AuditLastSegAverageLatency:" << Audit.AuditLastSegAverageLatency << endl;
+    return OS.str();
 }

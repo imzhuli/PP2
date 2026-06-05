@@ -9,6 +9,9 @@ public:
     bool Init(const std::string & ConfigFilename);
     void Clean();
     void Tick(uint64_t NowMS);
+    void PostTargetCollect(uint64_t GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count);
+
+    std::string GetAuditOutput() const;
 
 private:
     struct xTargetCollectNode
@@ -18,10 +21,11 @@ private:
         xNetAddress TargetAddress;
         std::string TargetHost;
         size_t      Count;
+
+        std::string ToString() const;
     };
     using xTargetCollectList = xList<xTargetCollectNode>;
 
-    void PostTargetCollect(uint64_t GlobalAuthId, const xel::xNetAddress & TargetAddress, const std::string_view & TargetHost, size_t Count);
     void KfkThreadFunc();
 
 private:

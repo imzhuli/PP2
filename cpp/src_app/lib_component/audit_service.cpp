@@ -144,13 +144,13 @@ void xAuditService::ReportTarget(uint64_t GlobalAuthId, const xel::xNetAddress &
 
     auto ShortDomain   = ExtractSecondLevelDomain(TargetHost);
     auto Req           = xPP_TargetCollect();
-    Req.AuthId         = GlobalAuthId;
+    Req.GlobalAuthId   = GlobalAuthId;
     Req.TargetAddress  = TargetAddress;
     Req.TargetHostView = ShortDomain;
     Req.Count          = Count;
 
     ubyte Buffer[xel::MaxPacketSize];
-    auto  RSize        = WriteMessage(Buffer, sizeof(Buffer), Cmd_TargetRport, Req);
+    auto  RSize        = WriteMessage(Buffer, Cmd_TargetReport, 0, Req);
     auto  Hash         = Req.Hash;
     auto  SelectTarget = ServerList[Hash % ServerListSize];
     DEBUG_LOG("SelectReportTarget: %s", SelectTarget.Address.ToString().c_str());

@@ -63,7 +63,7 @@ static void BuildServerListResponse(xBufferedSmallList * List, xPacketRequestId 
         Resp.VersionTimestampMS = List->VersionTimestampMS;
         Resp.ServerList         = &TempList;
         Resp.ServerListSize     = Total;
-        List->Resp.DataSize     = xel::WriteMessage(List->Resp.Buffer, sizeof(List->Resp.Buffer), Cmd_DownloadSmallServerListResp, 0, Resp);
+        List->Resp.DataSize     = xel::WriteMessage(List->Resp.Buffer, Cmd_DownloadSmallServerListResp, 0, Resp);
 
         DEBUG_LOG("update resp buffer: \n%s", HexShow(List->Resp.Buffer, List->Resp.DataSize).c_str());
     }

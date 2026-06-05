@@ -110,6 +110,7 @@ bool xServerIdClient::OnServerPacket(xPacketCommandId CommandId, xPacketRequestI
         return false;
     }
     if (LocalServerId != Resp.NewServerId) {
+        DEBUG_LOG("update server id");
         LocalServerId      = Resp.NewServerId;
         LocalServerIdDirty = true;
     }

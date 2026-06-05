@@ -13,12 +13,13 @@ public:
     bool Post(const std::string & Key, std::string_view Data) { return Post(Key, Data.data(), Data.size()); }
     bool Post(std::string_view Data) { return Post({}, Data.data(), Data.size()); }
 
-    void Flush();
+    std::string GetAuditOutput() const;
 
 protected:
     bool CreateProducer();
     void DestroyProducer();
     void CheckAndRecreateProducer();
+    void Flush();
 
     // run in poll thread:
 
