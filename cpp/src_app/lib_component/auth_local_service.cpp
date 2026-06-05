@@ -86,17 +86,17 @@ void xAuthLocalService::CheckAndReportLocalAudit() {
         return N.LastReportTimestampMS <= KillTimepoint;
     };
     while (auto P = LocalAuditTimeoutList.PopHead(Cond)) {
-        DEBUG_LOG("%s", P->ToString().c_str());
-        auto UsageInfo                    = xAuditUsage();
-        UsageInfo.AuthId                  = P->GlobalAuthId;
-        UsageInfo.StartTimestampMS        = P->LastReportTimestampMS;
-        UsageInfo.PeriodMS                = NowMS - P->LastReportTimestampMS;
-        UsageInfo.TotalTcpBytesFromClient = Steal(P->Audit.TotalTcpBytesFromClient);
-        UsageInfo.TotalTcpBytesToClient   = Steal(P->Audit.TotalTcpBytesToClient);
-        UsageInfo.TotalUdpBytesFromClient = Steal(P->Audit.TotalUdpBytesFromClient);
-        UsageInfo.TotalUdpBytesToClient   = Steal(P->Audit.TotalUdpBytesToClient);
-
-        AuditService->ReportUsage(UsageInfo);
+        if (Steal(P->Audit.Dirty)) {
+            auto UsageInfo                    = xAuditUsage();
+            UsageInfo.AuthId                  = P->GlobalAuthId;
+            UsageInfo.StartTimestampMS        = P->LastReportTimestampMS;
+            UsageInfo.PeriodMS                = NowMS - P->LastReportTimestampMS;
+            UsageInfo.TotalTcpBytesFromClient = Steal(P->Audit.TotalTcpBytesFromClient);
+            UsageInfo.TotalTcpBytesToClient   = Steal(P->Audit.TotalTcpBytesToClient);
+            UsageInfo.TotalUdpBytesFromClient = Steal(P->Audit.TotalUdpBytesFromClient);
+            UsageInfo.TotalUdpBytesToClient   = Steal(P->Audit.TotalUdpBytesToClient);
+            AuditService->ReportUsage(UsageInfo);
+        }
 
         if (P->ReferenceCount) {
             P->LastReportTimestampMS = NowMS;
@@ -134,6 +134,14 @@ void xAuthLocalService::AcquireAuthInfo(const std::string_view AccountPassView, 
         AuthLocalMap              = std::move(*NewMap);
         Audit.CachedAuthInfoCount = AuthLocalMap.size();
         ++Audit.CachedAuthInfoMapVersion;
+
+#ifndef NDEBUG
+        for (auto & Entry : AuthLocalMap) {
+            auto & LR = Entry.second;
+            Logger->D("New auth entry: %s, LocalAuthId=%" PRIx64 ", GlobalAuthId=%" PRIu64 "", StrToHex(Entry.first), LR.LocalAuthId, LR.GlobalAuthId);
+        }
+#endif
+
         delete NewMap;
     }
 
@@ -177,6 +185,7 @@ void xAuthLocalService::ReleaseAuthInfo(uint64_t LocalAuthId, const xLocalUsage 
     auto & LocalAuditNode          = LocalAuditNodePool[LocalAuthId];
     //
     auto & Audit                   = LocalAuditNode.Audit;
+    Audit.Dirty                    = true;
     Audit.TotalTcpBytesFromClient += Usage.TotalTcpBytesFromClient;
     Audit.TotalTcpBytesToClient   += Usage.TotalTcpBytesToClient;
     Audit.TotalUdpBytesFromClient += Usage.TotalUdpBytesFromClient;
@@ -204,6 +213,7 @@ xAuthLocalUsageAuditNode * xAuthLocalService::CheckAndSetLocalAuthId(xAuthLocalR
 }
 
 static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
+    DEBUG_LOG("LoadFile:%s", FilePath.c_str());
     auto   Doc      = rapidcsv::Document(FilePath.string(), rapidcsv::LabelParams(0, 0));
     size_t RowCount = Doc.GetRowCount();  // 数据行数（不含表头）
 
@@ -256,7 +266,6 @@ void xAuthLocalService::ReloadAuthFile() {
             std::this_thread::sleep_for(1s);
             continue;
         }
-
         try {
             std::vector<std::filesystem::path>           FileList;
             std::vector<std::filesystem::file_time_type> FileTimestampList;
@@ -289,7 +298,6 @@ void xAuthLocalService::ReloadAuthFile() {
                     }
                 }
             } while (false);
-
             if (NeedReload) {
                 auto NewMap = new xAuthLocalMap();
                 try {
@@ -297,6 +305,7 @@ void xAuthLocalService::ReloadAuthFile() {
                         LoadFile(*NewMap, F);
                     }
                 } catch (const std::exception & e) {
+                    Logger->E("Failed to load auth map: reason=%s", e.what());
                     delete NewMap;
                     return;
                 }
@@ -309,10 +318,9 @@ void xAuthLocalService::ReloadAuthFile() {
 
                 DEBUG_LOG("new auth file(s) loaded");
             }
-
         } catch (const fs::filesystem_error & e) {
             AuditLogger->E("iterate directory error：%s", e.what());
-            return;
+            continue;
         }
     }
 
