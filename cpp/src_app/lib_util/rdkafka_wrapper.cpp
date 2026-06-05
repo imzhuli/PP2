@@ -13,7 +13,7 @@ TODO
 
 class xKfkDeliveryReportCb : public RdKafka::DeliveryReportCb {
 public:
-    static constexpr const uint64_t AuditTimeoutMS = 10 * 60'000;
+    static constexpr const uint64_t AuditTimeoutMS = 10'000;
 
     struct xAudit {
         uint64_t AuditLastOffset            = 0;
