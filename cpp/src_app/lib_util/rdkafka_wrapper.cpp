@@ -23,8 +23,10 @@ public:
     void dr_cb(RdKafka::Message & message) {
         auto G = xel::xSpinlockGuard(AuditLock);
         if (message.err()) {
+            DEBUG_LOG("error=%s", message.errstr().c_str());
             ++TotalFailure;
         } else {
+            DEBUG_LOG("post=%zi", (size_t)message.offset());
             ++TotalSuccess;
             ++LastSegMessageCount;
             LastSegTotalLatency  += message.latency();
