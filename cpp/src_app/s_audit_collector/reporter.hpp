@@ -1,23 +1,39 @@
 #pragma once
 
+#include "../lib_component/abstract/audit_abstract.hpp"
+
 #include <pp_common/_.hpp>
 
 struct xKfkContext;
 
-class xTargetCollectReporter {
+class xAuditCollectReporter {
 public:
     bool Init(const std::string & ConfigFilename);
     void Clean();
+    void Tick(uint64_t NowMS);
+    void PostAuditCollect(const xAuditUsage & UsageInfo);
+
+    std::string GetAuditOutput() const;
 
 private:
-    struct xTargetCollectNode
+    struct xAuditCollectNode
         : xListNode {
-        uint64_t LastReportTimestampMS = {};
-    };
-    using xTargetCollectList = xList<xTargetCollectNode>;
+        xAuditUsage UsageInfo;
 
-    void PostTargetCollect(xTargetCollectNode * Node);
+        std::string ToString() const;
+    };
+    using xAuditCollectList = xList<xAuditCollectNode>;
+
+    void KfkThreadFunc();
 
 private:
-    xKfkContext * KfkContext = nullptr;
+    xRunState                      RunState;
+    std::thread                    KfkThread;
+    //
+    xMemoryPool<xAuditCollectNode> NodePool;
+    xSpinlock                      SwitchListLock;
+    xAuditCollectList              PostCollectionList;
+    xAuditCollectList              PendingCollectionList;
+    xAuditCollectList              FinishedCollectionList;
+    xKfkContext *                  KfkContext = nullptr;
 };

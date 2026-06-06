@@ -1,7 +1,6 @@
 #pragma once
 #include "./server_id_manager.hpp"
 
-#include <array>
 #include <limits>
 
 class xServerIdService {

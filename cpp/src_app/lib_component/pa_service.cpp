@@ -178,6 +178,7 @@ void xProxyAccessService::Tick(uint64_t NowMS) {
     ProcessReadyAcquireDeviceUdpChannelFuture();
 
     DeferKillInitTimeoutConnection();
+    DeferGracefulKillConnection();
     ExcuteKillConnection();
     ClearTimeoutFuture();
 }
@@ -297,8 +298,10 @@ void xProxyAccessService::DestroyConnection(xPA_ClientConnection * Connection) {
         AuthService->ReleaseAuthInfo(
             Connection->LocalAuthId,
             {
+                .TotalTcpConnections     = 1,
                 .TotalTcpBytesFromClient = Connection->TotalTcpBytesFromClient,
                 .TotalTcpBytesToClient   = Connection->TotalTcpBytesToClient,
+                .TotalUdpChannels        = Connection->BindUdpChannel ? (uint64_t)1 : 0,
                 .TotalUdpBytesFromClient = Connection->TotalUdpBytesFromClient,
                 .TotalUdpBytesToClient   = Connection->TotalUdpBytesToClient,
             }
@@ -337,8 +340,7 @@ void xProxyAccessService::ClearTimeoutFuture() {
         OnAcquireDeviceConnectionResult(P);
     }
     while (auto P = static_cast<xPA_AcquireDeviceUdpChannelFuture *>(AcquireDeviceUdpChannelFutureTimeoutList.PopHead(Cond))) {
-        Pass(P);
-        // AcquireDeviceUdpChannelFutureManager.ReleaseFuture(P);
+        OnAcquireDeviceUdpChannelResult(P);
     }
 }
 

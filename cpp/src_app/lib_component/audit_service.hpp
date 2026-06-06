@@ -31,11 +31,14 @@ private:
     void OnServerListUpdated(xServerType ServerType, const xServerInfo * ServerList, size_t ServerListSize, uint64_t VersionTimestampMS);
 
 private:
+    using xAuditConnectionIdList = std::array<uint64_t, MAX_SMALL_SERVER_LIST_SIZE>;
+
     xel::xTcpClientPool        TcpReporter;
     xel::xUdpService           UdpReporter;
     xSmallServerListDownloader ServerListDownloader;
     //
     xSmallServerList           AuditServerList;
+    xAuditConnectionIdList     ConnectionIdList;
     xTcpClientPool             AuditClientPool;
 
     struct xAudit {

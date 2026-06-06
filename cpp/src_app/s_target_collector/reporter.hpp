@@ -16,7 +16,6 @@ public:
 private:
     struct xTargetCollectNode
         : xListNode {
-        uint64_t    NodeId;
         uint64_t    GlobalAuthId;
         xNetAddress TargetAddress;
         std::string TargetHost;

@@ -2,6 +2,7 @@
 
 #include <pp_common/service_runtime.hpp>
 #include <pp_protocol/command.hpp>
+#include <pp_protocol/p_audit_collect.hpp>
 #include <pp_protocol/p_target_collect.hpp>
 
 static std::string_view ExtractSecondLevelDomain(std::string_view Domain) {
@@ -42,26 +43,28 @@ bool xAuditService::Init(const xNetAddress & ServerListServerAddress, const xNet
         TcpReporter.Clean();
         return false;
     }
-    if (!AuditClientPool.Init(ServiceIoContext, 3 * MAX_SMALL_SERVER_LIST_SIZE)) {
-        TcpReporter.Clean();
-        UdpReporter.Clean();
-    }
     if (!ServerListDownloader.Init(ServerListServerAddress, LocalBindAddress.Decay())) {
-        AuditClientPool.Clean();
         TcpReporter.Clean();
         UdpReporter.Clean();
         return false;
+    }
+    if (!AuditClientPool.Init(ServiceIoContext, 3 * MAX_SMALL_SERVER_LIST_SIZE)) {
+        ServerListDownloader.Clean();
+        TcpReporter.Clean();
+        UdpReporter.Clean();
     }
     ServerListDownloader.EnableServerType(ST_TARGET_COLLECTOR);
     ServerListDownloader.EnableServerType(ST_AUDIT_COLLECTOR);
     ServerListDownloader.OnServerListUpdated = Delegate(&xAuditService::OnServerListUpdated, this);
 
+    Reset(ConnectionIdList);
     return true;
 }
 
 void xAuditService::Clean() {
-    ServerListDownloader.Clean();
+    Reset(ConnectionIdList);
     AuditClientPool.Clean();
+    ServerListDownloader.Clean();
     UdpReporter.Clean();
     TcpReporter.Clean();
 }
@@ -80,23 +83,26 @@ std::string xAuditService::OutputAudit() {
 
 void xAuditService::OnServerListUpdated(xServerType ServerType, const xServerInfo * ServerList, size_t ServerListSize, uint64_t VersionTimestampMS) {
     if (ServerType == ST_TARGET_COLLECTOR) {  // udp servers , simply replace the old list
-        DEBUG_LOG("renew target collector server list (always use ServerListDownloader.GetServerListView())");
+        DEBUG_LOG("renew target collector server list (always use ServerListDownloader.GetServerListView()), version_timestamp_ms=%" PRIu64 "", VersionTimestampMS);
         return;
     }
 
     if (ServerType == ST_AUDIT_COLLECTOR) {
-        auto OldList  = AuditServerList.Container.data();
-        auto OldSize  = AuditServerList.Size;
-        auto OldIndex = size_t(0);
-        auto NewList  = ServerList;
-        auto NewSize  = ServerListSize;
-        auto NewIndex = size_t(0);
-        DEBUG_LOG("renew audit collector server list");
+        auto OldList              = AuditServerList.Container.data();
+        auto OldSize              = AuditServerList.Size;
+        auto OldIndex             = size_t(0);
+        auto NewList              = ServerList;
+        auto NewSize              = ServerListSize;
+        auto NewIndex             = size_t(0);
+        auto TempConnectionIdList = xAuditConnectionIdList();
+        auto TempConnectionCurror = size_t(0);
+        DEBUG_LOG("renew audit collector server list, version_timestamp_ms=%" PRIu64 "", VersionTimestampMS);
         while (true) {
             if (NewIndex == NewSize) {
                 for (; OldIndex < OldSize; ++OldIndex) {
                     auto & RemovedServerInfo = OldList[OldIndex];
                     DEBUG_LOG("remove audit collector server info: %" PRIx64 ", Address=%s", RemovedServerInfo.ServerId, RemovedServerInfo.Address.ToString().c_str());
+                    TcpReporter.RemoveServer(ConnectionIdList[OldIndex]);
                 }
                 break;
             }
@@ -104,6 +110,7 @@ void xAuditService::OnServerListUpdated(xServerType ServerType, const xServerInf
                 for (; NewIndex < NewSize; ++NewIndex) {
                     auto & AddedServerInfo = NewList[NewIndex];
                     DEBUG_LOG("add audit collector server info: %" PRIx64 ", Address=%s", AddedServerInfo.ServerId, AddedServerInfo.Address.ToString().c_str());
+                    RuntimeAssert(TempConnectionIdList[TempConnectionCurror++] = TcpReporter.AddServer(AddedServerInfo.Address));
                 }
                 break;
             }
@@ -112,24 +119,29 @@ void xAuditService::OnServerListUpdated(xServerType ServerType, const xServerInf
             if (FromOld.ServerId == FromNew.ServerId) {
                 if (FromOld.Address == FromNew.Address) {
                     DEBUG_LOG("remain audit collector server info: %" PRIx64 ", Address=%s", FromOld.ServerId, FromOld.Address.ToString().c_str());
+                    TempConnectionIdList[TempConnectionCurror++] = ConnectionIdList[OldIndex];
                 } else {
                     DEBUG_LOG("remove audit collector server info: %" PRIx64 ", Address=%s", FromOld.ServerId, FromOld.Address.ToString().c_str());
+                    TcpReporter.RemoveServer(ConnectionIdList[OldIndex]);
                     DEBUG_LOG("add audit collector server info: %" PRIx64 ", Address=%s", FromNew.ServerId, FromNew.Address.ToString().c_str());
+                    RuntimeAssert(TempConnectionIdList[TempConnectionCurror++] = TcpReporter.AddServer(FromNew.Address));
                 }
                 ++OldIndex;
                 ++NewIndex;
             } else if (FromOld.ServerId < FromNew.ServerId) {  // remove old
                 DEBUG_LOG("remove audit collector server info: %" PRIx64 ", Address=%s", FromOld.ServerId, FromOld.Address.ToString().c_str());
+                TcpReporter.RemoveServer(ConnectionIdList[OldIndex]);
                 ++OldIndex;
             } else {
                 DEBUG_LOG("add audit collector server info: %" PRIx64 ", Address=%s", FromNew.ServerId, FromNew.Address.ToString().c_str());
+                RuntimeAssert(TempConnectionIdList[TempConnectionCurror++] = TcpReporter.AddServer(FromNew.Address));
                 ++NewIndex;
             }
         }
+        assert(TempConnectionCurror == NewSize);
         for (size_t I = 0; I < NewSize; ++I) {
-            auto & SI = ServerList[I];
-            auto & DI = AuditServerList.Container[I];
-            DI        = SI;
+            AuditServerList.Container[I] = ServerList[I];
+            ConnectionIdList[I]          = TempConnectionIdList[I];
         }
         AuditServerList.Size = NewSize;
     }
@@ -159,7 +171,24 @@ void xAuditService::ReportTarget(uint64_t GlobalAuthId, const xel::xNetAddress &
 }
 
 void xAuditService::ReportUsage(const xAuditUsage & UsageInfo) {
+    if (!AuditServerList.Size) {
+        ++Audit.NoServerReport;
+        return;
+    }
+    auto SelectedConnectionId   = ConnectionIdList[UsageInfo.AuthId % AuditServerList.Size];
+    auto Req                    = xPP_AuditCollect();
+    Req.GlobalAuthId            = UsageInfo.AuthId;
+    Req.StartTimestampMS        = UsageInfo.StartTimestampMS;
+    Req.PeriodMS                = UsageInfo.PeriodMS;
+    Req.TotalTcpConnections     = UsageInfo.TotalTcpConnections;
+    Req.TotalTcpBytesFromClient = UsageInfo.TotalTcpBytesFromClient;
+    Req.TotalTcpBytesToClient   = UsageInfo.TotalTcpBytesToClient;
+    Req.TotalUdpChannels        = UsageInfo.TotalUdpChannels;
+    Req.TotalUdpBytesFromClient = UsageInfo.TotalUdpBytesFromClient;
+    Req.TotalUdpBytesToClient   = UsageInfo.TotalUdpBytesToClient;
     DEBUG_LOG("UsageInfo:%s", UsageInfo.ToString().c_str());
+
+    TcpReporter.PostMessage(SelectedConnectionId, Cmd_AuditReport, 0, Req);
 }
 
 void xAuditService::ReportBlockAccount(const xAuditBlockAccount & BlockAccountInfo) {

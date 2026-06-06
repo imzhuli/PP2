@@ -2,7 +2,6 @@
 
 #include "./common.hpp"
 
-#include <array>
 #include <cinttypes>
 #include <tuple>
 #include <vector>

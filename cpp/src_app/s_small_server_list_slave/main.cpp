@@ -1,6 +1,5 @@
 #include "../lib_component/server_id_service.hpp"
 
-#include <array>
 #include <pp_common/service_runtime.hpp>
 #include <pp_protocol/command.hpp>
 #include <pp_protocol/p_small_server_list.hpp>

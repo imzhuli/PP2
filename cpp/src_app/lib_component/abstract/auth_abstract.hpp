@@ -24,8 +24,10 @@ struct xAuthResult {
 
 struct xLocalUsage {
     bool     Dirty                   = false;
+    uint64_t TotalTcpConnections     = {};
     uint64_t TotalTcpBytesFromClient = {};
     uint64_t TotalTcpBytesToClient   = {};
+    uint64_t TotalUdpChannels        = {};
     uint64_t TotalUdpBytesFromClient = {};
     uint64_t TotalUdpBytesToClient   = {};
 };

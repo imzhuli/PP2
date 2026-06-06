@@ -38,6 +38,7 @@ std::string xAuthLocalUsageAuditNode::ToString() const {
     OS << "\tLocalAuthId:" << LocalAuthId << endl;
     OS << "\tReferenceCount:" << ReferenceCount << endl;
     OS << "\tGlobalAuthId:" << GlobalAuthId << endl;
+    OS << "\tTotalTcpConnections:" << Audit.TotalTcpConnections << endl;
     OS << "\tTotalTcpBytesFromClient:" << Audit.TotalTcpBytesFromClient << endl;
     OS << "\tTotalTcpBytesToClient:" << Audit.TotalTcpBytesToClient << endl;
     OS << "\tTotalUdpBytesFromClient:" << Audit.TotalUdpBytesFromClient << endl;
@@ -91,8 +92,10 @@ void xAuthLocalService::CheckAndReportLocalAudit() {
             UsageInfo.AuthId                  = P->GlobalAuthId;
             UsageInfo.StartTimestampMS        = P->LastReportTimestampMS;
             UsageInfo.PeriodMS                = NowMS - P->LastReportTimestampMS;
+            UsageInfo.TotalTcpConnections     = Steal(P->Audit.TotalTcpConnections);
             UsageInfo.TotalTcpBytesFromClient = Steal(P->Audit.TotalTcpBytesFromClient);
             UsageInfo.TotalTcpBytesToClient   = Steal(P->Audit.TotalTcpBytesToClient);
+            UsageInfo.TotalUdpChannels        = Steal(P->Audit.TotalUdpChannels);
             UsageInfo.TotalUdpBytesFromClient = Steal(P->Audit.TotalUdpBytesFromClient);
             UsageInfo.TotalUdpBytesToClient   = Steal(P->Audit.TotalUdpBytesToClient);
             AuditService->ReportUsage(UsageInfo);
@@ -186,8 +189,10 @@ void xAuthLocalService::ReleaseAuthInfo(uint64_t LocalAuthId, const xLocalUsage 
     //
     auto & Audit                   = LocalAuditNode.Audit;
     Audit.Dirty                    = true;
+    Audit.TotalTcpConnections     += Usage.TotalTcpConnections;
     Audit.TotalTcpBytesFromClient += Usage.TotalTcpBytesFromClient;
     Audit.TotalTcpBytesToClient   += Usage.TotalTcpBytesToClient;
+    Audit.TotalUdpChannels        += Usage.TotalUdpChannels;
     Audit.TotalUdpBytesFromClient += Usage.TotalUdpBytesFromClient;
     Audit.TotalUdpBytesToClient   += Usage.TotalUdpBytesToClient;
     --LocalAuditNode.ReferenceCount;

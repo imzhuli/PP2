@@ -12,8 +12,8 @@ public:
     //
     uint64_t         StartTimestampMS;
     uint64_t         PeriodMS;
-    ;
-    uint64_t Count = 0;
     //
-    uint32_t Hash;
+    uint64_t         Count = 0;
+    //
+    uint32_t         Hash;
 };

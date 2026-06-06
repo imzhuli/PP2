@@ -21,7 +21,6 @@ struct xKfkContext {
 std::string xTargetCollectReporter::xTargetCollectNode::ToString() const {
     auto OS = std::ostringstream();
     OS << "xTargetCollectNode:" << endl;
-    OS << "\tNodeId=" << NodeId << endl;
     OS << "\tGlobalAuthId=" << GlobalAuthId << endl;
     OS << "\tTargetAddress=" << TargetAddress.ToString() << endl;
     OS << "\tTargetHost=" << TargetHost << endl;

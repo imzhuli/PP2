@@ -100,8 +100,8 @@ foreach(item IN LISTS target_list)
 endforeach()
 
 set(LIBRDKAFKA_LIBRARIES librdkafka++.a librdkafka-static.a libssl.a libcrypto.a)
+target_link_libraries(s_audit_collector PRIVATE ${LIBRDKAFKA_LIBRARIES})
 target_link_libraries(s_target_collector PRIVATE ${LIBRDKAFKA_LIBRARIES})
-# target_link_libraries(r_device_audit_to_backend PRIVATE ${LIBRDKAFKA_LIBRARIES})
 
 install(TARGETS
 	${target_list}

@@ -18,10 +18,9 @@ static auto ExportAddress         = xNetAddress();
 static auto ServerIdServerAddress = xNetAddress();
 
 // service
-static auto CollectorService     = xUdpService();
-static auto ServerIdClient       = xServerIdClient();
-static auto ServerListDownloader = xSmallServerListDownloader();
-static auto Reporter             = xTargetCollectReporter();
+static auto CollectorService = xUdpService();
+static auto ServerIdClient   = xServerIdClient();
+static auto Reporter         = xTargetCollectReporter();
 
 void OnUdpPacket(const xUdpServiceChannelHandle & Handle, xPacketCommandId CmdId, xPacketRequestId RequestId, ubyte * Payload, size_t PayloadSize) {
     if (CmdId == Cmd_TargetReport) {

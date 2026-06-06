@@ -14,6 +14,8 @@ static constexpr const xPacketCommandId Cmd_BackendBase                  = 0x04'
 static constexpr const xPacketCommandId Cmd_BackendAuditTerminalInfo     = Cmd_BackendBase + 0x01;   // 旧版, 弃用
 static constexpr const xPacketCommandId Cmd_BackendAuditTerminalInfoResp = Cmd_BackendBase + 0x02;   // 一般不处理返回
 static constexpr const xPacketCommandId Cmd_BackendTargetReport          = Cmd_BackendBase + 0x301;  //
+static constexpr const xPacketCommandId Cmd_BackendBlockAccountReport    = Cmd_BackendBase + 0x302;  //
+static constexpr const xPacketCommandId Cmd_BackendAuditReport           = Cmd_BackendBase + 0x303;  //
 
 static constexpr const xPacketCommandId Cmd_AuditUsageByAuthId          = Cmd_BackendBase + 0x03;  //
 static constexpr const xPacketCommandId Cmd_AuditUsageByAuthIdResp      = Cmd_BackendBase + 0x04;  // 一般不处理返回
@@ -36,6 +38,8 @@ static constexpr const xPacketCommandId Cmd_DownloadSmallServerListResp = Cmd_Se
 // proxy side report
 static constexpr const xPacketCommandId Cmd_AuditBase                   = 0x02'000;
 static constexpr const xPacketCommandId Cmd_TargetReport                = Cmd_AuditBase + 0x01;
+static constexpr const xPacketCommandId Cmd_BlockAccountReport          = Cmd_AuditBase + 0x02;
+static constexpr const xPacketCommandId Cmd_AuditReport                 = Cmd_AuditBase + 0x03;
 
 //
 static constexpr const xPacketCommandId Cmd_RelayServerManagementBase = 0x02'000;
