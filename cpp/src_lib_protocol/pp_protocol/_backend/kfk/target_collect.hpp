@@ -13,7 +13,7 @@ public:
     uint64_t         AuditId;
     std::string_view Domain;
     xNetAddress      IpAddress;
-    uint16_t         Port;
+    uint32_t         Port;
     uint64_t         TimePeriodMs;
     uint64_t         TotalRequestCount;
 };
