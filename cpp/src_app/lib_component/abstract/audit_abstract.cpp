@@ -6,8 +6,10 @@ std::string xAuditUsage::ToString() const {
     OS << "\tAuthId:" << AuthId << endl;
     OS << "\tStartTimestampMS:" << StartTimestampMS << endl;
     OS << "\tPeriodMS:" << PeriodMS << endl;
+    OS << "\tTotalTcpConnections:" << TotalTcpConnections << endl;
     OS << "\tTotalTcpBytesFromClient:" << TotalTcpBytesFromClient << endl;
     OS << "\tTotalTcpBytesToClient:" << TotalTcpBytesToClient << endl;
+    OS << "\tTotalUdpChannels:" << TotalUdpChannels << endl;
     OS << "\tTotalUdpBytesFromClient:" << TotalUdpBytesFromClient << endl;
     OS << "\tTotalUdpBytesToClient:" << TotalUdpBytesToClient << endl;
     return OS.str();
