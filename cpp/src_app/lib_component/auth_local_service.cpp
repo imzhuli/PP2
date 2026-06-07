@@ -170,7 +170,7 @@ void xAuthLocalService::AcquireAuthInfo(const std::string_view AccountPassView, 
         auto   TotalConsumed = Audit.TotalTcpBytesFromClient + Audit.TotalTcpBytesToClient + Audit.TotalUdpBytesFromClient + Audit.TotalUdpBytesToClient;
         if (TotalConsumed > LocalRecord.BandwidthLimit) {
             LocalRecord.BlockStartTimestampMS = LocalTicker();
-            DEBUG_LOG("TriggerAccountBlocking: GlobalAuthId=%" PRIu64 ", ConsumedSize=%" PRIu64 "", LocalRecord.GlobalAuthId, TotalConsumed);
+            DEBUG_LOG("TriggerAccountBlocking: GlobalAuthId=%" PRIu64 ", ConsumedSize=%" PRIu64 ", Threshold=%" PRIu64 "", LocalRecord.GlobalAuthId, TotalConsumed, LocalRecord.BandwidthLimit);
             auto BlockAccountInfo             = xAuditBlockAccount();
             BlockAccountInfo.AuthId           = LocalRecord.GlobalAuthId;
             BlockAccountInfo.StartTimestampMS = LocalTicker();

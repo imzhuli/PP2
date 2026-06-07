@@ -21,8 +21,8 @@ std::string xAuditBlockAccount::ToString() const {
     OS << "\tAuthId:" << AuthId << endl;
     OS << "\tStartTimestampMS:" << StartTimestampMS << endl;
     OS << "\tPeriodMS:" << PeriodMS << endl;
-    OS << "\tReason" << (uint32_t)Reason << endl;
-    OS << "\tThreshold" << Threshold << endl;
-    OS << "\tTriggerValue" << TriggerValue << endl;
+    OS << "\tReason:" << (uint32_t)Reason << endl;
+    OS << "\tThreshold:" << Threshold << endl;
+    OS << "\tTriggerValue:" << TriggerValue << endl;
     return OS.str();
 }
