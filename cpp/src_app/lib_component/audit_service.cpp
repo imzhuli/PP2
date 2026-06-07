@@ -3,6 +3,7 @@
 #include <pp_common/service_runtime.hpp>
 #include <pp_protocol/command.hpp>
 #include <pp_protocol/p_audit_collect.hpp>
+#include <pp_protocol/p_block_account.hpp>
 #include <pp_protocol/p_target_collect.hpp>
 
 static std::string_view ExtractSecondLevelDomain(std::string_view Domain) {
@@ -192,4 +193,16 @@ void xAuditService::ReportUsage(const xAuditUsage & UsageInfo) {
 }
 
 void xAuditService::ReportBlockAccount(const xAuditBlockAccount & BlockAccountInfo) {
+    auto SelectedConnectionId = ConnectionIdList[BlockAccountInfo.AuthId % AuditServerList.Size];
+    auto Req                  = xPP_BlockAccount();
+    Req.GlobalAuthId          = BlockAccountInfo.AuthId;
+    Req.StartTimestampMS      = BlockAccountInfo.StartTimestampMS;
+    Req.BlockPeriodMS         = BlockAccountInfo.PeriodMS;
+    Req.BlockReason           = BlockAccountInfo.Reason;
+    Req.BlockThreshold        = BlockAccountInfo.Threshold;
+    Req.BlockTriggerValue     = BlockAccountInfo.TriggerValue;
+
+    DEBUG_LOG("BlockAccount:%s", BlockAccountInfo.ToString().c_str());
+
+    TcpReporter.PostMessage(SelectedConnectionId, Cmd_BlockAccountReport, 0, Req);
 }

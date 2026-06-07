@@ -4,6 +4,7 @@
 
 #include <pp_common/service_runtime.hpp>
 #include <pp_protocol/_backend/kfk/audit_collect.hpp>
+#include <pp_protocol/_backend/kfk/block_account.hpp>
 #include <pp_protocol/command.hpp>
 
 static constexpr size_t MAX_AUDIT_REPORTER_COUNT = 20'0000;
@@ -20,8 +21,13 @@ struct xKfkContext {
 
 std::string xAuditCollectReporter::xAuditCollectNode::ToString() const {
     auto OS = std::ostringstream();
-    OS << "xAuditCollectNode:" << endl;
-    OS << "\t" << UsageInfo.ToString() << endl;
+    if (Command == Cmd_AuditReport) {
+        OS << "xAuditCollectNode:" << endl;
+        OS << "\t" << UsageInfo.ToString() << endl;
+    } else if (Command == Cmd_BlockAccountReport) {
+        OS << "xAuditBlockAccountNode:" << endl;
+        OS << "\t" << BlockAccountInfo.ToString() << endl;
+    }
     return OS.str();
 }
 
@@ -98,7 +104,19 @@ void xAuditCollectReporter::PostAuditCollect(const xAuditUsage & UsageInfo) {
         DEBUG_LOG("%s", "NodePool OOM");
         return;
     }
+    Node->Command   = Cmd_AuditReport;
     Node->UsageInfo = UsageInfo;
+    PostCollectionList.AddTail(*Node);
+}
+
+void xAuditCollectReporter::PostBlockAccount(const xAuditBlockAccount & BlockAccountInfo) {
+    auto Node = NodePool.Create();
+    if (!Node) {
+        DEBUG_LOG("%s", "NodePool OOM");
+        return;
+    }
+    Node->Command          = Cmd_BlockAccountReport;
+    Node->BlockAccountInfo = BlockAccountInfo;
     PostCollectionList.AddTail(*Node);
 }
 
@@ -112,19 +130,31 @@ void xAuditCollectReporter::KfkThreadFunc() {
         while (auto PNode = TempPostList.PopHead()) {
             // do post:
             DEBUG_LOG("%s", PNode->ToString().c_str());
-
-            auto R            = xPPB_AuditUsage();
-            R.TimeMs          = PNode->UsageInfo.StartTimestampMS;
-            R.AuditId         = PNode->UsageInfo.AuthId;
-            R.TcpConnections  = PNode->UsageInfo.TotalTcpConnections;
-            R.TcpUploadSize   = PNode->UsageInfo.TotalTcpBytesFromClient;
-            R.TcpDownloadSize = PNode->UsageInfo.TotalTcpBytesToClient;
-            R.UdpConnections  = PNode->UsageInfo.TotalUdpChannels;
-            R.UdpUploadSize   = PNode->UsageInfo.TotalUdpBytesFromClient;
-            R.UdpDownloadSize = PNode->UsageInfo.TotalUdpBytesToClient;
-            auto MSize        = WriteMessage(Buffer, Cmd_BackendTargetReport, R);
-
-            KfkContext->KR.Post(std::to_string(R.AuditId), Buffer, MSize);
+            if (PNode->Command == Cmd_AuditReport) {
+                auto   R          = xPPB_AuditUsage();
+                auto & UsageInfo  = PNode->UsageInfo;
+                R.TimeMs          = UsageInfo.StartTimestampMS;
+                R.AuditId         = UsageInfo.AuthId;
+                R.TcpConnections  = UsageInfo.TotalTcpConnections;
+                R.TcpUploadSize   = UsageInfo.TotalTcpBytesFromClient;
+                R.TcpDownloadSize = UsageInfo.TotalTcpBytesToClient;
+                R.UdpConnections  = UsageInfo.TotalUdpChannels;
+                R.UdpUploadSize   = UsageInfo.TotalUdpBytesFromClient;
+                R.UdpDownloadSize = UsageInfo.TotalUdpBytesToClient;
+                auto MSize        = WriteMessage(Buffer, Cmd_BackendTargetReport, R);
+                KfkContext->KR.Post(std::to_string(R.AuditId), Buffer, MSize);
+            } else if (PNode->Command == Cmd_BlockAccountReport) {
+                auto   R                = xPPB_BlockAccount();
+                auto & BlockAccountInfo = PNode->BlockAccountInfo;
+                R.StartTimestampMS      = BlockAccountInfo.StartTimestampMS;
+                R.AuditId               = BlockAccountInfo.AuthId;
+                R.BlockType             = BlockAccountInfo.Reason == eBlockAccountReason::BANDWITH_LIMIT ? 2 : 0;
+                R.BlockThresholdValue   = BlockAccountInfo.Threshold;
+                R.BlockPeriodMS         = BlockAccountInfo.PeriodMS;
+                R.Action                = 0x02;
+                auto MSize              = WriteMessage(Buffer, Cmd_BackendBlockAccountReport, R);
+                KfkContext->KR.Post(std::to_string(R.AuditId), Buffer, MSize);
+            }
             TempFinishedList.AddTail(*PNode);
         }
 

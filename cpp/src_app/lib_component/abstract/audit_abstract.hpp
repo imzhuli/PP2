@@ -17,11 +17,14 @@ struct xAuditUsage {
 };
 
 struct xAuditBlockAccount {
-    uint64_t AuthId;
-    uint64_t StartTimestampMS;
-    uint64_t PeriodMS;
-    ;
+    uint64_t            AuthId;
+    uint64_t            StartTimestampMS;
+    uint64_t            PeriodMS;
     eBlockAccountReason Reason;
+    uint64_t            Threshold;
+    uint64_t            TriggerValue;
+
+    std::string ToString() const;
 };
 
 struct xAuditAbstractService {

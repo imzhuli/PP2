@@ -6,6 +6,7 @@
 #include <pp_common/service_runtime.hpp>
 #include <pp_protocol/command.hpp>
 #include <pp_protocol/p_audit_collect.hpp>
+#include <pp_protocol/p_block_account.hpp>
 
 #ifndef NDEBUG
 static constexpr const auto OUTPUT_AUDIT_TIMEOUT_MS = 1min;
@@ -44,6 +45,21 @@ static bool OnClientPacket(const xTcpServiceClientConnectionHandle &, xPacketCom
         UsageInfo.TotalUdpBytesToClient   = Req.TotalUdpBytesToClient;
         Reporter.PostAuditCollect(UsageInfo);
         return true;
+    }
+    if (CommandId == Cmd_BlockAccountReport) {
+        auto Req = xPP_BlockAccount();
+        if (!Req.Deserialize(Payload, PayloadSize)) {
+            DEBUG_LOG("invalid protocol");
+            return false;
+        }
+        auto BlockAccountInfo             = xAuditBlockAccount();
+        BlockAccountInfo.AuthId           = Req.GlobalAuthId;
+        BlockAccountInfo.StartTimestampMS = Req.StartTimestampMS;
+        BlockAccountInfo.PeriodMS         = Req.BlockPeriodMS;
+        BlockAccountInfo.Reason           = Req.BlockReason;
+        BlockAccountInfo.Threshold        = Req.BlockThreshold;
+        BlockAccountInfo.TriggerValue     = Req.BlockTriggerValue;
+        Reporter.PostBlockAccount(BlockAccountInfo);
     }
     return true;
 }

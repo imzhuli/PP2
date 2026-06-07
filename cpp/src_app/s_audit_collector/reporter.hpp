@@ -12,13 +12,18 @@ public:
     void Clean();
     void Tick(uint64_t NowMS);
     void PostAuditCollect(const xAuditUsage & UsageInfo);
+    void PostBlockAccount(const xAuditBlockAccount & BlockAccountInfo);
 
     std::string GetAuditOutput() const;
 
 private:
     struct xAuditCollectNode
         : xListNode {
-        xAuditUsage UsageInfo;
+        xPacketCommandId Command;
+        union {
+            xAuditUsage        UsageInfo;
+            xAuditBlockAccount BlockAccountInfo;
+        };
 
         std::string ToString() const;
     };
