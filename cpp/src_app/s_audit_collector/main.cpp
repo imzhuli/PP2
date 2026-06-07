@@ -55,6 +55,7 @@ int main(int argc, char ** argv) {
     CL.Require(BindAddress, "BindAddress");
     CL.Require(ExportAddress, "ExportAddress");
     CL.Require(ServerIdServerAddress, "ServerIdServerAddress");
+    X_RESOURCE_GUARD_ASSERTED(Reporter, ServiceEnvironment.DefaultConfigFilePath);
 
     auto ServerIdClientOptions = xServerIdClientOptions{
         .ServerType       = ST_AUDIT_COLLECTOR,
