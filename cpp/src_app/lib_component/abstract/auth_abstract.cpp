@@ -10,7 +10,7 @@ std::string xAuthResult::ToString() const {
     SS << "ExportAddress:" << ExportAddress << endl;
     SS << "EnableTcp:" << EnableTcp << endl;
     SS << "EnableUdp:" << EnableUdp << endl;
-    SS << "BandwithLimit:" << BandwithLimit << endl;
+    SS << "BandwidthLimit:" << BandwidthLimit << endl;
     SS << "ConnectionLimit:" << ConnectionLimit << endl;
     SS << "ExpireTime:" << ExpireTime << endl;
     return SS.str();

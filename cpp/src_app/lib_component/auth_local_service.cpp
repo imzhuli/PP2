@@ -20,7 +20,8 @@ static constexpr const uint64_t ACCOUNT_BLOCK_TIMEOUT_MS         = 15 * 60'000;
 static constexpr const size_t   LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS = 5 * 60'000;
 #endif
 
-static constexpr const size_t LOCAL_AUDIT_NODE_POOL_SIZE = 10'0000;
+static constexpr const uint64_t BANDWITH_LIMIT_OVER_FACTOR = 3;
+static constexpr const size_t   LOCAL_AUDIT_NODE_POOL_SIZE = 10'0000;
 
 std::string xAuthLocalRecord::ToString() const {
     auto OS = std::ostringstream();
@@ -81,10 +82,10 @@ void xAuthLocalService::Tick(uint64_t NowMS) {
 }
 
 void xAuthLocalService::CheckAndReportLocalAudit() {
-    auto NowMS         = LocalTicker();
-    auto KillTimepoint = NowMS - LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS;
-    auto Cond          = [=](const xAuthLocalUsageAuditNode & N) {
-        return N.LastReportTimestampMS <= KillTimepoint;
+    auto NowMS          = LocalTicker();
+    auto AuditTimepoint = NowMS - LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS;
+    auto Cond           = [=](const xAuthLocalUsageAuditNode & N) {
+        return N.LastReportTimestampMS <= AuditTimepoint;
     };
     while (auto P = LocalAuditTimeoutList.PopHead(Cond)) {
         if (Steal(P->Audit.Dirty)) {
@@ -164,11 +165,25 @@ void xAuthLocalService::AcquireAuthInfo(const std::string_view AccountPassView, 
             return;
         }
     }
-    if (LocalRecord.BandwithLimit) {  // check if the account is about to be blocked
+    if (LocalRecord.BandwidthLimit) {  // check if the account is about to be blocked
+        auto & Audit         = LocalUsageNode->Audit;
+        auto   TotalConsumed = Audit.TotalTcpBytesFromClient + Audit.TotalTcpBytesToClient + Audit.TotalUdpBytesFromClient + Audit.TotalUdpBytesToClient;
+        if (TotalConsumed > LocalRecord.BandwidthLimit) {
+            LocalRecord.BlockStartTimestampMS = LocalTicker();
+            DEBUG_LOG("TriggerAccountBlocking: GlobalAuthId=%" PRIu64 ", ConsumedSize=%" PRIu64 "", LocalRecord.GlobalAuthId, TotalConsumed);
+            auto BlockAccountInfo             = xAuditBlockAccount();
+            BlockAccountInfo.AuthId           = LocalRecord.GlobalAuthId;
+            BlockAccountInfo.StartTimestampMS = LocalTicker();
+            BlockAccountInfo.PeriodMS         = ACCOUNT_BLOCK_TIMEOUT_MS;
+            BlockAccountInfo.Reason           = eBlockAccountReason::BANDWITH_LIMIT;
+            BlockAccountInfo.Threshold        = LocalRecord.BandwidthLimit;
+            BlockAccountInfo.TriggerValue     = TotalConsumed;
+            AuditService->ReportBlockAccount(BlockAccountInfo);
+            return;
+        }
     }
 
     DEBUG_LOG("FoundAuthRecord:%s", LocalRecord.ToString().c_str());
-
     auto & Result              = Future.Result;
     Result                     = {};
     Result->LocalAuthId        = LocalRecord.LocalAuthId;
@@ -229,7 +244,7 @@ static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
     auto ProxyIpIndex         = Doc.GetColumnIdx("pa_ip");
     auto ExportAddressIndex   = Doc.GetColumnIdx("proxy_ip");
     auto UdpIndex             = Doc.GetColumnIdx("is_udp");
-    auto BandwithLimitIndex   = Doc.GetColumnIdx("bandwidth_limit");
+    auto BandwidthLimitIndex  = Doc.GetColumnIdx("bandwidth_limit");
     auto ConnectionLimitIndex = Doc.GetColumnIdx("conn_limit");
     auto ExpiredTimeIndex     = Doc.GetColumnIdx("expired_time");
     auto Now                  = xel::GetUnixTimestamp();
@@ -247,7 +262,7 @@ static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
         auto ProxyIp         = xNetAddress::Parse(Doc.GetCell<std::string>(ProxyIpIndex, Row));
         auto ExportAddress   = xNetAddress::Parse(Doc.GetCell<std::string>(ExportAddressIndex, Row));
         auto Udp             = Doc.GetCell<std::string>(UdpIndex, Row);
-        auto BandwithLimit   = (uint64_t)std::strtoumax(Doc.GetCell<std::string>(BandwithLimitIndex, Row).c_str(), nullptr, 10);
+        auto BandwidthLimit  = (uint64_t)std::strtoumax(Doc.GetCell<std::string>(BandwidthLimitIndex, Row).c_str(), nullptr, 10);
         auto ConnectionLimit = (uint64_t)std::strtoumax(Doc.GetCell<std::string>(ConnectionLimitIndex, Row).c_str(), nullptr, 10);
 
         auto   AccountKey = CombineAccountPass(Account, Password);
@@ -258,7 +273,7 @@ static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
         Node.ProxyClientAddress  = ProxyIp;
         Node.StaticExportAddress = ExportAddress;
         Node.EnableUdp           = atoi(Udp.c_str());
-        Node.BandwithLimit       = 5 * BandwithLimit * (LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS / 1000);
+        Node.BandwidthLimit      = uint64_t(BANDWITH_LIMIT_OVER_FACTOR * BandwidthLimit * (LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS / 1000.));
 
         (void)ConnectionLimit;
     }

@@ -15,7 +15,7 @@ struct xAuthResult {
     xNetAddress ExportAddress;
     bool        EnableTcp;
     bool        EnableUdp;
-    uint32_t    BandwithLimit;
+    uint32_t    BandwidthLimit;
     uint32_t    ConnectionLimit;
     uint64_t    ExpireTime;
 
