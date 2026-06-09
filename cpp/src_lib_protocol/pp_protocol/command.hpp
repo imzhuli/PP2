@@ -31,10 +31,8 @@ static constexpr const xPacketCommandId Cmd_BackendAuthByUserPassResp = Cmd_Back
 
 // server id & server list:
 static constexpr const xPacketCommandId Cmd_ServerManagementBase        = 0x01'000;
-static constexpr const xPacketCommandId Cmd_RegisterService             = Cmd_ServerManagementBase + 0x01;
-static constexpr const xPacketCommandId Cmd_RegisterServiceResp         = Cmd_ServerManagementBase + 0x02;
-static constexpr const xPacketCommandId Cmd_DownloadSmallServerList     = Cmd_ServerManagementBase + 0x03;
-static constexpr const xPacketCommandId Cmd_DownloadSmallServerListResp = Cmd_ServerManagementBase + 0x04;
+static constexpr const xPacketCommandId Cmd_DownloadSmallServerList     = Cmd_ServerManagementBase + 0x01;
+static constexpr const xPacketCommandId Cmd_DownloadSmallServerListResp = Cmd_ServerManagementBase + 0x02;
 // proxy side report
 static constexpr const xPacketCommandId Cmd_AuditBase                   = 0x02'000;
 static constexpr const xPacketCommandId Cmd_TargetReport                = Cmd_AuditBase + 0x01;

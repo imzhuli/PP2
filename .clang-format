@@ -16,7 +16,7 @@ PointerAlignment: Middle
 ReferenceAlignment: Middle
 QualifierAlignment: Leave
 
-PackConstructorInitializers: CurrentLine
+PackConstructorInitializers: NextLineOnly
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 AllowAllParametersOfDeclarationOnNextLine: false
 AccessModifierOffset: -4

@@ -128,7 +128,7 @@ int main(int argc, char ** argv) {
     auto  CL = ServiceEnvironment.LoadConfig();
     CL.Require(BindAddress, "BindAddress");
 
-    X_RESOURCE_GUARD_ASSERTED(ServerIdService, BindAddress);
+    X_RESOURCE_GUARD_ASSERTED(ServerIdService, ServiceIoContext, BindAddress);
     X_SCOPE_GUARD(
         [] {
             EnableServerType(ST_SERVER_LIST);

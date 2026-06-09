@@ -1,35 +1,23 @@
 #pragma once
 #include <pp_common/_.hpp>
+#include <service/client/server_id_client.hpp>
 
-extern uint64_t LoadLocalServerId(const std::string & LocalServerIdFilename);
-extern void     DumpLocalServerId(const std::string & LocalServerIdFilename, uint64_t LocalServerId);
+using xel::service::xServerIdClientOptions;
 
-struct xServerIdClientOptions final {
-    xServerType ServerType       = 0;
-    uint64_t    PreviousServerId = 0;
-    xNetAddress ExportAddress    = {};
-};
-
-class xServerIdClient final {
+class xServerIdClient {
 public:
-    bool Init(const xServerIdClientOptions & Options, const xNetAddress & ServerIdCenterAddress);
-    bool Init(const xServerIdClientOptions & Options, const xNetAddress & ServerIdCenterAddress, const std::string & LocalServerIdFilename);
+    bool Init(xIoContext * ICP, const xServerIdClientOptions & Options, const xNetAddress & ServerIdCenterAddress, const std::string & DumpFilename);
     void Clean();
-    void Tick(uint64_t NowMS);
 
-    uint64_t GetLocalServerId() const { return LocalServerIdDirty ? 0 : LocalServerId; }
+    void     Tick(uint64_t NowMS) { InternalService.Tick(NowMS); }
+    uint64_t GetLocalServerId() const { return InternalService.GetLocalServerId(); }
 
     std::function<void(uint64_t)> OnServerIdUpdated = Noop<>;
 
 private:
-    void OnServerConnected();
-    bool OnServerPacket(xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * PayloadPtr, size_t PayloadSize);
+    void InternalOnServerIdUpdated(uint64_t NewServerId);
 
 private:
-    xTcpClientWrapper ClientWrapper;
-    xServerType       ServerType         = 0;
-    xNetAddress       ExportAddress      = {};
-    uint64_t          LocalServerId      = 0;
-    bool              LocalServerIdDirty = false;
-    std::string       LocalServerIdFilename;
+    xel::service::xServerIdClient InternalService;
+    std::string                   LocalServerIdFilename;
 };

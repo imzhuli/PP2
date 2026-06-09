@@ -3,13 +3,33 @@
 #include <pp_common/service_runtime.hpp>
 #include <typeinfo>
 
-/*
-TODO
-    在大量发送消息后. 进行重置producer, 这里要考虑线程同步. 以及回收旧对象前的flush和超时操作
-
-*/
-
 /* Callback object */
+
+class xKfkEventLoggerCb : public RdKafka::EventCb {
+public:
+    void event_cb(RdKafka::Event & event) override {
+        switch (event.type()) {
+            case RdKafka::Event::EVENT_ERROR: {
+                Logger->E("Kafka error: %s", RdKafka::err2str(event.err()).c_str());
+            } break;
+
+            case RdKafka::Event::EVENT_LOG: {
+                // This is where librdkafka's log messages come through
+                auto severity = event.severity();
+                auto fac      = event.fac();
+                auto msg      = event.str();
+                if (severity <= RdKafka::Event::EVENT_SEVERITY_ERROR) {
+                    Logger->E("[%s]", msg.c_str());
+                } else {
+                    Logger->I("[%s]", msg.c_str());
+                }
+            } break;
+
+            default: {
+            } break;
+        }
+    }
+};
 
 class xKfkDeliveryReportCb : public RdKafka::DeliveryReportCb {
 public:
@@ -84,8 +104,11 @@ private:
 /**/
 
 bool xKfkProducer::Init(const std::string & Topic, const std::map<std::string, std::string> & KafkaParams) {
-    KfkCB          = new xKfkDeliveryReportCb();
-    auto CBCleaner = xScopeGuard([this] { delete Steal(KfkCB); });
+    KfkEventCB      = new xKfkEventLoggerCb();
+    auto ECBCleaner = xScopeGuard([this] { delete Steal(KfkEventCB); });
+
+    KfkDeliveryReportCB = new xKfkDeliveryReportCb();
+    auto DRCBCleaner    = xScopeGuard([this] { delete Steal(KfkDeliveryReportCB); });
 
     KfkConf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
     if (!KfkConf) {
@@ -104,7 +127,11 @@ bool xKfkProducer::Init(const std::string & Topic, const std::map<std::string, s
             return false;
         }
     }
-    if (RdKafka::Conf::CONF_OK != KfkConf->set("dr_cb", KfkCB, errstr)) {
+    if (RdKafka::Conf::CONF_OK != KfkConf->set("event_cb", KfkEventCB, errstr)) {
+        DEBUG_LOG("failed to set kafka producer param: %s, error=%s", "event_cb", errstr.c_str());
+        return false;
+    }
+    if (RdKafka::Conf::CONF_OK != KfkConf->set("dr_cb", KfkDeliveryReportCB, errstr)) {
         DEBUG_LOG("failed to set kafka producer param: %s, error=%s", "dr_cb", errstr.c_str());
         return false;
     }
@@ -115,7 +142,8 @@ bool xKfkProducer::Init(const std::string & Topic, const std::map<std::string, s
         return false;
     }
 
-    CBCleaner.Dismiss();
+    ECBCleaner.Dismiss();
+    DRCBCleaner.Dismiss();
     ConfCleaner.Dismiss();
     TopicNameCleaner.Dismiss();
 
@@ -136,7 +164,8 @@ void xKfkProducer::Clean() {
     RunState.Finish();
 
     DestroyProducer();
-    auto CBCleaner        = xScopeGuard([this] { delete Steal(KfkCB); });
+    auto ECBCleaner       = xScopeGuard([this] { delete Steal(KfkEventCB); });
+    auto DRCBCleaner      = xScopeGuard([this] { delete Steal(KfkDeliveryReportCB); });
     auto ConfCleaner      = xScopeGuard([this] { delete Steal(KfkConf); });
     auto TopicNameCleaner = xScopeGuard([this] { Reset(KfkToipcName); });
     DEBUG_LOG("done");
@@ -215,11 +244,11 @@ void xKfkProducer::Flush() {
 
 void xKfkProducer::Poll(int TimeoutMS) {
     Producer.KfkProducer->poll(TimeoutMS);
-    KfkCB->Tick(xel::GetTimestampMS());
+    KfkDeliveryReportCB->Tick(xel::GetTimestampMS());
 }
 
 std::string xKfkProducer::GetAuditOutput() const {
-    auto Audit = KfkCB->GetAudit();
+    auto Audit = KfkDeliveryReportCB->GetAudit();
     auto OS    = std::ostringstream();
     OS << "AuditLastOffset:" << Audit.AuditLastOffset << endl;
     OS << "AuditLastSegAverageLatency:" << Audit.AuditLastSegAverageLatency << endl;

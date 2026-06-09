@@ -42,5 +42,6 @@ private:
     xTopicProducer BackupProducer;
     std::thread    PollThread;
 
-    class xKfkDeliveryReportCb * KfkCB = nullptr;
+    class xKfkEventLoggerCb *    KfkEventCB          = nullptr;
+    class xKfkDeliveryReportCb * KfkDeliveryReportCB = nullptr;
 };

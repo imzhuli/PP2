@@ -79,7 +79,7 @@ int main(int argc, char ** argv) {
         .ExportAddress    = ExportAddress,
     };
     auto ServerIdFilename = ServiceEnvironment.DefaultLocalServerIdFilePath;
-    X_RESOURCE_GUARD_ASSERTED(ServerIdClient, ServerIdClientOptions, ServerIdServerAddress, ServerIdFilename);
+    X_RESOURCE_GUARD_ASSERTED(ServerIdClient, ServiceIoContext, ServerIdClientOptions, ServerIdServerAddress, ServerIdFilename);
     X_RESOURCE_GUARD_ASSERTED(CollectorService, ServiceIoContext, BindAddress, MAX_REPORTER_CONNECTION_COUNT);
 
     CollectorService.OnClientPacket = &OnClientPacket;
