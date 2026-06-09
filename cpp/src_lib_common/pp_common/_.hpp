@@ -28,6 +28,7 @@
 #include <server_arch/tcp_client_wrapper.hpp>
 #include <server_arch/tcp_service.hpp>
 #include <server_arch/udp_service.hpp>
+#include <service/base/def.hpp>
 
 //
 #include <cinttypes>
@@ -94,6 +95,9 @@ using xel::xUdpChannel;
 using xel::xUdpService;
 using xel::xUdpServiceChannelHandle;
 
+using xel::service::xServerId;
+using xel::service::xServerType;
+
 // functions
 using xel::Base64Decode;
 using xel::Base64Encode;
@@ -133,9 +137,6 @@ using std::function;
 
 // min_defs:
 using xVersion = uint32_t;
-
-using xServerType = uint8_t;
-using xServerId   = uint64_t;
 
 constexpr const xServerType ST_SERVER_LIST      = 0x00;
 constexpr const xServerType ST_TARGET_COLLECTOR = 0x01;
