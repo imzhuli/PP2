@@ -59,7 +59,6 @@ endfunction()
 
 set(target_list
 
-	s_server_id_center
 	s_small_server_list
 
 	s_audit_collector
