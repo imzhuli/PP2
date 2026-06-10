@@ -152,7 +152,7 @@ void xAuditCollectReporter::KfkThreadFunc() {
                 auto & BlockAccountInfo = PNode->BlockAccountInfo;
                 R.StartTimestampMS      = BlockAccountInfo.StartTimestampMS;
                 R.AuditId               = BlockAccountInfo.AuthId;
-                R.BlockType             = BlockAccountInfo.Reason == eBlockAccountReason::BANDWITH_LIMIT ? 2 : 0;
+                R.BlockType             = BlockAccountInfo.Reason == eBlockAccountReason::BANDWITH_LIMIT ? 2 : (BlockAccountInfo.Reason == eBlockAccountReason::CONNECTION_LIMIT ? 1 : 0);
                 R.BlockThresholdValue   = BlockAccountInfo.Threshold;
                 R.BlockPeriodMS         = BlockAccountInfo.PeriodMS;
                 R.Action                = 0x02;

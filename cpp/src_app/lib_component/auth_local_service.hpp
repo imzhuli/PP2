@@ -20,12 +20,13 @@ struct xStringEqual {
 };
 
 struct xAuthLocalRecord final {
-    uint64_t    LocalAuthId    = 0;
-    uint64_t    GlobalAuthId   = 0;
-    xCountryId  CountryId      = 0;
-    bool        EnableTcp      = true;
-    bool        EnableUdp      = false;
-    uint64_t    BandwidthLimit = 0;
+    uint64_t    LocalAuthId     = 0;
+    uint64_t    GlobalAuthId    = 0;
+    xCountryId  CountryId       = 0;
+    bool        EnableTcp       = true;
+    bool        EnableUdp       = false;
+    uint64_t    BandwidthLimit  = 0;
+    uint64_t    ConnectionLimit = 0;
     xNetAddress ProxyClientAddress;
     xNetAddress StaticExportAddress;
     //

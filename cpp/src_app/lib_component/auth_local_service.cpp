@@ -20,8 +20,9 @@ static constexpr const uint64_t ACCOUNT_BLOCK_TIMEOUT_MS         = 15 * 60'000;
 static constexpr const size_t   LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS = 5 * 60'000;
 #endif
 
-static constexpr const uint64_t BANDWITH_LIMIT_OVER_FACTOR = 3;
-static constexpr const size_t   LOCAL_AUDIT_NODE_POOL_SIZE = 10'0000;
+static constexpr const uint64_t BANDWITH_LIMIT_OVER_FACTOR   = 3;
+static constexpr const uint64_t CONNECTION_LIMIT_OVER_FACTOR = 3;
+static constexpr const size_t   LOCAL_AUDIT_NODE_POOL_SIZE   = 10'0000;
 
 std::string xAuthLocalRecord::ToString() const {
     auto OS = std::ostringstream();
@@ -182,6 +183,23 @@ void xAuthLocalService::AcquireAuthInfo(const std::string_view AccountPassView, 
             return;
         }
     }
+    if (LocalRecord.ConnectionLimit) {
+        auto & Audit               = LocalUsageNode->Audit;
+        auto   TotalTcpConnections = Audit.TotalTcpConnections;
+        if (TotalTcpConnections > LocalRecord.ConnectionLimit) {
+            LocalRecord.BlockStartTimestampMS = LocalTicker();
+            DEBUG_LOG("TriggerAccountBlocking: GlobalAuthId=%" PRIu64 ", ConnectionCount=%" PRIu64 ", Threshold=%" PRIu64 "", LocalRecord.GlobalAuthId, TotalTcpConnections, LocalRecord.BandwidthLimit);
+            auto BlockAccountInfo             = xAuditBlockAccount();
+            BlockAccountInfo.AuthId           = LocalRecord.GlobalAuthId;
+            BlockAccountInfo.StartTimestampMS = LocalTicker();
+            BlockAccountInfo.PeriodMS         = ACCOUNT_BLOCK_TIMEOUT_MS;
+            BlockAccountInfo.Reason           = eBlockAccountReason::CONNECTION_LIMIT;
+            BlockAccountInfo.Threshold        = LocalRecord.ConnectionLimit;
+            BlockAccountInfo.TriggerValue     = TotalTcpConnections;
+            AuditService->ReportBlockAccount(BlockAccountInfo);
+            return;
+        }
+    }
 
     DEBUG_LOG("FoundAuthRecord:%s", LocalRecord.ToString().c_str());
     auto & Result              = Future.Result;
@@ -274,6 +292,7 @@ static void LoadFile(xAuthLocalMap & TargetMap, const fs::path & FilePath) {
         Node.StaticExportAddress = ExportAddress;
         Node.EnableUdp           = atoi(Udp.c_str());
         Node.BandwidthLimit      = uint64_t(BANDWITH_LIMIT_OVER_FACTOR * BandwidthLimit * (LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS / 1000.));
+        Node.ConnectionLimit     = uint64_t(CONNECTION_LIMIT_OVER_FACTOR * ConnectionLimit * (LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS / 1000.));
 
         (void)ConnectionLimit;
     }
