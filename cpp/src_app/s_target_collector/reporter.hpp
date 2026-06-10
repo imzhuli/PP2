@@ -32,6 +32,8 @@ private:
     std::thread                     KfkThread;
     //
     xMemoryPool<xTargetCollectNode> NodePool;
+    //
+    xel::xAutoResetEvent            PostCollectEvent;
     xSpinlock                       SwitchListLock;
     xTargetCollectList              PostCollectionList;
     xTargetCollectList              PendingCollectionList;

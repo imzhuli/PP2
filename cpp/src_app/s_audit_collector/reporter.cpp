@@ -107,6 +107,8 @@ void xAuditCollectReporter::PostAuditCollect(const xAuditUsage & UsageInfo) {
     Node->Command   = Cmd_AuditReport;
     Node->UsageInfo = UsageInfo;
     PostCollectionList.AddTail(*Node);
+
+    PostCollectEvent.Notify();
 }
 
 void xAuditCollectReporter::PostBlockAccount(const xAuditBlockAccount & BlockAccountInfo) {
@@ -118,6 +120,8 @@ void xAuditCollectReporter::PostBlockAccount(const xAuditBlockAccount & BlockAcc
     Node->Command          = Cmd_BlockAccountReport;
     Node->BlockAccountInfo = BlockAccountInfo;
     PostCollectionList.AddTail(*Node);
+
+    PostCollectEvent.Notify();
 }
 
 void xAuditCollectReporter::KfkThreadFunc() {
@@ -141,7 +145,7 @@ void xAuditCollectReporter::KfkThreadFunc() {
                 R.UdpConnections  = UsageInfo.TotalUdpChannels;
                 R.UdpUploadSize   = UsageInfo.TotalUdpBytesFromClient;
                 R.UdpDownloadSize = UsageInfo.TotalUdpBytesToClient;
-                auto MSize        = WriteMessage(Buffer, Cmd_BackendTargetReport, R);
+                auto MSize        = WriteMessage(Buffer, Cmd_BackendAuditReport, R);
                 KfkContext->KR.Post(std::to_string(R.AuditId), Buffer, MSize);
             } else if (PNode->Command == Cmd_BlockAccountReport) {
                 auto   R                = xPPB_BlockAccount();
@@ -159,6 +163,7 @@ void xAuditCollectReporter::KfkThreadFunc() {
         }
 
         do {
+            PostCollectEvent.WaitFor(50ms);
             X_VAR xSpinlockGuard(SwitchListLock);
             FinishedCollectionList.GrabListTail(TempFinishedList);
             TempPostList.GrabListTail(PendingCollectionList);

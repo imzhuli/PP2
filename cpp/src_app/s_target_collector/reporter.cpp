@@ -106,6 +106,8 @@ void xTargetCollectReporter::PostTargetCollect(uint64_t GlobalAuthId, const xel:
     Node->TargetHost    = TargetHost;
     Node->Count         = Count;
     PostCollectionList.AddTail(*Node);
+
+    PostCollectEvent.Notify();
 }
 
 void xTargetCollectReporter::KfkThreadFunc() {
@@ -137,6 +139,7 @@ void xTargetCollectReporter::KfkThreadFunc() {
         }
 
         do {
+            PostCollectEvent.WaitFor(50ms);
             X_VAR xSpinlockGuard(SwitchListLock);
             FinishedCollectionList.GrabListTail(TempFinishedList);
             TempPostList.GrabListTail(PendingCollectionList);
