@@ -95,8 +95,8 @@ using xel::xUdpChannel;
 using xel::xUdpService;
 using xel::xUdpServiceChannelHandle;
 
+using xel::service::xServerGroup;
 using xel::service::xServerId;
-using xel::service::xServerType;
 
 // functions
 using xel::Base64Decode;
@@ -138,9 +138,11 @@ using std::function;
 // min_defs:
 using xVersion = uint32_t;
 
-constexpr const xServerType ST_SERVER_LIST      = 0x00;
-constexpr const xServerType ST_TARGET_COLLECTOR = 0x01;
-constexpr const xServerType ST_AUDIT_COLLECTOR  = 0x02;
+constexpr const xServerGroup ST_SERVER_LIST            = 0x00;
+constexpr const xServerGroup ST_TARGET_COLLECTOR       = 0x01;
+constexpr const xServerGroup ST_AUDIT_COLLECTOR        = 0x02;
+constexpr const xServerGroup ST_RELAY_INFO_DISPATCHER  = 0x03;
+constexpr const xServerGroup ST_DEVICE_INFO_DISPATCHER = 0x04;
 
 struct xServerInfo {
     xServerId   ServerId = {};

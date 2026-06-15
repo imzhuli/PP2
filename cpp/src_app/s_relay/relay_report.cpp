@@ -104,7 +104,7 @@ void PostRelayInfo() {
     auto   PP            = xPP_RelayInfoRegister();
     auto & SI            = PP.ExportRelayServerInfo;
     SI.ServerId          = Bootstrap.GetServerId();
-    SI.ServerType        = eRelayServerType::DEVICE;
+    SI.ServerGroup       = eRelayServerType::DEVICE;
     SI.DevicePortAddress = ExportAddressForDevice;
     SI.ClientPortAddress = ExportAddressForProxyAccess4;
 

@@ -26,9 +26,9 @@ bool xSmallServerListDownloader::Init(const xNetAddress & ServerListServerAddres
 
 void xSmallServerListDownloader::Clean() {
     for (size_t I = 0; I < MAX_SMALL_SERVER_LIST_SIZE; ++I) {
-        auto & Node = EnabledServerTypeMap[I];
+        auto & Node = EnabledServerGroupMap[I];
         if (Node.Enabled) {
-            DisableServerType(xServerType(I));
+            DisableServerGroup(xServerGroup(I));
         }
     }
 
@@ -43,29 +43,29 @@ void xSmallServerListDownloader::Tick(uint64_t NowMS) {
     UpdateEnabledServerList();
 }
 
-void xSmallServerListDownloader::EnableServerType(xServerType Type) {
+void xSmallServerListDownloader::EnableServerGroup(xServerGroup Type) {
     assert(Type != ST_SERVER_LIST);
-    auto & Node = EnabledServerTypeMap[Type];
-    assert(!Node.Enabled && !xListNode::IsLinked(Node) && !Node.ServerList && !Node.ServerType);
-    Node.Enabled    = true;
-    Node.ServerType = Type;
-    Node.ServerList = new xSmallServerList();
-    EnabledServerTypeList.AddTail(Node);
+    auto & Node = EnabledServerGroupMap[Type];
+    assert(!Node.Enabled && !xListNode::IsLinked(Node) && !Node.ServerList && !Node.ServerGroup);
+    Node.Enabled     = true;
+    Node.ServerGroup = Type;
+    Node.ServerList  = new xSmallServerList();
+    EnabledServerGroupList.AddTail(Node);
 }
 
-void xSmallServerListDownloader::DisableServerType(xServerType Type) {
-    auto & Node = EnabledServerTypeMap[Type];
-    assert(Node.Enabled && xListNode::IsLinked(Node) && Node.ServerList && Node.ServerType);
+void xSmallServerListDownloader::DisableServerGroup(xServerGroup Type) {
+    auto & Node = EnabledServerGroupMap[Type];
+    assert(Node.Enabled && xListNode::IsLinked(Node) && Node.ServerList && Node.ServerGroup);
     Node.Enabled               = false;
-    Node.ServerType            = 0;
+    Node.ServerGroup           = 0;
     Node.LastUpdateTimestampMS = 0;
     Node.ServerListSize        = 0;
     delete Steal(Node.ServerList);
-    xEnabledServerTypeList::Remove(Node);
+    xEnabledServerGroupList::Remove(Node);
 }
 
-xSmallServerListDownloader::xServerListView xSmallServerListDownloader::GetServerListView(xServerType Type) {
-    auto & Node = EnabledServerTypeMap[Type];
+xSmallServerListDownloader::xServerListView xSmallServerListDownloader::GetServerListView(xServerGroup Type) {
+    auto & Node = EnabledServerGroupMap[Type];
     if (!Node.Enabled) {
         return {};
     }
@@ -79,29 +79,29 @@ void xSmallServerListDownloader::UpdateServerListSlaveList() {
     }
     LastUpdateServerListSlaveListTimestampMS = NowMS;
 
-    auto Req       = xPP_GetSmallServerList();
-    Req.ServerType = ST_SERVER_LIST;
-    DownloadService.PostMessage(ServerListServerMasterAddress, Cmd_DownloadSmallServerList, xPacketRequestId(Req.ServerType), Req);
+    auto Req        = xPP_GetSmallServerList();
+    Req.ServerGroup = ST_SERVER_LIST;
+    DownloadService.PostMessage(ServerListServerMasterAddress, Cmd_DownloadSmallServerList, xPacketRequestId(Req.ServerGroup), Req);
 }
 
 void xSmallServerListDownloader::UpdateEnabledServerList() {
     auto NowMS = LocalTicker();
-    auto Cond  = [Timepoint = NowMS - UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS](const xEnabledServerTypeNode & Node) {
+    auto Cond  = [Timepoint = NowMS - UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS](const xEnabledServerGroupNode & Node) {
         return Node.LastUpdateTimestampMS <= Timepoint;
     };
     // update only one server list each time.
-    auto PNode = EnabledServerTypeList.PopHead(Cond);
+    auto PNode = EnabledServerGroupList.PopHead(Cond);
     if (!PNode) {
         return;
     }
 
     PNode->LastUpdateTimestampMS = NowMS;
-    EnabledServerTypeList.AddTail(*PNode);
+    EnabledServerGroupList.AddTail(*PNode);
 
     auto Req                     = xPP_GetSmallServerList();
-    Req.ServerType               = PNode->ServerType;
+    Req.ServerGroup              = PNode->ServerGroup;
     auto ServerListServerAddress = SelectServerListServer();
-    DownloadService.PostMessage(ServerListServerAddress, Cmd_DownloadSmallServerList, xPacketRequestId(Req.ServerType), Req);
+    DownloadService.PostMessage(ServerListServerAddress, Cmd_DownloadSmallServerList, xPacketRequestId(Req.ServerGroup), Req);
 }
 
 void xSmallServerListDownloader::OnUdpPacket(const xUdpServiceChannelHandle &, xPacketCommandId CommandId, xPacketRequestId RequestId, ubyte * Payload, size_t PayloadSize) {
@@ -116,8 +116,8 @@ void xSmallServerListDownloader::OnUdpPacket(const xUdpServiceChannelHandle &, x
     if (RequestId > MAX_SMALL_SERVER_LIST_SIZE) {
         return;
     }
-    auto ServerType = xServerType(RequestId);
-    auto PNode      = &EnabledServerTypeMap[ServerType];
+    auto ServerGroup = xServerGroup(RequestId);
+    auto PNode       = &EnabledServerGroupMap[ServerGroup];
     if (!PNode->Enabled) {
         return;
     }
@@ -129,7 +129,7 @@ void xSmallServerListDownloader::OnUdpPacket(const xUdpServiceChannelHandle &, x
         }
         PNode->ServerListSize     = Resp.ServerListSize;
         PNode->VersionTimestampMS = Resp.VersionTimestampMS;
-        OnServerListUpdated(ServerType, PNode->ServerList->data(), PNode->ServerListSize, PNode->VersionTimestampMS);
+        OnServerListUpdated(ServerGroup, PNode->ServerList->data(), PNode->ServerListSize, PNode->VersionTimestampMS);
     }
     return;
 }

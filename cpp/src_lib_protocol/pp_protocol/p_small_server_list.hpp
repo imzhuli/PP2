@@ -4,14 +4,14 @@
 struct xPP_GetSmallServerList : public xBinaryMessage {  // from proxy_access to relay server
 public:
     void SerializeMembers() override {
-        W(ServerType);  //
+        W(ServerGroup);  //
     }
 
     void DeserializeMembers() override {
-        R(ServerType);  //
+        R(ServerGroup);  //
     }
 
-    xServerType ServerType;
+    xServerGroup ServerGroup;
 };
 
 struct xPP_GetSmallServerListResp : public xBinaryMessage {  // from proxy_access to relay server

@@ -43,7 +43,7 @@ int main(int argc, char ** argv) {
     X_RESOURCE_GUARD_ASSERTED(Reporter, ServiceEnvironment.DefaultConfigFilePath);
 
     auto ServerIdClientOptions = xServerIdClientOptions{
-        .ServerType       = ST_TARGET_COLLECTOR,
+        .ServerGroup      = ST_TARGET_COLLECTOR,
         .PreviousServerId = 0,
         .ExportAddress    = ExportAddress,
     };

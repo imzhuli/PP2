@@ -7,7 +7,7 @@
 #include <pp_protocol/p_target_collect.hpp>
 
 static std::string_view ExtractSecondLevelDomain(std::string_view Domain) {
-    // move port number
+    // remove port number
     // auto colon_pos = Domain.find(':');
     // if (colon_pos != std::string_view::npos) {
     //     Domain = Domain.substr(0, colon_pos);
@@ -54,8 +54,8 @@ bool xAuditService::Init(const xNetAddress & ServerListServerAddress, const xNet
         TcpReporter.Clean();
         UdpReporter.Clean();
     }
-    ServerListDownloader.EnableServerType(ST_TARGET_COLLECTOR);
-    ServerListDownloader.EnableServerType(ST_AUDIT_COLLECTOR);
+    ServerListDownloader.EnableServerGroup(ST_TARGET_COLLECTOR);
+    ServerListDownloader.EnableServerGroup(ST_AUDIT_COLLECTOR);
     ServerListDownloader.OnServerListUpdated = Delegate(&xAuditService::OnServerListUpdated, this);
 
     Reset(ConnectionIdList);
@@ -82,13 +82,13 @@ std::string xAuditService::OutputAudit() {
     return OS.str();
 }
 
-void xAuditService::OnServerListUpdated(xServerType ServerType, const xServerInfo * ServerList, size_t ServerListSize, uint64_t VersionTimestampMS) {
-    if (ServerType == ST_TARGET_COLLECTOR) {  // udp servers , simply replace the old list
+void xAuditService::OnServerListUpdated(xServerGroup ServerGroup, const xServerInfo * ServerList, size_t ServerListSize, uint64_t VersionTimestampMS) {
+    if (ServerGroup == ST_TARGET_COLLECTOR) {  // udp servers , simply replace the old list
         DEBUG_LOG("renew target collector server list (always use ServerListDownloader.GetServerListView()), version_timestamp_ms=%" PRIu64 "", VersionTimestampMS);
         return;
     }
 
-    if (ServerType == ST_AUDIT_COLLECTOR) {
+    if (ServerGroup == ST_AUDIT_COLLECTOR) {
         auto OldList              = AuditServerList.Container.data();
         auto OldSize              = AuditServerList.Size;
         auto OldIndex             = size_t(0);

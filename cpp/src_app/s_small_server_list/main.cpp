@@ -27,13 +27,13 @@ namespace {
 
 }  // namespace
 
-static void EnableServerType(xServerType Type) {
+static void EnableServerGroup(xServerGroup Type) {
     auto & List = ServerListMap[Type];
     assert(!List);
     List = new xBufferedSmallList();
 }
 
-static void DisableServerType(xServerType Type) {
+static void DisableServerGroup(xServerGroup Type) {
     auto List = Steal(ServerListMap[Type]);
     assert(List);
     delete List;
@@ -113,7 +113,7 @@ static void OnDownloadList(const xUdpServiceChannelHandle & Handle, xPacketComma
         DEBUG_LOG("invalid protocol");
         return;
     }
-    auto List = ServerListMap[Req.ServerType];
+    auto List = ServerListMap[Req.ServerGroup];
     if (!List) {
         DEBUG_LOG("disabled server type");
         return;
@@ -131,20 +131,20 @@ int main(int argc, char ** argv) {
     X_RESOURCE_GUARD_ASSERTED(ServerIdService, ServiceIoContext, BindAddress);
     X_SCOPE_GUARD(
         [] {
-            EnableServerType(ST_SERVER_LIST);
-            EnableServerType(ST_TARGET_COLLECTOR);
-            EnableServerType(ST_AUDIT_COLLECTOR);
-            ServerIdService.EnableServerType(ST_SERVER_LIST);
-            ServerIdService.EnableServerType(ST_TARGET_COLLECTOR);
-            ServerIdService.EnableServerType(ST_AUDIT_COLLECTOR);
+            EnableServerGroup(ST_SERVER_LIST);
+            EnableServerGroup(ST_TARGET_COLLECTOR);
+            EnableServerGroup(ST_AUDIT_COLLECTOR);
+            ServerIdService.EnableServerGroup(ST_SERVER_LIST);
+            ServerIdService.EnableServerGroup(ST_TARGET_COLLECTOR);
+            ServerIdService.EnableServerGroup(ST_AUDIT_COLLECTOR);
         },
         [] {
-            DisableServerType(ST_SERVER_LIST);
-            DisableServerType(ST_TARGET_COLLECTOR);
-            DisableServerType(ST_AUDIT_COLLECTOR);
-            ServerIdService.DisableServerType(ST_SERVER_LIST);
-            ServerIdService.DisableServerType(ST_TARGET_COLLECTOR);
-            ServerIdService.DisableServerType(ST_AUDIT_COLLECTOR);
+            DisableServerGroup(ST_SERVER_LIST);
+            DisableServerGroup(ST_TARGET_COLLECTOR);
+            DisableServerGroup(ST_AUDIT_COLLECTOR);
+            ServerIdService.DisableServerGroup(ST_SERVER_LIST);
+            ServerIdService.DisableServerGroup(ST_TARGET_COLLECTOR);
+            ServerIdService.DisableServerGroup(ST_AUDIT_COLLECTOR);
         }
     );
     ServerIdService.OnNewServerId    = OnNewServerId;

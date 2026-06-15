@@ -9,7 +9,7 @@
 struct xSmallServerList {
     using xServerListContainer = std::array<xServerInfo, MAX_SMALL_SERVER_LIST_SIZE>;
     using xServerListSize      = size_t;
-    xServerType          Type;
+
     xServerListContainer Container;
     xServerListSize      Size = 0;
 };
@@ -28,7 +28,7 @@ public:
     void ReportBlockAccount(const xAuditBlockAccount & BlockAccountInfo) override;
 
 private:
-    void OnServerListUpdated(xServerType ServerType, const xServerInfo * ServerList, size_t ServerListSize, uint64_t VersionTimestampMS);
+    void OnServerListUpdated(xServerGroup ServerGroup, const xServerInfo * ServerList, size_t ServerListSize, uint64_t VersionTimestampMS);
 
 private:
     using xAuditConnectionIdList = std::array<uint64_t, MAX_SMALL_SERVER_LIST_SIZE>;

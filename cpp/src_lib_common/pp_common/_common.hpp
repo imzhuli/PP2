@@ -3,16 +3,7 @@
 
 /* constant section */
 
-static constexpr const uint32_t MAX_AUTH_CACHE_SERVER_COUNT            = 100;
-static constexpr const uint32_t MAX_RELAY_SERVER_SUPPORTED             = 2'0000;
-static constexpr const uint32_t MAX_RELAY_INFO_DISPATCHER_SERVER_COUNT = 100;
-static constexpr const uint32_t MAX_DEVICE_STATE_RELAY_SERVER_COUNT    = 100;
-static constexpr const uint32_t MAX_AUDIT_DEVICE_SERVER_COUNT          = 100;
-static constexpr const uint32_t MAX_AUDIT_ACCOUNT_SERVER_COUNT         = 100;
-static constexpr const uint32_t MAX_AUDIT_TARGET_SERVER_COUNT          = 100;
-static constexpr const uint32_t MAX_DEVICE_SELECTOR_DISPATCHER_COUNT   = 100;
-static constexpr const uint32_t MAX_BACKEND_SERVER_COUNT               = 100;
-static constexpr const uint32_t MAX_DEVICE_SELECTOR_COUNT              = 1000;
+static constexpr const uint32_t MAX_DEVICE_STATE_RELAY_SERVER_COUNT = 100;
 
 enum struct eRelayServerType : uint8_t {
     UNSPECIFIED = 0,

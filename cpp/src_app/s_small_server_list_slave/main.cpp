@@ -18,13 +18,13 @@ namespace {
 
 }  // namespace
 
-static void EnableServerType(xServerType Type) {
+static void EnableServerGroup(xServerGroup Type) {
     auto & Buffer = BufferList[Type];
     assert(!Buffer);
     List = new xServerListBuffer();
 }
 
-static void DisableServerType(xServerType Type) {
+static void DisableServerGroup(xServerGroup Type) {
     auto & Buffer = Steal(BufferList[Type]);
     assert(Buffer);
     delete Buffer;
@@ -76,7 +76,7 @@ static void OnDownloadList(const xUdpServiceChannelHandle & Handle, xPacketComma
     if (!Req.Deserialize(Payload, PayloadSize)) {
         return;
     }
-    auto List = ServerListMap[Req.ServerType];
+    auto List = ServerListMap[Req.ServerGroup];
     if (!List) {
         return;
     }
@@ -92,12 +92,12 @@ int main(int argc, char ** argv) {
 
     X_SCOPE_GUARD(
         [] {
-            EnableServerType(ST_SERVER_LIST);
-            EnableServerType(ST_TARGET_COLLECTOR);
+            EnableServerGroup(ST_SERVER_LIST);
+            EnableServerGroup(ST_TARGET_COLLECTOR);
         },
         [] {
-            DisableServerType(ST_SERVER_LIST);
-            DisableServerType(ST_TARGET_COLLECTOR);
+            DisableServerGroup(ST_SERVER_LIST);
+            DisableServerGroup(ST_TARGET_COLLECTOR);
         }
     );
 

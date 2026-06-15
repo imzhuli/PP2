@@ -7,7 +7,7 @@ struct xRelayServerDevicePortInfo {
 };
 
 struct xRelayServerProxyPortInfo {
-    uint32_t    RelayServerGroupId;
+    uint32_t    RelayServerTypeId;
     uint64_t    RelayServerId;
     xNetAddress Address4;
     xNetAddress Address6;
