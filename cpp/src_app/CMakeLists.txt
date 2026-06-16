@@ -72,7 +72,8 @@ set(target_list
 	#s_device_state_relay
 	#s_relay
 	#s_relay_id_client
-	#s_relay_id_manager
+	
+	s_relay_id_master
 	#s_relay_info_dispatcher
 
 	############ tests:

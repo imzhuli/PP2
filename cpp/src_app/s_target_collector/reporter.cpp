@@ -9,13 +9,13 @@
 static constexpr size_t MAX_AUDIT_REPORTER_COUNT = 20'0000;
 
 struct xKfkContext {
-    xKfkProducer KR                  = {};
-    std::string  SecurityProtocol    = {};
-    std::string  SaslMechanism       = {};
-    std::string  SaslUsername        = {};
-    std::string  SaslPassword        = {};
-    std::string  BootstrapServerList = {};
-    std::string  Topic               = {};
+    xRdKfkOneTopicProducer KR                  = {};
+    std::string            SecurityProtocol    = {};
+    std::string            SaslMechanism       = {};
+    std::string            SaslUsername        = {};
+    std::string            SaslPassword        = {};
+    std::string            BootstrapServerList = {};
+    std::string            Topic               = {};
 };
 
 std::string xTargetCollectReporter::xTargetCollectNode::ToString() const {

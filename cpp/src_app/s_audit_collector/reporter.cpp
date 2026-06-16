@@ -10,13 +10,18 @@
 static constexpr size_t MAX_AUDIT_REPORTER_COUNT = 20'0000;
 
 struct xKfkContext {
-    xKfkProducer KR                  = {};
-    std::string  SecurityProtocol    = {};
-    std::string  SaslMechanism       = {};
-    std::string  SaslUsername        = {};
-    std::string  SaslPassword        = {};
-    std::string  BootstrapServerList = {};
-    std::string  Topic               = {};
+    xRdKfkProducer KR                  = {};
+    uint64_t       AuditTopicId        = {};
+    uint64_t       BlockAccountTopicId = {};
+
+    // config
+    std::string SecurityProtocol    = {};
+    std::string SaslMechanism       = {};
+    std::string SaslUsername        = {};
+    std::string SaslPassword        = {};
+    std::string BootstrapServerList = {};
+    std::string AuditTopic          = {};
+    std::string BlockAccountTopic   = {};
 };
 
 std::string xAuditCollectReporter::xAuditCollectNode::ToString() const {
@@ -45,18 +50,26 @@ bool xAuditCollectReporter::Init(const std::string & ConfigFilename) {
     CL.Require(KfkContext->SaslUsername, "SaslUsername");
     CL.Require(KfkContext->SaslPassword, "SaslPassword");
     CL.Require(KfkContext->BootstrapServerList, "BootstrapServerList");
-    CL.Require(KfkContext->Topic, "Topic");
+    CL.Require(KfkContext->AuditTopic, "AuditTopic");
+    CL.Require(KfkContext->BlockAccountTopic, "BlockAccountTopic");
 
-    if (!KfkContext->KR.Init(
-            KfkContext->Topic,
-            {
-                { "security.protocol", KfkContext->SecurityProtocol },
-                { "sasl.mechanism", KfkContext->SaslMechanism },
-                { "sasl.username", KfkContext->SaslUsername },
-                { "sasl.password", KfkContext->SaslPassword },
-                { "bootstrap.servers", KfkContext->BootstrapServerList },
-            }
-        )) {
+    auto Options = xRdKfkProducerOptions{
+        .SecurityProtocol    = KfkContext->SecurityProtocol,
+        .SaslMechanism       = KfkContext->SaslMechanism,
+        .SaslUsername        = KfkContext->SaslUsername,
+        .SaslPassword        = KfkContext->SaslPassword,
+        .BootstrapServerList = KfkContext->BootstrapServerList,
+    };
+
+    if (!KfkContext->KR.Init(Options)) {
+        delete Steal(KfkContext);
+        NodePool.Clean();
+        return false;
+    }
+    KfkContext->AuditTopicId        = KfkContext->KR.AddTopic(KfkContext->AuditTopic);
+    KfkContext->BlockAccountTopicId = KfkContext->KR.AddTopic(KfkContext->BlockAccountTopic);
+    if (!KfkContext->AuditTopicId || !KfkContext->BlockAccountTopicId) {
+        KfkContext->KR.Clean();
         delete Steal(KfkContext);
         NodePool.Clean();
         return false;
@@ -146,7 +159,7 @@ void xAuditCollectReporter::KfkThreadFunc() {
                 R.UdpUploadSize   = UsageInfo.TotalUdpBytesFromClient;
                 R.UdpDownloadSize = UsageInfo.TotalUdpBytesToClient;
                 auto MSize        = WriteMessage(Buffer, Cmd_BackendAuditReport, R);
-                KfkContext->KR.Post(std::to_string(R.AuditId), Buffer, MSize);
+                KfkContext->KR.Post(KfkContext->AuditTopicId, std::to_string(R.AuditId), Buffer, MSize);
             } else if (PNode->Command == Cmd_BlockAccountReport) {
                 auto   R                = xPPB_BlockAccount();
                 auto & BlockAccountInfo = PNode->BlockAccountInfo;
@@ -157,7 +170,7 @@ void xAuditCollectReporter::KfkThreadFunc() {
                 R.BlockPeriodMS         = BlockAccountInfo.PeriodMS;
                 R.Action                = 0x02;
                 auto MSize              = WriteMessage(Buffer, Cmd_BackendBlockAccountReport, R);
-                KfkContext->KR.Post(std::to_string(R.AuditId), Buffer, MSize);
+                KfkContext->KR.Post(KfkContext->BlockAccountTopicId, std::to_string(R.AuditId), Buffer, MSize);
             }
             TempFinishedList.AddTail(*PNode);
         }
