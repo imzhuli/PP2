@@ -4,13 +4,16 @@ import re
 
 __fix_compiler_flags = """
 if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-function-declaration")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-truncation")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nested-externs")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-function-declaration")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-int-conversion")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-conversion")
 elseif (CMAKE_C_COMPILER_ID MATCHES "Clang")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-function-declaration")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nested-externs")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-function-declaration")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-int-conversion")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-conversion")
 elseif (CMAKE_C_COMPILER_ID STREQUAL "MSVC")

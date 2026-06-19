@@ -18,8 +18,6 @@ link_directories(
 message(STATUS ${LIBRARY_OUTPUT_PATH})
 set(LOCAL_PP_LIBRARIES ppprotocol ppdb ppcommon)
 
-set(LOCAL_3RD_LIBRARIES ${LOCAL_3RD_LIBRARIES} libcares.a)
-
 # enable specific macors by system type:
 if (CMAKE_SYSTEM_NAME MATCHES "Windows")
 	set(PLATFORM_LIBRARIES ws2_32 Mswsock)
@@ -61,6 +59,8 @@ set(target_list
 
 	s_small_server_list
 
+	s_address_to_device
+
 	s_audit_collector
 	s_target_collector
 
@@ -95,9 +95,15 @@ foreach(item IN LISTS target_list)
     build_app(${item})
 endforeach()
 
-set(LIBRDKAFKA_LIBRARIES librdkafka++.a librdkafka-static.a libssl.a libcrypto.a)
-target_link_libraries(s_audit_collector PRIVATE ${LIBRDKAFKA_LIBRARIES})
-target_link_libraries(s_target_collector PRIVATE ${LIBRDKAFKA_LIBRARIES})
+set(absl_DIR "${LOCAL_3RD_CMAKE_DIR}/absl")
+find_package(absl REQUIRED)
+target_link_libraries(s_address_to_device PRIVATE absl::flat_hash_map)
+
+set(RdKafka_DIR "${LOCAL_3RD_CMAKE_DIR}/RdKafka")
+find_package(RdKafka REQUIRED)
+target_link_libraries(s_audit_collector PRIVATE RdKafka::rdkafka++)
+target_link_libraries(s_target_collector PRIVATE RdKafka::rdkafka++)
+
 
 install(TARGETS
 	${target_list}

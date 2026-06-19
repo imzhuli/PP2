@@ -33,7 +33,8 @@ def build():
             "-DRDKAFKA_BUILD_STATIC=ON "
             "-DENABLE_LZ4_EXT=OFF "
             "-DWITH_ZLIB=OFF "
-            "-DWITH_ZSTD=OFF"
+            "-DWITH_ZSTD=OFF "
+            "-DRDKAFKA_BUILD_TESTS=OFF -DRDKAFKA_BUILD_EXAMPLES=OFF "
             "-DCMAKE_CXX_STANDARD=23 "
             f"-DCMAKE_INSTALL_PREFIX={install_dir!r} -B build ."
         )

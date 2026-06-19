@@ -5,7 +5,6 @@ project (lib_${libname})
 message(STATUS ${X_INCLUDE_DIRS})
 message(STATUS ${X_LIBRARY_DIRS})
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/" )
 find_package(MySQL REQUIRED)
 
 include_directories(
