@@ -8,8 +8,8 @@ import xsetup
 cwd = os.getcwd()
 unzip_dir = f"{cwd}/_3rd_build"
 
-src_file = f"{cwd}/_3rd_source/abseil-cpp-20240116.1.tar.gz"
-unzipped_src_dir = f"{unzip_dir}/abseil-cpp-20240116.1"
+src_file = f"{cwd}/_3rd_source/abseil-cpp-20260526.0.tar.gz"
+unzipped_src_dir = f"{unzip_dir}/abseil-cpp-20260526.0"
 install_dir = f"{cwd}/_3rd_installed"
 
 
@@ -33,7 +33,7 @@ def build():
             "-DCMAKE_EXPORT_COMPILE_COMMANDS=1 "
             "-DABSL_BUILD_TESTING=OFF "
             "-DABSL_PROPAGATE_CXX_STD=ON "
-            "-DCMAKE_CXX_STANDARD=20 "
+            "-DCMAKE_CXX_STANDARD=23 "
             f"-DCMAKE_INSTALL_PREFIX={install_dir!r} -B build ."
         )
         os.system(f"cmake --build build {xsetup.cmake_build_config} -- all")

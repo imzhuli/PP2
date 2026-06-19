@@ -8,4 +8,5 @@ if not ce.check_env():
     print("invalid env check result")
     exit
 
+ce.remake_3rd_dirs()
 ce.remake_dirs()

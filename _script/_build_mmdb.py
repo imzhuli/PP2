@@ -26,6 +26,7 @@ def build():
             "cmake "
             f"{xsetup.cmake_build_type} "
             "-Wno-dev "
+            "-DCMAKE_CXX_STANDARD=23 "
             "-DCMAKE_EXPORT_COMPILE_COMMANDS=1 "
             "-DBUILD_SHARED_LIBS=OFF "
             "-DBUILD_TESTING=OFF "

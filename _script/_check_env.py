@@ -10,6 +10,9 @@ MIN_PY_VERSION_MINOR = 7
 cwd = os. getcwd()
 build_dir = cwd + "/_build"
 install_dir = cwd + "/_install"
+build_3rd_dir=cwd + "/_3rd_build"
+install_3rd_dir=cwd + "/_3rd_installed"
+
 cpp_dir = cwd + "/cpp"
 
 
@@ -60,6 +63,16 @@ def remake_dirs():
         print("Failed to remake build dir")
         return False
     if not remake_dir(install_dir):
+        print("Failed to remake install dir")
+        return False
+    return True
+
+
+def remake_3rd_dirs():
+    if not remake_dir(build_3rd_dir):
+        print("Failed to remake build dir")
+        return False
+    if not remake_dir(install_3rd_dir):
         print("Failed to remake install dir")
         return False
     return True

@@ -7,6 +7,7 @@ import shutil
 import sys
 import xsetup
 
+import _build_abseil as abseil
 import _build_mmdb as mmdb
 import _build_httplib as httplib
 import _build_json as nlohmann_json
@@ -36,6 +37,10 @@ xsetup.Output()
 cwd = os.getcwd()
 dependency_unzip_dir = f"{cwd}/_3rd_build"
 
+if not abseil.build():
+    print("failed to build abseil")
+    exit - 1
+
 if not httplib.build():
     print("failed to build httplib")
     exit - 1
@@ -56,9 +61,9 @@ if not rdkafka.build():
     print("failed to build rdkafka")
     exit - 1
 
-if not ares.build():
-    print("failed to build github.com/cpp-netlib/url")
-    exit - 1
+#if not ares.build():
+#    print("failed to build github.com/cpp-netlib/url")
+#    exit - 1
 
 if not netlib_url.build():
     print("failed to build github.com/cpp-netlib/url")
