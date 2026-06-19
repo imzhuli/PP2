@@ -15,7 +15,6 @@ import _build_rapidcsv as rapidcsv
 import _build_rdkafka as rdkafka
 import _build_abseil as abseil
 import _build_protobuf as protobuf
-import _build_ares as ares
 import _build_url as netlib_url
 
 if __name__ != "__main__":
@@ -61,22 +60,9 @@ if not rdkafka.build():
     print("failed to build rdkafka")
     exit - 1
 
-#if not ares.build():
-#    print("failed to build github.com/cpp-netlib/url")
-#    exit - 1
-
 if not netlib_url.build():
     print("failed to build github.com/cpp-netlib/url")
     exit - 1
-
-
-# if not abseil.build():
-#     print("failed to build abseil")
-#     exit -1
-
-# if not protobuf.build():
-#     print("failed to build protobuf")
-#     exit -1
 
 
 
