@@ -103,6 +103,7 @@ void xAuditService::OnServerListUpdated(xServerGroup ServerGroup, const xServerI
                 for (; OldIndex < OldSize; ++OldIndex) {
                     auto & RemovedServerInfo = OldList[OldIndex];
                     DEBUG_LOG("remove audit collector server info: %" PRIx64 ", Address=%s", RemovedServerInfo.ServerId, RemovedServerInfo.Address.ToString().c_str());
+                    Pass(RemovedServerInfo);
                     TcpReporter.RemoveServer(ConnectionIdList[OldIndex]);
                 }
                 break;
