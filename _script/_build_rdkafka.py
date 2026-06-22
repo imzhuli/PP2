@@ -30,6 +30,7 @@ def build():
             f"{xsetup.cmake_build_type} "
             "-Wno-dev "
             "-DCMAKE_EXPORT_COMPILE_COMMANDS=1 "
+            "-DRDKAFKA_BUILD_EXAMPLES=OFF "
             "-DRDKAFKA_BUILD_STATIC=ON "
             "-DENABLE_LZ4_EXT=OFF "
             "-DWITH_ZLIB=OFF "
