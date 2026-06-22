@@ -34,7 +34,7 @@ def build():
             "-DCMAKE_EXPORT_COMPILE_COMMANDS=1 "
             "-DBUILD_SHARED_LIBS=OFF "
             "-Dprotobuf_BUILD_TESTS=OFF "
-            "-DCMAKE_CXX_STANDARD=23 "
+            "-DCMAKE_CXX_STANDARD=20 "
             "-Dprotobuf_ABSL_PROVIDER=package "
             f"-DCMAKE_INSTALL_PREFIX={install_dir!r} -B build ."
         )

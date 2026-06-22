@@ -36,7 +36,7 @@ def build():
             "-DWITH_ZLIB=OFF "
             "-DWITH_ZSTD=OFF "
             "-DRDKAFKA_BUILD_TESTS=OFF -DRDKAFKA_BUILD_EXAMPLES=OFF "
-            "-DCMAKE_CXX_STANDARD=23 "
+            "-DCMAKE_CXX_STANDARD=20 "
             f"-DCMAKE_INSTALL_PREFIX={install_dir!r} -B build ."
         )
         os.system(f"cmake --build build {xsetup.cmake_build_config} -- all")
