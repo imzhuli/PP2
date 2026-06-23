@@ -98,7 +98,7 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
     if (BindAddress6) {
         TcpServer6 = new xTcpServer();
         if (!TcpServer6->Init(ServiceIoContext, BindAddress6, this)) {
-            DEBUG_LOG("TcpServer4 init error");
+            DEBUG_LOG("TcpServer6 init error");
             delete Steal(TcpServer6);
             return false;
         }
