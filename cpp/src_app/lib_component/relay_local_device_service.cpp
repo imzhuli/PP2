@@ -3,6 +3,7 @@
 #include <pp_common/service_runtime.hpp>
 
 static constexpr const size_t DEVICE_ID_HIGH32_MAGIC      = 0xCDEF7788;
+static constexpr const size_t LOCAL_DEVICE_RW_BUFFER_SIZE = 500'000;
 static constexpr const size_t MAX_MANAGED_CONNECTION_SIZE = 15'0000;
 static constexpr const size_t MAX_MANAGED_UDPCHANNEL_SIZE = 10'0000;
 static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS  = 125'000;
@@ -348,6 +349,10 @@ void xRelayLocalBindingService::CreateConnection(uint64_t ProxySideConnectionId,
     Connection.ConnectionId                 = ConnectionId;
     Connection.ProxySideConnectionId        = ProxySideConnectionId;
     Connection.CreateConnectionFutureHandle = xFutureHandle(Future);
+
+    Connection.ResizeRecvBuffer(LOCAL_DEVICE_RW_BUFFER_SIZE);
+    Connection.ResizeSendBuffer(LOCAL_DEVICE_RW_BUFFER_SIZE);
+
     ++Audit.ConnectionCount;
 }
 

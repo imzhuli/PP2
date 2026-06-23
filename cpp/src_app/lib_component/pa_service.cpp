@@ -12,6 +12,7 @@ static constexpr const size_t                  PA_MAX_UDP_PACKET_SIZE           
 static constexpr const size_t                  PA_UDP_RESERVED_HEADER_SIZE      = 32;
 [[maybe_unused]] static constexpr const size_t PA_IDLE_CONNECTION_TIMEOUT_MS    = 125'000;
 [[maybe_unused]] static constexpr const size_t PA_IDLE_UDPCHANNEL_TIMEOUT_MS    = 125'000;
+static constexpr const size_t                  PA_CLIENT_RW_BUFFER_SIZE         = 500'000;
 
 static_assert(PA_MAX_UDP_PACKET_SIZE + PA_UDP_RESERVED_HEADER_SIZE < xel::MaxPacketSize);  // core_io buffer size
 
@@ -387,6 +388,9 @@ void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && 
     ClientConnection.DataProcessor = &xProxyAccessService::OnGuessProxyType;
     ClientConnection.TimestampMS   = LocalTicker();
     ClientConnectionInitTimeoutList.AddTail(ClientConnection);
+
+    ClientConnection.ResizeRecvBuffer(PA_CLIENT_RW_BUFFER_SIZE);
+    ClientConnection.ResizeSendBuffer(PA_CLIENT_RW_BUFFER_SIZE);
 
     ClientConnection.Debug.StartupTimestampMS = LocalTicker();
 }
