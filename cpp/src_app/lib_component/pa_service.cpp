@@ -1103,7 +1103,7 @@ void xProxyAccessService::OnS5AuthResult(xPA_ClientConnection * Connection, xPA_
     // Acquire device
     auto DeviceRequest = xDeviceRequest{
         .Condition = {
-            .ExportAddress = Result->ProxyAccessAddress,
+            .ExportAddress = Result->ExportAddress,
         },
         .Strategy = DSS_STATIC_EXPORT_ADDRESS,
     };
@@ -1126,7 +1126,7 @@ void xProxyAccessService::OnHttpAuthResult(xPA_ClientConnection * Connection, xP
     // Acquire device
     auto DeviceRequest = xDeviceRequest{
         .Condition = {
-            .ExportAddress = Result->ProxyAccessAddress,
+            .ExportAddress = Result->ExportAddress,
         },
         .Strategy = DSS_STATIC_EXPORT_ADDRESS,
     };
