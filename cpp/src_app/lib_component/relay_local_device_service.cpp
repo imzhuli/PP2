@@ -2,13 +2,13 @@
 
 #include <pp_common/service_runtime.hpp>
 
-static constexpr const size_t DEVICE_ID_HIGH32_MAGIC      = 0xCDEF7788;
-static constexpr const size_t LOCAL_DEVICE_RW_BUFFER_SIZE = 500'000;
-static constexpr const size_t MAX_MANAGED_CONNECTION_SIZE = 15'0000;
-static constexpr const size_t MAX_MANAGED_UDPCHANNEL_SIZE = 10'0000;
-static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS  = 125'000;
-static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS  = 125'000;
-static constexpr const size_t MAX_DNS_FUTURE_COUNT        = 1'0000;
+static constexpr const size_t DEVICE_ID_HIGH32_MAGIC           = 0xCDEF7788;
+static constexpr const size_t MAX_MANAGED_CONNECTION_SIZE      = 15'0000;
+static constexpr const size_t MAX_MANAGED_UDPCHANNEL_SIZE      = 10'0000;
+static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS       = 125'000;
+static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS       = 125'000;
+static constexpr const size_t MAX_DNS_FUTURE_COUNT             = 1'0000;
+static constexpr const size_t LOCAL_DEVICE_DEFAULT_BUFFER_SIZE = 128'000;
 
 static uint64_t MakeLocalDeviceId(size_t Index) {
     X_RUNTIME_ASSERT(Index < std::numeric_limits<uint32_t>::max());
@@ -120,6 +120,7 @@ bool xRelayLocalBindingService::Init(uint64_t ServerId, const std::vector<xRelay
     }
 
     LocalRelayServerId = ServerId;
+    DefaultBufferSize  = LOCAL_DEVICE_DEFAULT_BUFFER_SIZE;
     return true;
 }
 
@@ -132,7 +133,12 @@ void xRelayLocalBindingService::Clean() {
     LocalConnectionPool.Clean();
     DestroyLocalDeviceList();
 
+    Reset(DefaultBufferSize);
     Reset(Audit);
+}
+
+void xRelayLocalBindingService::SetDeviceBufferSize(size_t Size) {
+    DefaultBufferSize = Size;
 }
 
 void xRelayLocalBindingService::BindProxyService(xProxyAbstractService * ProxyService) {
@@ -350,8 +356,10 @@ void xRelayLocalBindingService::CreateConnection(uint64_t ProxySideConnectionId,
     Connection.ProxySideConnectionId        = ProxySideConnectionId;
     Connection.CreateConnectionFutureHandle = xFutureHandle(Future);
 
-    Connection.ResizeRecvBuffer(LOCAL_DEVICE_RW_BUFFER_SIZE);
-    Connection.ResizeSendBuffer(LOCAL_DEVICE_RW_BUFFER_SIZE);
+    if (DefaultBufferSize) {
+        Connection.ResizeRecvBuffer(DefaultBufferSize);
+        Connection.ResizeSendBuffer(DefaultBufferSize);
+    }
 
     ++Audit.ConnectionCount;
 }

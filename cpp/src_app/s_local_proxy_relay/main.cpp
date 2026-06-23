@@ -29,6 +29,9 @@ static auto LocalRelayServerId           = (uint64_t)0;
 static auto LocalAuthFilePath            = std::string();
 static auto LocalBindingDeviceFile       = std::string{};
 
+static auto ProxyAccessBufferSize = (size_t)0;
+static auto LocalDeviceBufferSize = (size_t)0;
+
 static void LoadConfig() {
     auto CL = ServiceEnvironment.LoadConfig();
     CL.Optional(ProxyAccessBindAddress4, "PA_BindAddress4");
@@ -44,6 +47,9 @@ static void LoadConfig() {
     CL.Require(LocalAuthFilePath, "LocalAuthFilePath");
 
     CL.Require(SmallServerListServer, "SmallServerListServer");
+
+    CL.Optional(ProxyAccessBufferSize, "ProxyAccessBufferSize");
+    CL.Optional(LocalDeviceBufferSize, "LocalDeviceBufferSize");
 
     Logger->I("Begin Config");
     Logger->I("BindAddress4=%s", ProxyAccessBindAddress4.ToString().c_str());
@@ -83,6 +89,13 @@ int main(int argc, char ** argv) {
     ProxyAccessService.BindTargetReportService(&AuditService);
     LocalRelayService.BindProxyService(&ProxyAccessService);
     LocalRelayService.BindDnsService(&LocalDnsService);
+
+    if (ProxyAccessBufferSize) {
+        ProxyAccessService.SetClientBufferSize(ProxyAccessBufferSize);
+    }
+    if (LocalDeviceBufferSize) {
+        LocalRelayService.SetDeviceBufferSize(LocalDeviceBufferSize);
+    }
 
     auto AuditTimer = xTimer();
     while (ServiceRunState) {

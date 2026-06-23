@@ -75,6 +75,7 @@ public:
     void Clean();
     void BindProxyService(xProxyAbstractService * ProxyService);
     void BindDnsService(xDnsAbstractService * DnsService);
+    void SetDeviceBufferSize(size_t Size);
     void Tick(uint64_t NowMS);
 
     auto OutputAudit() const -> std::string;
@@ -121,6 +122,7 @@ private:
     using xLocalDeviceList = std::vector<xRelayLocalDevice>;
 
     xTicker LocalTicker;
+    size_t  DefaultBufferSize = 0;
 
     uint64_t                                          LocalRelayServerId = 0;
     xLocalDeviceList                                  LocalDeviceList;

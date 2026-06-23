@@ -12,7 +12,7 @@ static constexpr const size_t                  PA_MAX_UDP_PACKET_SIZE           
 static constexpr const size_t                  PA_UDP_RESERVED_HEADER_SIZE      = 32;
 [[maybe_unused]] static constexpr const size_t PA_IDLE_CONNECTION_TIMEOUT_MS    = 125'000;
 [[maybe_unused]] static constexpr const size_t PA_IDLE_UDPCHANNEL_TIMEOUT_MS    = 125'000;
-static constexpr const size_t                  PA_CLIENT_RW_BUFFER_SIZE         = 500'000;
+static constexpr const size_t                  PA_CLIENT_DEFAULT_BUFFER_SIZE    = 128'000;
 
 static_assert(PA_MAX_UDP_PACKET_SIZE + PA_UDP_RESERVED_HEADER_SIZE < xel::MaxPacketSize);  // core_io buffer size
 
@@ -142,6 +142,7 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
     Reset(ExportUdpAddress4);
     Reset(ExportUdpAddress6);
 
+    DefaultBufferSize = PA_CLIENT_DEFAULT_BUFFER_SIZE;
     return true;
 }
 
@@ -167,6 +168,7 @@ void xProxyAccessService::Clean() {
     ClientUdpChannelPool.Clean();
     ClientConnectionPool.Clean();
 
+    Reset(DefaultBufferSize);
     Reset(Audit);
 }
 
@@ -246,6 +248,10 @@ void xProxyAccessService::EnableUdp6(const xNetAddress & BindAddress, const xNet
     BindUdpAddress6   = BindAddress;
     ExportUdpAddress6 = ExportAddress;
     Logger->I("EnableUdp6: %s -> %s", BindAddress.IpToString().c_str(), ExportAddress.IpToString().c_str());
+}
+
+void xProxyAccessService::SetClientBufferSize(size_t Size) {
+    DefaultBufferSize = Size;
 }
 
 bool xProxyAccessService::KeepAlive(xPA_ClientConnection * Connection) {
@@ -389,8 +395,10 @@ void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && 
     ClientConnection.TimestampMS   = LocalTicker();
     ClientConnectionInitTimeoutList.AddTail(ClientConnection);
 
-    ClientConnection.ResizeRecvBuffer(PA_CLIENT_RW_BUFFER_SIZE);
-    ClientConnection.ResizeSendBuffer(PA_CLIENT_RW_BUFFER_SIZE);
+    if (DefaultBufferSize) {
+        ClientConnection.ResizeRecvBuffer(DefaultBufferSize);
+        ClientConnection.ResizeSendBuffer(DefaultBufferSize);
+    }
 
     ClientConnection.Debug.StartupTimestampMS = LocalTicker();
 }

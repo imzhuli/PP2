@@ -86,6 +86,7 @@ public:
     void BindTargetReportService(xTargetReporterAbstractService * Service) { TargetReportService = Service; }
     void EnableUdp4(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
     void EnableUdp6(const xNetAddress & BindAddress, const xNetAddress & ExportAddress);
+    void SetClientBufferSize(size_t Size);
 
     auto OutputAudit() -> std::string;
 
@@ -166,8 +167,9 @@ private:
 
 private:
     xTicker      LocalTicker;
-    xTcpServer * TcpServer4 = nullptr;
-    xTcpServer * TcpServer6 = nullptr;
+    xTcpServer * TcpServer4        = nullptr;
+    xTcpServer * TcpServer6        = nullptr;
+    size_t       DefaultBufferSize = 0;
 
     xIndexedStorage<xPA_ClientConnection> ClientConnectionPool;
     xIndexedStorage<xPA_ClientUdpChannel> ClientUdpChannelPool;
