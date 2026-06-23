@@ -157,6 +157,7 @@ protected:
     void DestroyConnection(xPA_ClientConnection * Connection);
 
     void DeferKillInitTimeoutConnection();
+    void DeferKillIdleTimeoutConnection();
     void DeferGracefulKillConnection();
     void ExcuteKillConnection();
     void ClearTimeoutFuture();
@@ -174,7 +175,7 @@ private:
     xIndexedStorage<xPA_ClientConnection> ClientConnectionPool;
     xIndexedStorage<xPA_ClientUdpChannel> ClientUdpChannelPool;
     xPA_ClientConnectionTimeoutList       ClientConnectionInitTimeoutList;
-    xPA_ClientConnectionTimeoutList       ClientConnectionTimeoutList;
+    xPA_ClientConnectionTimeoutList       ClientConnectionIdleTimeoutList;
     xPA_ClientConnectionTimeoutList       ClientConnectionKillList;
     xPA_ClientConnectionTimeoutList       ClientConnectionGracefulKillList;
 
