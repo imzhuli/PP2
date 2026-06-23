@@ -65,13 +65,13 @@ std::string xPA_ClientConnection::xHttpData::ToString() const {
 bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddress & BindAddress6) {
     X_RUNTIME_ASSERT(ServiceRunState);
     if (!ClientConnectionPool.Init(PA_MAX_CLIENT_CONNECTION)) {
-        DEBUG_LOG("ClientConnectionPool init error");
+        Logger->E("ClientConnectionPool init error");
         return false;
     }
     auto ClientConnectionPoolCleaner = xScopeCleaner(ClientConnectionPool);
 
     if (!ClientUdpChannelPool.Init(PA_MAX_CLIENT_CONNECTION)) {
-        DEBUG_LOG("ClientUdpChannelPool init error");
+        Logger->E("ClientUdpChannelPool init error");
         return false;
     }
     auto ClientUdpChannelPoolCleaner = xScopeCleaner(ClientUdpChannelPool);
@@ -90,7 +90,7 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
     if (BindAddress4) {
         TcpServer4 = new xTcpServer();
         if (!TcpServer4->Init(ServiceIoContext, BindAddress4, this)) {
-            DEBUG_LOG("TcpServer4 init error");
+            Logger->E("TcpServer4 init error");
             delete Steal(TcpServer4);
             return false;
         }
@@ -98,32 +98,32 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
     if (BindAddress6) {
         TcpServer6 = new xTcpServer();
         if (!TcpServer6->Init(ServiceIoContext, BindAddress6, this)) {
-            DEBUG_LOG("TcpServer6 init error");
+            Logger->E("TcpServer6 init error");
             delete Steal(TcpServer6);
             return false;
         }
     }
 
     if (!AuthFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
-        DEBUG_LOG("AuthFutureManager init error");
+        Logger->E("AuthFutureManager init error");
         return false;
     }
     auto AuthFutureManagerCleaner = xScopeCleaner(AuthFutureManager);
 
     if (!AcquireDeviceFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
-        DEBUG_LOG("AcquireDeviceFutureManager init error");
+        Logger->E("AcquireDeviceFutureManager init error");
         return false;
     }
     auto AcquireDeviceFutureManagerCleaner = xScopeCleaner(AcquireDeviceFutureManager);
 
     if (!AcquireDeviceConnectionFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
-        DEBUG_LOG("AcquireDeviceConnectionFutureManager init error");
+        Logger->E("AcquireDeviceConnectionFutureManager init error");
         return false;
     }
     auto AcquireDeviceConnectionFutureManagerCleaner = xScopeCleaner(AcquireDeviceConnectionFutureManager);
 
     if (!AcquireDeviceUdpChannelFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
-        DEBUG_LOG("AcquireDeviceUdpChannelFutureManager init error");
+        Logger->E("AcquireDeviceUdpChannelFutureManager init error");
         return false;
     }
     auto AcquireDeviceUdpChannelFutureManagerCleaner = xScopeCleaner(AcquireDeviceUdpChannelFutureManager);

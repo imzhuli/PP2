@@ -97,22 +97,22 @@ bool xRelayLocalBindingService::Init(uint64_t ServerId, const std::vector<xRelay
     X_RUNTIME_ASSERT(ServerId);
     X_RUNTIME_ASSERT(ServiceRunState);
     if (!CreateLocalDeviceList(BindAddressPairList)) {
-        DEBUG_LOG();
+        Logger->E("CreateLocalDeviceList error");
         return false;
     }
     if (!LocalConnectionPool.Init(EstimateMaxConnectionPoolSize(BindAddressPairList.size()))) {
-        DEBUG_LOG();
+        Logger->E("LocalConnectionPool error");
         DestroyLocalDeviceList();
         return false;
     }
     if (!LocalUdpChannelPool.Init(EstimateMaxUdpChannelPoolSize(BindAddressPairList.size()))) {
-        DEBUG_LOG();
+        Logger->E("LocalUdpChannelPool error");
         LocalConnectionPool.Clean();
         DestroyLocalDeviceList();
         return false;
     }
     if (!DnsFutureManager.Init(MAX_DNS_FUTURE_COUNT)) {
-        DEBUG_LOG();
+        Logger->E("DnsFutureManager error");
         LocalUdpChannelPool.Clean();
         LocalConnectionPool.Clean();
         DestroyLocalDeviceList();
