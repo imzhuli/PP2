@@ -61,8 +61,34 @@ std::string xPA_ClientConnection::xHttpData::ToString() const {
 
 ///////////
 
-bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddress & BindAddress6) {
+bool xProxyAccessService::Init(const std::string & AddressListFilename) {
+    auto AddressList = std::vector<xExportBindAddress>();
+    auto Lines       = xel::FileToLines(AddressListFilename);
+    for (auto & L : Lines) {
+        L = Trim(L);
+        if (L.empty()) {
+            continue;
+        }
+        auto Segs = Split(L, "->");
+        if (Segs.size() != 2) {
+            Logger->E("invalid config line: %s", L.c_str());
+            return false;
+        }
+        auto Pair        = xExportBindAddress();
+        Pair.BindAddress = xNetAddress::Parse(Trim(Segs[0]));
+        Pair.ExportIp    = xNetAddress::Parse(Trim(Segs[1]));
+        if (!Pair.BindAddress || !Pair.BindAddress.Port || !Pair.ExportIp || Pair.ExportIp.Port) {
+            Logger->E("invalid config line: %s", L.c_str());
+            return false;
+        }
+        AddressList.push_back(Pair);
+    }
+    return Init(AddressList);
+}
+
+bool xProxyAccessService::Init(const std::vector<xExportBindAddress> & AddressList) {
     X_RUNTIME_ASSERT(ServiceRunState);
+    X_RUNTIME_ASSERT(AddressList.size());
     if (!ClientConnectionPool.Init(PA_MAX_CLIENT_CONNECTION)) {
         Logger->E("ClientConnectionPool init error");
         return false;
@@ -75,32 +101,23 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
     }
     auto ClientUdpChannelPoolCleaner = xScopeCleaner(ClientUdpChannelPool);
 
-    X_RUNTIME_ASSERT(BindAddress4 || BindAddress6);
-    auto TcpServerCleaner = xScopeGuard([this] {
-        if (TcpServer4) {
-            TcpServer4->Clean();
-            delete Steal(TcpServer4);
+    auto ClientEntryCleaner = xScopeGuard([this] {
+        for (auto S : ClientEntryServerList) {
+            S->Clean();
+            delete S;
         }
-        if (TcpServer6) {
-            TcpServer6->Clean();
-            delete Steal(TcpServer6);
-        }
+        Reset(ClientEntryServerList);
     });
-    if (BindAddress4) {
-        TcpServer4 = new xTcpServer();
-        if (!TcpServer4->Init(ServiceIoContext, BindAddress4, this)) {
-            Logger->E("TcpServer4 init error");
-            delete Steal(TcpServer4);
+    for (auto & Pair : AddressList) {
+        X_RUNTIME_ASSERT(Pair.BindAddress && Pair.BindAddress.Port);
+        X_RUNTIME_ASSERT(Pair.ExportIp && !Pair.ExportIp.Port);
+        auto Server      = new xClientEntryServer();
+        Server->ExportIp = Pair.ExportIp;
+        if (!Server->Init(ServiceIoContext, Pair.BindAddress, this)) {
+            delete Server;
             return false;
         }
-    }
-    if (BindAddress6) {
-        TcpServer6 = new xTcpServer();
-        if (!TcpServer6->Init(ServiceIoContext, BindAddress6, this)) {
-            Logger->E("TcpServer6 init error");
-            delete Steal(TcpServer6);
-            return false;
-        }
+        ClientEntryServerList.push_back(Server);
     }
 
     if (!AuthFutureManager.Init(PA_MAX_CLIENT_REQUEST_PER_SECOND)) {
@@ -129,17 +146,12 @@ bool xProxyAccessService::Init(const xNetAddress & BindAddress4, const xNetAddre
 
     ClientConnectionPoolCleaner.Dismiss();
     ClientUdpChannelPoolCleaner.Dismiss();
-    TcpServerCleaner.Dismiss();
+    ClientEntryCleaner.Dismiss();
 
     AuthFutureManagerCleaner.Dismiss();
     AcquireDeviceFutureManagerCleaner.Dismiss();
     AcquireDeviceConnectionFutureManagerCleaner.Dismiss();
     AcquireDeviceUdpChannelFutureManagerCleaner.Dismiss();
-
-    Reset(BindUdpAddress4);
-    Reset(BindUdpAddress6);
-    Reset(ExportUdpAddress4);
-    Reset(ExportUdpAddress6);
 
     DefaultBufferSize = PA_CLIENT_DEFAULT_BUFFER_SIZE;
     return true;
@@ -150,23 +162,15 @@ void xProxyAccessService::Clean() {
     AcquireDeviceFutureManager.Clean();
     AcquireDeviceConnectionFutureManager.Clean();
     AcquireDeviceUdpChannelFutureManager.Clean();
-    do {  // clean tcp servers
-        if (TcpServer4) {
-            TcpServer4->Clean();
-            delete Steal(TcpServer4);
+    X_VAR xScopeGuard([this] {
+        for (auto S : ClientEntryServerList) {
+            S->Clean();
+            delete S;
         }
-        if (TcpServer6) {
-            TcpServer6->Clean();
-            delete Steal(TcpServer6);
-        }
-    } while (false);
-    Reset(BindUdpAddress4);
-    Reset(BindUdpAddress6);
-    Reset(ExportUdpAddress4);
-    Reset(ExportUdpAddress6);
+        Reset(ClientEntryServerList);
+    });
     ClientUdpChannelPool.Clean();
     ClientConnectionPool.Clean();
-
     Reset(DefaultBufferSize);
     Reset(Audit);
 }
@@ -234,20 +238,6 @@ std::string xProxyAccessService::OutputAudit() {
     SS << "\tAcquireDeviceConnectionFutureCount=" << AcquireDeviceConnectionFutureManager.GetActiveFutureCount() << endl;
     SS << "\tAcquireDeviceUdpChannelFutureCount=" << AcquireDeviceUdpChannelFutureManager.GetActiveFutureCount() << endl;
     return SS.str();
-}
-
-void xProxyAccessService::EnableUdp4(const xNetAddress & BindAddress, const xNetAddress & ExportAddress) {
-    X_RUNTIME_ASSERT(BindAddress.Is4() && !BindAddress.Port && ExportAddress.Is4() && !ExportAddress.Port);
-    BindUdpAddress4   = BindAddress;
-    ExportUdpAddress4 = ExportAddress;
-    Logger->I("EnableUdp4: %s -> %s", BindAddress.IpToString().c_str(), ExportAddress.IpToString().c_str());
-}
-
-void xProxyAccessService::EnableUdp6(const xNetAddress & BindAddress, const xNetAddress & ExportAddress) {
-    X_RUNTIME_ASSERT(BindAddress.Is6() && !BindAddress.Port && ExportAddress.Is6() && !ExportAddress.Port);
-    BindUdpAddress6   = BindAddress;
-    ExportUdpAddress6 = ExportAddress;
-    Logger->I("EnableUdp6: %s -> %s", BindAddress.IpToString().c_str(), ExportAddress.IpToString().c_str());
 }
 
 void xProxyAccessService::SetClientBufferSize(size_t Size) {
@@ -400,7 +390,9 @@ void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && 
         ClientConnectionPool.Release(ConnectionId);
         return;
     }
+    auto ClientEntryServer         = static_cast<xClientEntryServer *>(TcpServerPtr);
     ClientConnection.ConnectionId  = ConnectionId;
+    ClientConnection.ExportIp      = ClientEntryServer->ExportIp;
     ClientConnection.DataProcessor = &xProxyAccessService::OnGuessProxyType;
     ClientConnection.TimestampMS   = LocalTicker();
     ClientConnectionInitTimeoutList.AddTail(ClientConnection);
@@ -686,7 +678,8 @@ size_t xProxyAccessService::OnS5Target(xPA_ClientConnection * Connection, ubyte 
         }
     } else if (Operation == 0x03) {  // udp
         // create local binding udp channel
-        auto UdpBindAddress = (AddrType == 0x01) ? BindUdpAddress4 : ((AddrType == 0x04) ? BindUdpAddress6 : xNetAddress{});
+        const auto & BindIp         = Connection->GetLocalAddress().Ip();
+        const auto & UdpBindAddress = ((AddrType == 0x01 && BindIp.Is4()) || ((AddrType == 0x04 && BindIp.Is6())) ? BindIp : xNetAddress{});
         if (!UdpBindAddress) {
             DEBUG_LOG();
             Connection->PostData(S5_UDPCHANNEL_GENERIC_ERROR, sizeof(S5_UDPCHANNEL_GENERIC_ERROR));

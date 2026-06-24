@@ -27,6 +27,7 @@ struct xPA_ClientConnection
     };
 
     uint64_t                            ConnectionId                  = 0;
+    xNetAddress                         ExportIp                      = {};
     xPA_ClientUdpChannel *              BindUdpChannel                = {};
     bool                                DeleteMark                    = false;
     bool                                NoAuth                        = false;
@@ -77,7 +78,13 @@ class xProxyAccessService final
     , xUdpChannel::iListener
     , public xProxyAbstractService {
 public:
-    bool Init(const xNetAddress & BindAddress4, const xNetAddress & BindAddress6);
+    struct xExportBindAddress {
+        xNetAddress BindAddress;
+        xNetAddress ExportIp;
+    };
+
+    bool Init(const std::string & AddressListFilename);
+    bool Init(const std::vector<xExportBindAddress> & AddressList);
     void Clean();
     void Tick(uint64_t NowMS);
     void BindAuthService(xAuthAbstractService * Service) { AuthService = Service; }
@@ -167,10 +174,13 @@ private:
     void ReportTarget(uint64_t GlobalAuthId, const std::string_view & TargetHost);
 
 private:
-    xTicker      LocalTicker;
-    xTcpServer * TcpServer4        = nullptr;
-    xTcpServer * TcpServer6        = nullptr;
-    size_t       DefaultBufferSize = 0;
+    struct xClientEntryServer : xTcpServer {
+        xNetAddress ExportIp = {};
+    };
+
+    xTicker                           LocalTicker;
+    size_t                            DefaultBufferSize = 0;
+    std::vector<xClientEntryServer *> ClientEntryServerList;
 
     xIndexedStorage<xPA_ClientConnection> ClientConnectionPool;
     xIndexedStorage<xPA_ClientUdpChannel> ClientUdpChannelPool;
@@ -188,11 +198,6 @@ private:
     xDeviceLocatorAbstractService *  DeviceLocatorService = nullptr;
     xRelayAbstractService *          RelayService         = nullptr;
     xTargetReporterAbstractService * TargetReportService  = nullptr;
-
-    xNetAddress BindUdpAddress4   = {};
-    xNetAddress BindUdpAddress6   = {};
-    xNetAddress ExportUdpAddress4 = {};
-    xNetAddress ExportUdpAddress6 = {};
 
     xFutureList AuthFutureTimeoutList;
     xFutureList AcquireDeviceFutureTimeoutList;
