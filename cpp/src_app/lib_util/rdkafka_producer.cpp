@@ -158,7 +158,7 @@ bool xRdKfkProducer::Init(const xRdKfkProducerOptions & Options) {
     // create native producer:
     NativeProducer = RdKafka::Producer::create(KfkConf, errstr);
     if (!NativeProducer) {
-        Logger->E("failed to create native producer");
+        Logger->E("failed to create native producer: error=%s", errstr.c_str());
         return false;
     }
     auto ProducerCleaner = xScopeGuard([&] { delete Steal(NativeProducer); });

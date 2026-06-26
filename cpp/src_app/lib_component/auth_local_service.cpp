@@ -10,12 +10,10 @@ namespace fs = std::filesystem;
 
 #ifndef NDEBUG
 static constexpr const auto     RELOAD_TIMEOUT                   = 15s;
-static constexpr const size_t   RESULE_POOL_SIZE                 = 20000;
 static constexpr const uint64_t ACCOUNT_BLOCK_TIMEOUT_MS         = 1 * 60'000;
 static constexpr const size_t   LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS = 1 * 60'000;
 #else
 static constexpr const auto     RELOAD_TIMEOUT                   = 5 * 60s;
-static constexpr const size_t   RESULE_POOL_SIZE                 = 10'0000;
 static constexpr const uint64_t ACCOUNT_BLOCK_TIMEOUT_MS         = 15 * 60'000;
 static constexpr const size_t   LOCAL_AUDIT_NODE_IDLE_TIMEOUT_MS = 5 * 60'000;
 #endif
