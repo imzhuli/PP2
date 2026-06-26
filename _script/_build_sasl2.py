@@ -26,18 +26,17 @@ def build():
         print(f"start building..., src_dir={unzipped_src_dir}")
         os.chdir(unzipped_src_dir)
         os.system(f'./configure --prefix={install_dir!r} --enable-static --disable-shared '
+            f"--with-openssl={install_dir!r} "
             "--enable-scram "
-            "--disable-saslauthd "
             "--disable-sample "
             "--disable-obsolete_cram_attr "
             "--disable-obsolete_digest_attr "
-            "--enable-static "
-            "--disable-shared "
             "--disable-checkapop "
             "--disable-cram "
             "--disable-digest "
             "--disable-otp "
             "--disable-gssapi "
+            "--with-saslauthd=no "
             "--with-dblib=none "
             "--with-pic "        
         )
