@@ -46,6 +46,7 @@ def build():
         # "no-__asm "                       
         # "no-afalgeng "                     # 禁用硬件引擎
         "no-tests "                          # 禁用测试
+        "no-docs "
         )
         os.system(f"make -j 8")
         os.system(f"make install")
