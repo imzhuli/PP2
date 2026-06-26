@@ -11,9 +11,9 @@ import _build_abseil as abseil
 import _build_mmdb as mmdb
 import _build_httplib as httplib
 import _build_json as nlohmann_json
+import _build_sasl2 as sasl2
 import _build_rapidcsv as rapidcsv
 import _build_rdkafka as rdkafka
-import _build_abseil as abseil
 import _build_protobuf as protobuf
 import _build_url as netlib_url
 
@@ -55,6 +55,10 @@ if not rapidcsv.build():
 if not mmdb.build():
     print("failed to build mmdb")
     exit - 1
+
+if not sasl2.build():
+    print("failed to build sasl2")
+    exit -1
 
 if not rdkafka.build():
     print("failed to build rdkafka")
