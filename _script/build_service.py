@@ -50,12 +50,12 @@ if os.path.isdir(build_path):
     shutil.rmtree(build_path)
 os.makedirs(build_path)
 
-cm = (
+cm = (    
+    'OPENSSL_ROOT_DIR="./_3rd_installed" '
     "cmake -Wno-dev "    
     "-DCMAKE_EXPORT_COMPILE_COMMANDS=1 "
     f"{xsetup.cmake_build_type} "
     f'-DX_LIB="{x_path}" '
-    f'-DOPENSSL_ROOT_DIR="./_3rd_installed" '
     f'-DCMAKE_INSTALL_PREFIX={full_install_dir!r} -B "{build_path}" "{src_dir}"'
 )
 print(cm)
