@@ -8,7 +8,7 @@ static constexpr const size_t MAX_MANAGED_UDPCHANNEL_SIZE      = 10'0000;
 static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS       = 125'000;
 static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS       = 125'000;
 static constexpr const size_t MAX_DNS_FUTURE_COUNT             = 1'0000;
-static constexpr const size_t LOCAL_DEVICE_DEFAULT_BUFFER_SIZE = 128'000;
+static constexpr const size_t LOCAL_DEVICE_DEFAULT_BUFFER_SIZE = 16'000;
 
 static uint64_t MakeLocalDeviceId(size_t Index) {
     X_RUNTIME_ASSERT(Index < std::numeric_limits<uint32_t>::max());
