@@ -32,8 +32,13 @@ using xRelayLocalDeviceConnectionTimeoutList = xList<xRelayLocalDeviceConnection
 struct xRelayLocalDeviceConnection final
     : xRelayLocalDeviceConnectionTimeoutNode
     , xTcpConnection {
-    uint64_t      ConnectionId          = 0;
-    uint64_t      ProxySideConnectionId = 0;
+    uint64_t ConnectionId                  = 0;
+    uint64_t ProxySideConnectionId         = 0;
+    //
+    size_t   TotalPostTcpBytesToClient     = 0;
+    size_t   TotalConsumedTcpBytesByClient = 0;
+    bool     IsSuspended                   = false;
+
     xFutureHandle CreateConnectionFutureHandle;
     bool          DeleteMark = false;
 
@@ -85,6 +90,8 @@ public:
     void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future) override;
     void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t ProxySideUdpChannelId, xRelayCreateUdpChannelFuture & Future) override;
     void DestroyConnection(uint64_t RelayServerId, uint64_t ConnectionId) override;
+    void UpdateConsumedTcpDataSizeByClient(uint64_t RelayServerId, uint64_t ConnectionId, size_t ConsumedSize) override;
+
     void DestroyUdpChannel(uint64_t RelayServerId, uint64_t UdpChannelId) override;
     void PostData(uint64_t RelayServerId, uint64_t ConnectionId, const void * Payload, size_t PayloadSize) override;
     void PostData(uint64_t RelayServerId, uint64_t UdpChannelId, const xel::xNetAddress & TargetAddress, const void * Payload, size_t PayloadSize) override;
@@ -109,7 +116,7 @@ private:
     void CreateConnectionWithDnsResult(xRelayDnsResultFuture * DnsFuture);
     void ProcessDnsResults();
 
-    const xRelayLocalDevice * FindDeviceByExportAddress(const xNetAddress & ExportAddress);
+    void PostPAConnectionData(xRelayLocalDeviceConnection * LocalDeviceConnection, const void * DataPtr, size_t DataSize);
 
 private:  // listener
     void   OnConnected(xTcpConnection * TcpConnectionPtr) override;

@@ -2,22 +2,19 @@
 
 #include <pp_common/service_runtime.hpp>
 
-static constexpr const size_t DEVICE_ID_HIGH32_MAGIC           = 0xCDEF7788;
-static constexpr const size_t MAX_MANAGED_CONNECTION_SIZE      = 15'0000;
-static constexpr const size_t MAX_MANAGED_UDPCHANNEL_SIZE      = 10'0000;
-static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS       = 125'000;
-static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS       = 125'000;
-static constexpr const size_t MAX_DNS_FUTURE_COUNT             = 1'0000;
-static constexpr const size_t LOCAL_DEVICE_DEFAULT_BUFFER_SIZE = 16'000;
+static constexpr const size_t DEVICE_ID_HIGH32_MAGIC             = 0xCDEF7788;
+static constexpr const size_t MAX_MANAGED_CONNECTION_SIZE        = 15'0000;
+static constexpr const size_t MAX_MANAGED_UDPCHANNEL_SIZE        = 10'0000;
+static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS         = 125'000;
+static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS         = 125'000;
+static constexpr const size_t MAX_DNS_FUTURE_COUNT               = 1'0000;
+static constexpr const size_t LOCAL_DEVICE_DEFAULT_BUFFER_SIZE   = 16'000;
+//
+static constexpr const size_t RELAY_TARGET_MAX_OVER_READING_SIZE = 1'000'000;
 
 static uint64_t MakeLocalDeviceId(size_t Index) {
     X_RUNTIME_ASSERT(Index < std::numeric_limits<uint32_t>::max());
     return Make64(DEVICE_ID_HIGH32_MAGIC, Index);
-}
-
-static size_t ExtractIndexFromDeviceId(uint64_t DeviceId) {
-    assert((DeviceId >> 32) == DEVICE_ID_HIGH32_MAGIC);
-    return DeviceId & 0xFFFFFFFF;
 }
 
 static size_t EstimateMaxConnectionPoolSize(size_t LocalAddressSize) {
@@ -287,6 +284,16 @@ void xRelayLocalBindingService::DestroyConnection(uint64_t RelayServerId, uint64
     DeferDestroyConnection(Connection);
 }
 
+void xRelayLocalBindingService::UpdateConsumedTcpDataSizeByClient(uint64_t RelayServerId, uint64_t ConnectionId, size_t ConsumedSize) {
+    auto Connection = LocalConnectionPool.CheckAndGet(ConnectionId);
+    if (!Connection) {
+        return;
+    }
+    Connection->TotalConsumedTcpBytesByClient = ConsumedSize;
+
+    Todo("try resume reading");
+}
+
 void xRelayLocalBindingService::DestroyUdpChannel(uint64_t RelayServerId, uint64_t UdpChannelId) {
     auto UdpChannel = LocalUdpChannelPool.CheckAndGet(UdpChannelId);
     if (!UdpChannel) {
@@ -458,14 +465,19 @@ void xRelayLocalBindingService::CleanAllUdpChannels() {
 
 ////////////////////////////////
 
-const xRelayLocalDevice * xRelayLocalBindingService::FindDeviceByExportAddress(const xNetAddress & ExportAddress) {
-    auto Iter = LocalDeviceExportAddressMap.find(ExportAddress);
-    if (Iter == LocalDeviceExportAddressMap.end()) {
-        return nullptr;
+void xRelayLocalBindingService::PostPAConnectionData(xRelayLocalDeviceConnection * LocalDeviceConnection, const void * DataPtr, size_t DataSize) {
+    ProxyService->PostData(LocalDeviceConnection->ProxySideConnectionId, DataPtr, DataSize);
+
+    LocalDeviceConnection->TotalPostTcpBytesToClient += DataSize;
+    if (!LocalDeviceConnection->IsSuspended) {
+        auto Diff = LocalDeviceConnection->TotalPostTcpBytesToClient - LocalDeviceConnection->TotalConsumedTcpBytesByClient;
+        if (Diff <= RELAY_TARGET_MAX_OVER_READING_SIZE) {
+            return;
+        }
+        DEBUG_LOG("SuspendTargetConnectionReading: %zi =  %zi - %zi", Diff, LocalDeviceConnection->TotalPostTcpBytesToClient, LocalDeviceConnection->TotalConsumedTcpBytesByClient);
+        LocalDeviceConnection->SuspendReading();
+        LocalDeviceConnection->IsSuspended = true;
     }
-    auto DeviceId    = Iter->second;
-    auto DeviceIndex = ExtractIndexFromDeviceId(DeviceId);
-    return &LocalDeviceList[DeviceIndex];
 }
 
 ////////////////////////////////
@@ -491,7 +503,7 @@ size_t xRelayLocalBindingService::OnData(xTcpConnection * TcpConnectionPtr, ubyt
         DEBUG_LOG("connection lost");
         return 0;
     }
-    ProxyService->PostData(Connection->ProxySideConnectionId, DataPtr, DataSize);
+    PostPAConnectionData(Connection, DataPtr, DataSize);
     return DataSize;
 }
 

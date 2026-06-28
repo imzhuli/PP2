@@ -5,7 +5,10 @@
 #include "./abstract/relay_abstract.hpp"
 #include "./pa_future.hpp"
 
+struct xPA_ClientConnection;
+struct xPA_ClientUdpChannel;
 class xProxyAccessService;
+
 using xPA_TcpDataProcessor = size_t (xProxyAccessService::*)(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
 using xPA_UdpDataProcessor = size_t (xProxyAccessService::*)(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
 
@@ -14,8 +17,26 @@ struct xPA_ClientConnectionTimeoutNode : xListNode {
 };
 using xPA_ClientConnectionTimeoutList = xList<xPA_ClientConnectionTimeoutNode>;
 
+struct xPA_ClientUdpChannel
+    : private xUdpChannel {
+    uint64_t               UdpChannelId          = 0;
+    xPA_ClientConnection * ParentConnection      = 0;
+    uint64_t               RelaySideUdpChannelId = {};
+    xNetAddress            ClientIpCheckAddress  = {};
+    xNetAddress            LastClientIpAddress   = {};
+
+    using xUdpChannel::Clean;
+    using xUdpChannel::GetBindAddress;
+    using xUdpChannel::Init;
+
+    friend struct xPA_ClientConnection;
+    static xPA_ClientUdpChannel * From(xUdpChannel * UdpChannel) {
+        return static_cast<xPA_ClientUdpChannel *>(UdpChannel);
+    }
+};
+
 struct xPA_ClientConnection
-    : public xTcpConnection
+    : private xTcpConnection
     , public xPA_ClientConnectionTimeoutNode {
     enum eType {
         UNDETERMINED = 0,
@@ -46,6 +67,11 @@ struct xPA_ClientConnection
     size64_t                            TotalTcpBytesToClient         = 0;
     size64_t                            TotalUdpBytesFromClient       = 0;
     size64_t                            TotalUdpBytesToClient         = 0;
+    //
+    size_t                              TotalPostTcpBytesFromTarget   = 0;
+    size_t                              TotalPostTcpBytesToTarget     = 0;
+    size_t                              TotalConsumedTcpBytesByTarget = 0;
+    bool                                IsSuspended                   = false;
 
     struct xHttpData {
         std::string TargetHost = {};
@@ -61,15 +87,28 @@ struct xPA_ClientConnection
     struct {
         uint64_t StartupTimestampMS = 0;
     } Debug;
-};
 
-struct xPA_ClientUdpChannel
-    : public xUdpChannel {
-    uint64_t               UdpChannelId          = 0;
-    xPA_ClientConnection * ParentConnection      = 0;
-    uint64_t               RelaySideUdpChannelId = {};
-    xNetAddress            ClientIpCheckAddress  = {};
-    xNetAddress            LastClientIpAddress   = {};
+    using xTcpConnection::Clean;
+    using xTcpConnection::GetLocalAddress;
+    using xTcpConnection::GetRemoteAddress;
+    using xTcpConnection::HasPendingWrites;
+    using xTcpConnection::Init;
+    using xTcpConnection::ResizeRecvBuffer;
+    using xTcpConnection::ResizeSendBuffer;
+    using xTcpConnection::ResumeReading;
+    using xTcpConnection::SuspendReading;
+
+    static xPA_ClientConnection * From(xTcpConnection * Connection) {
+        return static_cast<xPA_ClientConnection *>(Connection);
+    }
+    void PostData(const void * DataPtr, size_t DataSize) {
+        xTcpConnection::PostData(DataPtr, DataSize);
+        TotalTcpBytesToClient += DataSize;
+    }
+    void PostUdpData(const void * DataPtr, size_t DataSize) {
+        BindUdpChannel->PostData(BindUdpChannel->LastClientIpAddress, DataPtr, DataSize);
+        TotalUdpBytesToClient += DataSize;
+    }
 };
 
 class xProxyAccessService final
@@ -104,9 +143,10 @@ protected:  // override:
     void   OnFlush(xTcpConnection * TcpConnectionPtr) override;
     size_t OnData(xTcpConnection * TcpConnectionPtr, ubyte * DataPtr, size_t DataSize) override;
     void   OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & RemoteAddress) override;
-    void   PostData(uint64_t ProxyClientConnectionId, ubyte * DataPtr, size_t DataSize) override;
-    void   PostData(uint64_t ProxyClientUdpChannelId, const xNetAddress & SourceAddress, ubyte * DataPtr, size_t DataSize) override;
+    void   PostData(uint64_t ProxyClientConnectionId, const void * DataPtr, size_t DataSize) override;
+    void   PostData(uint64_t ProxyClientUdpChannelId, const xNetAddress & SourceAddress, const void * DataPtr, size_t DataSize) override;
     void   CloseConnection(uint64_t ProxyClientConnectionId) override;
+    void   UpdateConsumedTcpDataSizeByTarget(uint64_t ProxyClientConnectionId, size_t ConsumedSize) override;
 
 protected:  // process data:
     void ProcessReadyAuthFuture();
@@ -130,6 +170,8 @@ protected:  // process data:
     xPA_AcquireDeviceConnectionFuture * RequestDeviceConnection(xPA_ClientConnection * Connection, const xNetAddress & TargetAddress);
     xPA_AcquireDeviceConnectionFuture * RequestDeviceConnection(xPA_ClientConnection * Connection, const std::string_view & TargetHostnameView, uint16_t TargetPort);
     xPA_AcquireDeviceUdpChannelFuture * RequestDeviceUdpChannel(xPA_ClientConnection * Connection);
+
+    void PostRelayConnectionData(xPA_ClientConnection * LocalConnection, const void * DataPtr, size_t DataSize);
 
     void SendS5AuthError(xPA_ClientConnection * Connection);
     void SendS5AuthAccepted(xPA_ClientConnection * Connection);

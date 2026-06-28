@@ -22,6 +22,8 @@ struct xRelayAbstractService
     virtual void CreateConnection(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideConnectionId, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future)                                = 0;
     virtual void PostData(uint64_t RelayServerId, uint64_t ConnectionlId, const void * Payload, size_t PayloadSize)                                                                                                = 0;
     virtual void DestroyConnection(uint64_t RelayServerId, uint64_t ConnectionId)                                                                                                                                  = 0;
+    virtual void UpdateConsumedTcpDataSizeByClient(uint64_t RelayServerId, uint64_t Connectionld, size_t ConsumedSize)                                                                                             = 0;
+
     //
     virtual void CreateUdpChannel(uint64_t RelayServerId, uint64_t DeviceId, uint64_t PASideUdpChannelId, xRelayCreateUdpChannelFuture & Future)           = 0;
     virtual void KeepUdpChannelAlive(uint64_t RelayServerId, uint64_t UdpChannelId)                                                                        = 0;

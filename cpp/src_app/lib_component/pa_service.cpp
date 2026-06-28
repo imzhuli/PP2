@@ -12,6 +12,8 @@ static constexpr const size_t   PA_MAX_UDP_PACKET_SIZE           = 4200;
 static constexpr const size_t   PA_UDP_RESERVED_HEADER_SIZE      = 32;
 static constexpr const size_t   PA_IDLE_CONNECTION_TIMEOUT_MS    = 125'000;
 static constexpr const size_t   PA_CLIENT_DEFAULT_BUFFER_SIZE    = 16'000;
+//
+static constexpr const size_t   PA_CLIENT_MAX_OVER_READING_SIZE  = 1'000'000;
 
 static_assert(PA_MAX_UDP_PACKET_SIZE + PA_UDP_RESERVED_HEADER_SIZE < xel::MaxPacketSize);  // core_io buffer size
 
@@ -410,7 +412,7 @@ void xProxyAccessService::OnConnected(xTcpConnection * TcpConnection) {
 }
 
 void xProxyAccessService::OnPeerClose(xTcpConnection * TcpConnection) {
-    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnection);
+    auto ClientConnection = xPA_ClientConnection::From(TcpConnection);
     if (ClientConnection->DeleteMark) {
         return;
     }
@@ -424,7 +426,7 @@ void xProxyAccessService::OnPeerClose(xTcpConnection * TcpConnection) {
 }
 
 void xProxyAccessService::OnFlush(xTcpConnection * TcpConnection) {
-    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnection);
+    auto ClientConnection = xPA_ClientConnection::From(TcpConnection);
     if (ClientConnection->DeleteMark) {
         DeferKill(ClientConnection);
         return;
@@ -432,7 +434,7 @@ void xProxyAccessService::OnFlush(xTcpConnection * TcpConnection) {
 }
 
 size_t xProxyAccessService::OnData(xTcpConnection * TcpConnection, ubyte * DataPtr, size_t DataSize) {
-    auto ClientConnection = static_cast<xPA_ClientConnection *>(TcpConnection);
+    auto ClientConnection = xPA_ClientConnection::From(TcpConnection);
     auto ConsumedSize     = (this->*ClientConnection->DataProcessor)(ClientConnection, DataPtr, DataSize);
     if (ConsumedSize != xel::InvalidDataSize) {
         ClientConnection->TotalTcpBytesFromClient += DataSize;
@@ -441,7 +443,7 @@ size_t xProxyAccessService::OnData(xTcpConnection * TcpConnection, ubyte * DataP
 }
 
 void xProxyAccessService::OnData(xUdpChannel * UdpChannelPtr, ubyte * DataPtr, size_t DataSize, const xNetAddress & SourceAddress) {
-    auto ClientUdpChannel = static_cast<xPA_ClientUdpChannel *>(UdpChannelPtr);
+    auto ClientUdpChannel = xPA_ClientUdpChannel::From(UdpChannelPtr);
     if (!ClientUdpChannel->RelaySideUdpChannelId) {  // not ready
         return;
     }
@@ -728,8 +730,7 @@ size_t xProxyAccessService::OnRawData(xPA_ClientConnection * Connection, ubyte *
     if (!KeepAlive(Connection)) {
         return 0;
     }
-    auto & Device = Connection->DeviceReference;
-    RelayService->PostData(Device.RelayServerId, Connection->RelaySideConnectionId, DataPtr, DataSize);
+    PostRelayConnectionData(Connection, DataPtr, DataSize);
     return DataSize;
 }
 
@@ -965,9 +966,7 @@ size_t xProxyAccessService::OnHttpBody(xPA_ClientConnection * Connection, ubyte 
         Content.append((const char *)DataPtr, DataSize);
         return DataSize;
     }
-    assert(Connection->DeviceReference.RelayServerId);
-    assert(Connection->RelaySideConnectionId);
-    RelayService->PostData(Connection->DeviceReference.RelayServerId, Connection->RelaySideConnectionId, DataPtr, DataSize);
+    PostRelayConnectionData(Connection, DataPtr, DataSize);
     return DataSize;
 }
 
@@ -1037,6 +1036,26 @@ xPA_AcquireDeviceUdpChannelFuture * xProxyAccessService::RequestDeviceUdpChannel
     );
     return Future;
 }
+
+/*********************** */
+
+void xProxyAccessService::PostRelayConnectionData(xPA_ClientConnection * LocalConnection, const void * DataPtr, size_t DataSize) {
+    auto & Device = LocalConnection->DeviceReference;
+    RelayService->PostData(Device.RelayServerId, LocalConnection->RelaySideConnectionId, DataPtr, DataSize);
+
+    LocalConnection->TotalPostTcpBytesToTarget += DataSize;
+    if (!LocalConnection->IsSuspended) {
+        auto Diff = LocalConnection->TotalPostTcpBytesToTarget - LocalConnection->TotalConsumedTcpBytesByTarget;
+        if (Diff <= PA_CLIENT_MAX_OVER_READING_SIZE) {
+            return;
+        }
+        DEBUG_LOG("SuspendClientConnectionReading: %zi =  %zi - %zi", Diff, LocalConnection->TotalPostTcpBytesToTarget, LocalConnection->TotalConsumedTcpBytesByTarget);
+        LocalConnection->SuspendReading();
+        LocalConnection->IsSuspended = true;
+    }
+}
+
+/************************ */
 
 void xProxyAccessService::SendS5AuthLimited(xPA_ClientConnection * Connection) {
     Connection->PostData("\x05\xFF", 2);  // no-auth failed
@@ -1242,10 +1261,8 @@ void xProxyAccessService::OnHttpNormalAcquireDeviceConnectionResult(xPA_ClientCo
     }
     Connection->RelaySideConnectionId = *Result;
 
-    auto   RelayServerId         = Connection->DeviceReference.RelayServerId;
-    auto   RelaySideConnectionId = Connection->RelaySideConnectionId;
-    auto & Content               = Connection->Http.Content;
-    RelayService->PostData(RelayServerId, RelaySideConnectionId, Content.data(), Content.size());
+    auto & Content = Connection->Http.Content;
+    PostRelayConnectionData(Connection, Content.data(), Content.size());
     Reset(Content);
 }
 
@@ -1291,7 +1308,7 @@ void xProxyAccessService::OnAcquireDeviceUdpChannelResult(xPA_AcquireDeviceUdpCh
     KeepAlive(Connection);
 }
 
-void xProxyAccessService::PostData(uint64_t ProxyClientConnectionId, ubyte * DataPtr, size_t DataSize) {
+void xProxyAccessService::PostData(uint64_t ProxyClientConnectionId, const void * DataPtr, size_t DataSize) {
     auto ClientConnection = ClientConnectionPool.CheckAndGet(ProxyClientConnectionId);
     if (!ClientConnection) {
         DEBUG_LOG("Connection lost, ConnectionId=%" PRIu64 "", ProxyClientConnectionId);
@@ -1303,11 +1320,11 @@ void xProxyAccessService::PostData(uint64_t ProxyClientConnectionId, ubyte * Dat
     // DEBUG_LOG("Connection data ConnectionId=%" PRIu64 ", size=%zi", ProxyClientConnectionId, DataSize);
     assert(!ClientConnection->AcquireDeviceConnectionFuture);  // SHOULD NOT HAPPEN: post data before AcquireDeviceConnectionResult
     ClientConnection->PostData(DataPtr, DataSize);
-    ClientConnection->TotalTcpBytesToClient += DataSize;
+    ClientConnection->TotalPostTcpBytesFromTarget += DataSize;
     return;
 }
 
-void xProxyAccessService::PostData(uint64_t ProxyClientUdpChannelId, const xNetAddress & SourceAddress, ubyte * DataPtr, size_t DataSize) {
+void xProxyAccessService::PostData(uint64_t ProxyClientUdpChannelId, const xNetAddress & SourceAddress, const void * DataPtr, size_t DataSize) {
     auto UdpChannel = ClientUdpChannelPool.CheckAndGet(ProxyClientUdpChannelId);
     if (!UdpChannel) {
         DEBUG_LOG("udp channel lost, UdpChannelId=%" PRIu64 ", size=%zi", ProxyClientUdpChannelId, DataSize);
@@ -1323,6 +1340,7 @@ void xProxyAccessService::PostData(uint64_t ProxyClientUdpChannelId, const xNetA
     }
 
     auto ClientConnection = UdpChannel->ParentConnection;
+    assert(ClientConnection->BindUdpChannel == UdpChannel);
     if (!KeepAlive(ClientConnection)) {
         return;
     }
@@ -1344,8 +1362,7 @@ void xProxyAccessService::PostData(uint64_t ProxyClientUdpChannelId, const xNetA
     }
     W.W(DataPtr, DataSize);
     DEBUG_LOG("UdpChannel data, UdpChannelId=%" PRIu64 ", from: %s, data=\n%s", ProxyClientUdpChannelId, SourceAddress.ToString().c_str(), HexShow(Buffer, W.Offset()).c_str());
-    UdpChannel->PostData(UdpChannel->LastClientIpAddress, Buffer, W.Offset());
-    ClientConnection->TotalUdpBytesToClient += W.Offset();
+    ClientConnection->PostUdpData(Buffer, W.Offset());
     return;
 }
 
@@ -1356,6 +1373,17 @@ void xProxyAccessService::CloseConnection(uint64_t ProxyClientConnectionId) {
         return;
     }
     DeferGracefulKill(Connection);
+}
+
+void xProxyAccessService::UpdateConsumedTcpDataSizeByTarget(uint64_t ProxyClientConnectionId, size_t ConsumedSize) {
+    auto Connection = ClientConnectionPool.CheckAndGet(ProxyClientConnectionId);
+    if (!Connection) {
+        DEBUG_LOG("Connection lost, ConnectionId=%" PRIu64 "", ProxyClientConnectionId);
+        return;
+    }
+    Connection->TotalConsumedTcpBytesByTarget = ConsumedSize;
+
+    Todo("try resume reading");
 }
 
 void xProxyAccessService::ReportTarget(uint64_t GlobalAuthId, const xNetAddress & Address) {
