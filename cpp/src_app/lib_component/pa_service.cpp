@@ -190,6 +190,8 @@ void xProxyAccessService::Tick(uint64_t NowMS) {
     DeferGracefulKillConnection();
     ExcuteKillConnection();
     ClearTimeoutFuture();
+
+    ProcessConsumedDataFeedback();
 }
 
 void xProxyAccessService::ProcessReadyAuthFuture() {
@@ -341,6 +343,11 @@ void xProxyAccessService::ClearTimeoutFuture() {
     while (auto P = static_cast<xPA_AcquireDeviceUdpChannelFuture *>(AcquireDeviceUdpChannelFutureTimeoutList.PopHead(Cond))) {
         OnAcquireDeviceUdpChannelResult(P);
     }
+}
+
+void xProxyAccessService::ProcessConsumedDataFeedback() {
+
+    Todo("do report");
 }
 
 void xProxyAccessService::DeferKillInitTimeoutConnection() {

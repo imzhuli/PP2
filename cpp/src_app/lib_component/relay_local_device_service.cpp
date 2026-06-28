@@ -153,6 +153,7 @@ void xRelayLocalBindingService::Tick(uint64_t NowMS) {
     DeferDestroyIdleUdpChannels();
     CleanDyingConnections();
     CleanDyingUdpChannels();
+    ProcessConsumedDataFeedback();
 }
 
 std::string xRelayLocalBindingService::OutputAudit() const {
@@ -461,6 +462,12 @@ void xRelayLocalBindingService::CleanAllConnections() {
 void xRelayLocalBindingService::CleanAllUdpChannels() {
     UdpChannelKillList.GrabListTail(UdpChannelIdleTimeoutList);
     CleanDyingUdpChannels();
+}
+
+void xRelayLocalBindingService::ProcessConsumedDataFeedback() {
+    while (auto Connection = stati_cast<xRelayLocalDeviceConnection *>(ConnectionConsumedDataSizeFeedbackList)) {
+        ProxyService->UpdateConsumedTcpDataSizeByTarget(Connection->ProxySideConnectionId, Connection->TotalPostTcpBytesFromClient);
+    }
 }
 
 ////////////////////////////////

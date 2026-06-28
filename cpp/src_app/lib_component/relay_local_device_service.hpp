@@ -28,6 +28,10 @@ struct xRelayLocalDeviceConnectionTimeoutNode : xListNode {
     uint64_t TimestampMS = 0;
 };
 using xRelayLocalDeviceConnectionTimeoutList = xList<xRelayLocalDeviceConnectionTimeoutNode>;
+struct xRelayLocalDeviceConnectionUpdateConsumedDataNode : xListNode {
+    size_t LastReportedConsumedSize = 0;
+};
+using xRelayLocalDeviceConnectionUpdateConsumedDataList = xList<xRelayLocalDeviceConnectionUpdateConsumedDataNode>;
 
 struct xRelayLocalDeviceConnection final
     : xRelayLocalDeviceConnectionTimeoutNode
@@ -35,6 +39,7 @@ struct xRelayLocalDeviceConnection final
     uint64_t ConnectionId                  = 0;
     uint64_t ProxySideConnectionId         = 0;
     //
+    size_t   TotalPostTcpBytesFromClient   = 0;
     size_t   TotalPostTcpBytesToClient     = 0;
     size_t   TotalConsumedTcpBytesByClient = 0;
     bool     IsSuspended                   = false;
@@ -111,6 +116,7 @@ private:
     void CleanDyingUdpChannels();
     void CleanAllConnections();
     void CleanAllUdpChannels();
+    void ProcessConsumedDataFeedback();
 
     void CreateConnection(uint64_t ProxySideConnectionId, const xNetAddress & DeviceBindAddress, const xNetAddress & TargetAddress, xRelayCreateConnectionFuture & Future);
     void CreateConnectionWithDnsResult(xRelayDnsResultFuture * DnsFuture);
@@ -141,9 +147,10 @@ private:
     xDnsAbstractService *                     DnsService   = nullptr;
     xFuturePoolManager<xRelayDnsResultFuture> DnsFutureManager;
 
-    xRelayLocalDeviceConnectionTimeoutList ConnectionEstablishTimeoutList;
-    xRelayLocalDeviceConnectionTimeoutList ConnectionIdleTimeoutList;
-    xRelayLocalDeviceConnectionTimeoutList ConnectionKillList;
+    xRelayLocalDeviceConnectionTimeoutList            ConnectionEstablishTimeoutList;
+    xRelayLocalDeviceConnectionTimeoutList            ConnectionIdleTimeoutList;
+    xRelayLocalDeviceConnectionTimeoutList            ConnectionKillList;
+    xRelayLocalDeviceConnectionUpdateConsumedDataList ConnectionConsumedDataSizeFeedbackList;
 
     xRelayLocalDeviceUdpChannelTimeoutList UdpChannelIdleTimeoutList;
     xRelayLocalDeviceUdpChannelTimeoutList UdpChannelKillList;

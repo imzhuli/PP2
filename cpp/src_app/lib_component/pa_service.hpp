@@ -12,11 +12,6 @@ class xProxyAccessService;
 using xPA_TcpDataProcessor = size_t (xProxyAccessService::*)(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
 using xPA_UdpDataProcessor = size_t (xProxyAccessService::*)(xPA_ClientConnection * Connection, ubyte * DataPtr, size_t DataSize);
 
-struct xPA_ClientConnectionTimeoutNode : xListNode {
-    uint64_t TimestampMS = 0;
-};
-using xPA_ClientConnectionTimeoutList = xList<xPA_ClientConnectionTimeoutNode>;
-
 struct xPA_ClientUdpChannel
     : private xUdpChannel {
     uint64_t               UdpChannelId          = 0;
@@ -35,9 +30,19 @@ struct xPA_ClientUdpChannel
     }
 };
 
+struct xPA_ClientConnectionTimeoutNode : xListNode {
+    uint64_t TimestampMS = 0;
+};
+using xPA_ClientConnectionTimeoutList = xList<xPA_ClientConnectionTimeoutNode>;
+struct xPA_ClientConnectionUpdateConsumedDataNode : xListNode {
+    size_t LastReportedConsumedSize = 0;
+};
+using xPA_ClientConnectionUpdateConsumedDataList = xList<xPA_ClientConnectionUpdateConsumedDataNode>;
+
 struct xPA_ClientConnection
     : private xTcpConnection
-    , public xPA_ClientConnectionTimeoutNode {
+    , public xPA_ClientConnectionTimeoutNode
+    , public xPA_ClientConnectionUpdateConsumedDataNode {
     enum eType {
         UNDETERMINED = 0,
         S5_CHALLENGE,
@@ -211,6 +216,9 @@ protected:
     void ExcuteKillConnection();
     void ClearTimeoutFuture();
 
+protected:
+    void ProcessConsumedDataFeedback();
+
 private:
     void ReportTarget(uint64_t GlobalAuthId, const xNetAddress & Address);
     void ReportTarget(uint64_t GlobalAuthId, const std::string_view & TargetHost);
@@ -224,12 +232,13 @@ private:
     size_t                            DefaultBufferSize = 0;
     std::vector<xClientEntryServer *> ClientEntryServerList;
 
-    xIndexedStorage<xPA_ClientConnection> ClientConnectionPool;
-    xIndexedStorage<xPA_ClientUdpChannel> ClientUdpChannelPool;
-    xPA_ClientConnectionTimeoutList       ClientConnectionInitTimeoutList;
-    xPA_ClientConnectionTimeoutList       ClientConnectionIdleTimeoutList;
-    xPA_ClientConnectionTimeoutList       ClientConnectionKillList;
-    xPA_ClientConnectionTimeoutList       ClientConnectionGracefulKillList;
+    xIndexedStorage<xPA_ClientConnection>      ClientConnectionPool;
+    xIndexedStorage<xPA_ClientUdpChannel>      ClientUdpChannelPool;
+    xPA_ClientConnectionTimeoutList            ClientConnectionInitTimeoutList;
+    xPA_ClientConnectionTimeoutList            ClientConnectionIdleTimeoutList;
+    xPA_ClientConnectionTimeoutList            ClientConnectionKillList;
+    xPA_ClientConnectionTimeoutList            ClientConnectionGracefulKillList;
+    xPA_ClientConnectionUpdateConsumedDataList ClientConnectionConsumedDataSizeFeedbackList;
 
     xFuturePoolManager<xPA_AuthFuture>                    AuthFutureManager;
     xFuturePoolManager<xPA_AcquireDeviceFuture>           AcquireDeviceFutureManager;
