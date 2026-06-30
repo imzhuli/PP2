@@ -353,7 +353,7 @@ void xAuthLocalService::ReloadAuthFile() {
                 Reset(LastReloadInfo.FileList, std::move(FileList));
                 Reset(LastReloadInfo.FileTimestampList, std::move(FileTimestampList));
 
-                DEBUG_LOG("new auth file(s) loaded");
+                Logger->I("new auth file(s) loaded");
             }
         } catch (const fs::filesystem_error & e) {
             AuditLogger->E("iterate directory error：%s", e.what());

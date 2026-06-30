@@ -1,5 +1,5 @@
 #include <crypto/sha.hpp>
-#include <pp_common/_.cpp>
+#include <pp_common/_.hpp>
 #include <skyr/url.hpp>
 
 std::string SignPath(const std::string & Key, const std::string & Secure, uint64_t Timestamp, const std::string & Path) {

@@ -65,13 +65,13 @@ set(target_list
 
 	s_config_center
 	s_dispatcher
-	
+
 	s_local_proxy_relay
 
 	#s_device_state_relay
 	#s_relay
 	#s_relay_id_client
-	
+
 	s_relay_id_master
 	#s_relay_info_dispatcher
 
@@ -79,10 +79,9 @@ set(target_list
     t_dns_client
 
 
-	t_echo_client	
+	t_echo_client
 	t_echo_server
 
-	t_relay_id
 	t_sign
 
 	############ other:
