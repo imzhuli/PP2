@@ -98,6 +98,7 @@ private:
     bool KeepAlive(xRelayLocalDeviceUdpChannel * UdpChannel);
     void DeferDestroyConnection(xRelayLocalDeviceConnection * Connection);
     void DeferDestroyUdpChannel(xRelayLocalDeviceUdpChannel * UdpChannel);
+    void DeferDestroyEstablishTimeoutConnections();
     void DeferDestroyIdleConnections();
     void DeferDestroyIdleUdpChannels();
     void CleanDyingConnections();

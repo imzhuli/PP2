@@ -2,7 +2,7 @@
 
 #include <pp_common/service_runtime.hpp>
 
-static constexpr const size_t   PA_CLIENT_AUTH_TIMEOUT_MS        = 5'000;
+static constexpr const size_t   PA_CLIENT_AUTH_TIMEOUT_MS        = 8'000;
 static constexpr const uint64_t PA_FUTURE_TIMEOUT_MS             = 2'000;
 static constexpr const size_t   PA_AUDIT_TIMEOUT_MS              = 5'000;
 static constexpr const size_t   PA_GRACEFUL_KILL_TIMEOUT_MS      = 60'000;

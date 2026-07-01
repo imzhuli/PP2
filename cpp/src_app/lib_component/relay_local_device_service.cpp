@@ -5,6 +5,7 @@
 static constexpr const size_t DEVICE_ID_HIGH32_MAGIC           = 0xCDEF7788;
 static constexpr const size_t MAX_MANAGED_CONNECTION_SIZE      = 15'0000;
 static constexpr const size_t MAX_MANAGED_UDPCHANNEL_SIZE      = 10'0000;
+static constexpr const size_t CONNECTION_ESTABLISH_TIMEOUT_MS  = 5'000;
 static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS       = 125'000;
 static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS       = 125'000;
 static constexpr const size_t MAX_DNS_FUTURE_COUNT             = 1'0000;
@@ -152,6 +153,7 @@ void xRelayLocalBindingService::BindDnsService(xDnsAbstractService * DnsService)
 void xRelayLocalBindingService::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
     ProcessDnsResults();
+    DeferDestroyEstablishTimeoutConnections();
     DeferDestroyIdleConnections();
     DeferDestroyIdleUdpChannels();
     CleanDyingConnections();
@@ -273,6 +275,8 @@ void xRelayLocalBindingService::CreateUdpChannel(uint64_t RelayServerId, uint64_
     UdpChannel.ProxySideUdpChannelId = ProxySideUdpChannelId;
     Future.Result                    = UdpChannelId;
 
+    KeepAlive(&UdpChannel);
+
     ++Audit.UdpChannelCount;
     return;
 }
@@ -361,6 +365,10 @@ void xRelayLocalBindingService::CreateConnection(uint64_t ProxySideConnectionId,
         Connection.ResizeSendBuffer(DefaultBufferSize);
     }
 
+    // setup timeout:
+    Connection.TimestampMS = LocalTicker();
+    ConnectionEstablishTimeoutList.AddTail(Connection);
+
     ++Audit.ConnectionCount;
 }
 
@@ -405,6 +413,16 @@ void xRelayLocalBindingService::ProcessDnsResults() {
             CreateConnectionWithDnsResult(DnsFuture);
         }
         DnsFutureManager.ReleaseFuture(DnsFuture);
+    }
+}
+
+void xRelayLocalBindingService::DeferDestroyEstablishTimeoutConnections() {
+    auto NowMS = LocalTicker();
+    auto Cond  = [KillTimepoint = NowMS - CONNECTION_ESTABLISH_TIMEOUT_MS](const xRelayLocalDeviceConnectionTimeoutNode & N) {
+        return N.TimestampMS <= KillTimepoint;
+    };
+    while (auto P = static_cast<xRelayLocalDeviceConnection *>(ConnectionEstablishTimeoutList.PopHead(Cond))) {
+        DeferDestroyConnection(P);
     }
 }
 
