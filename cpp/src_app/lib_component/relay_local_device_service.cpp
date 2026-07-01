@@ -494,6 +494,8 @@ void xRelayLocalBindingService::OnConnected(xTcpConnection * TcpConnectionPtr) {
         Future->Result = Connection->ConnectionId;
         Future->SetReady();
         KeepAlive(Connection);
+    } else {  // canceled or timeout connection source
+        DeferDestroyConnection(Connection);
     }
 }
 
