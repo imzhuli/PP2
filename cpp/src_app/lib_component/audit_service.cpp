@@ -194,6 +194,10 @@ void xAuditService::ReportUsage(const xAuditUsage & UsageInfo) {
 }
 
 void xAuditService::ReportBlockAccount(const xAuditBlockAccount & BlockAccountInfo) {
+    if (!AuditServerList.Size) {
+        ++Audit.NoServerReport;
+        return;
+    }
     auto SelectedConnectionId = ConnectionIdList[BlockAccountInfo.AuthId % AuditServerList.Size];
     auto Req                  = xPP_BlockAccount();
     Req.GlobalAuthId          = BlockAccountInfo.AuthId;
