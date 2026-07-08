@@ -24,6 +24,7 @@ static auto SmallServerListServer  = xNetAddress{};
 static auto LocalRelayServerId     = (uint64_t)0;
 static auto LocalAuthFilePath      = std::string();
 static auto LocalBindingDeviceFile = std::string{};
+static auto MmdbFilename           = std::string();
 
 static auto ClientEntryBufferSize = (size_t)0;
 static auto LocalDeviceBufferSize = (size_t)0;
@@ -32,7 +33,7 @@ static void LoadConfig() {
     auto CL = ServiceEnvironment.LoadConfig();
     CL.Require(ClientEntryFile, "ClientEntryFile");
 
-    CL.Require(LocalRelayServerId, "LocalRelayServerId");
+    CL.Optional(LocalRelayServerId, "LocalRelayServerId");
     CL.Require(LocalBindingDeviceFile, "LocalBindingDeviceFile");
     CL.Require(LocalAuthFilePath, "LocalAuthFilePath");
 
@@ -40,6 +41,8 @@ static void LoadConfig() {
 
     CL.Optional(ClientEntryBufferSize, "ClientEntryBufferSize");
     CL.Optional(LocalDeviceBufferSize, "LocalDeviceBufferSize");
+
+    CL.Require(MmdbFilename, "MmdbFilename");
 
     Logger->I("Begin Config");
     Logger->I("LocalRelayServerId=%" PRIu64 "", LocalRelayServerId);
@@ -61,6 +64,8 @@ int main(int argc, char ** argv) {
     ProxyAccessService.BindDeviceLocatorService(&LocalRelayService);
     ProxyAccessService.BindRelayService(&LocalRelayService);
     ProxyAccessService.BindTargetReportService(&AuditService);
+    X_RUNTIME_ASSERT(ProxyAccessService.SetMmdb(MmdbFilename));
+
     LocalRelayService.BindProxyService(&ProxyAccessService);
     LocalRelayService.BindDnsService(&LocalDnsService);
 

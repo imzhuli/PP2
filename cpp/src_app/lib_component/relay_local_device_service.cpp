@@ -95,7 +95,6 @@ bool xRelayLocalBindingService::Init(uint64_t ServerId, const std::string & Addr
 }
 
 bool xRelayLocalBindingService::Init(uint64_t ServerId, const std::vector<xRelayLocalBindingOption> & BindAddressPairList) {
-    X_RUNTIME_ASSERT(ServerId);
     X_RUNTIME_ASSERT(ServiceRunState);
     if (!CreateLocalDeviceList(BindAddressPairList)) {
         Logger->E("CreateLocalDeviceList error");

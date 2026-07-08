@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.14)
 project (pp_apps)
 
+set(maxminddb_DIR "${LOCAL_3RD_CMAKE_DIR}/maxminddb")
+find_package(maxminddb REQUIRED CONFIG)
+set(absl_DIR "${LOCAL_3RD_CMAKE_DIR}/absl")
+find_package(absl REQUIRED)
+set(RdKafka_DIR "${LOCAL_3RD_CMAKE_DIR}/RdKafka")
+find_package(RdKafka REQUIRED)
+
 include_directories(
 	../src_lib_common/
 	../src_lib_protocol/
@@ -15,7 +22,7 @@ link_directories(
 )
 
 message(STATUS ${LIBRARY_OUTPUT_PATH})
-set(LOCAL_PP_LIBRARIES ppprotocol ppcommon)
+set(LOCAL_PP_LIBRARIES maxminddb::maxminddb ppprotocol ppcommon)
 
 # enable specific macors by system type:
 if (CMAKE_SYSTEM_NAME MATCHES "Windows")
@@ -93,12 +100,7 @@ foreach(item IN LISTS target_list)
     build_app(${item})
 endforeach()
 
-set(absl_DIR "${LOCAL_3RD_CMAKE_DIR}/absl")
-find_package(absl REQUIRED)
 target_link_libraries(s_address_to_device PRIVATE absl::flat_hash_map)
-
-set(RdKafka_DIR "${LOCAL_3RD_CMAKE_DIR}/RdKafka")
-find_package(RdKafka REQUIRED)
 target_link_libraries(s_audit_collector PRIVATE RdKafka::rdkafka++)
 target_link_libraries(s_target_collector PRIVATE RdKafka::rdkafka++)
 

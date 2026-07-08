@@ -158,6 +158,9 @@ bool xProxyAccessService::Init(const std::vector<xExportBindAddress> & AddressLi
 }
 
 void xProxyAccessService::Clean() {
+    if (Steal(MmdbHasInstance)) {
+        MmdbHolder.Destroy();
+    }
     AuthFutureManager.Clean();
     AcquireDeviceFutureManager.Clean();
     AcquireDeviceConnectionFutureManager.Clean();
@@ -173,6 +176,17 @@ void xProxyAccessService::Clean() {
     ClientConnectionPool.Clean();
     Reset(DefaultBufferSize);
     Reset(Audit);
+}
+
+bool xProxyAccessService::SetMmdb(const std::string & filename) {
+    if (MmdbHasInstance) {
+        MmdbHolder.Destroy();
+    }
+    if (filename.empty()) {
+        return (MmdbHasInstance = false);
+    }
+    MmdbHolder.CreateValue(filename);
+    return (MmdbHasInstance = true) && *MmdbHolder;
 }
 
 void xProxyAccessService::Tick(uint64_t NowMS) {
@@ -378,6 +392,8 @@ void xProxyAccessService::ExcuteKillConnection() {
     }
 }
 
+static constexpr const xIsoCountryName CN = { 'C', 'N' };
+
 // tcp server listener:
 void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && NativeHandle) {
     auto ConnectionId = ClientConnectionPool.Acquire();
@@ -390,6 +406,16 @@ void xProxyAccessService::OnNewConnection(xTcpServer * TcpServerPtr, xSocket && 
         ClientConnectionPool.Release(ConnectionId);
         return;
     }
+
+    assert(MmdbHasInstance && *MmdbHolder);
+    auto RemoteAddress = ClientConnection.GetRemoteAddress();
+    auto RegionOpt     = MmdbHolder->GetCountry(RemoteAddress);
+    if (RegionOpt && *RegionOpt == CN) {
+        ClientConnection.Clean();
+        ClientConnectionPool.Release(ConnectionId);
+        return;
+    }
+
     auto ClientEntryServer         = static_cast<xClientEntryServer *>(TcpServerPtr);
     ClientConnection.ConnectionId  = ConnectionId;
     ClientConnection.ExportIp      = ClientEntryServer->ExportIp;

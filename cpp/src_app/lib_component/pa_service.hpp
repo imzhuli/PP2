@@ -1,4 +1,5 @@
 #pragma once
+#include "../lib_util/mmdb_wrapper.hpp"
 #include "./abstract/audit_abstract.hpp"
 #include "./abstract/device_abstract.hpp"
 #include "./abstract/pa_abstract.hpp"
@@ -86,6 +87,7 @@ public:
 
     bool Init(const std::string & AddressListFilename);
     bool Init(const std::vector<xExportBindAddress> & AddressList);
+    bool SetMmdb(const std::string & filename);  // return value: ((MmdbHasInstance = false) || *MmdbHolder)
     void Clean();
     void Tick(uint64_t NowMS);
     void BindAuthService(xAuthAbstractService * Service) { AuthService = Service; }
@@ -204,6 +206,9 @@ private:
     xFutureList AcquireDeviceFutureTimeoutList;
     xFutureList AcquireDeviceConnectionFutureTimeoutList;
     xFutureList AcquireDeviceUdpChannelFutureTimeoutList;
+
+    xHolder<xMmdbWrapper> MmdbHolder;
+    bool                  MmdbHasInstance = false;
 
     struct xAudit {
         size_t InvalidS5AuthTypeCount     = 0;

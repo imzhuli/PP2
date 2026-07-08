@@ -27,12 +27,11 @@ def build():
             f"{xsetup.cmake_build_type} "
             "-Wno-dev "
             "-DCMAKE_CXX_STANDARD=20 "
-            "-DCMAKE_EXPORT_COMPILE_COMMANDS=1 "
             "-DBUILD_SHARED_LIBS=OFF "
             "-DBUILD_TESTING=OFF "
             f"-DCMAKE_INSTALL_PREFIX={install_dir!r} -B build ."
         )
-        os.system(f"cmake --build build {xsetup.cmake_build_config} -- all")
+        os.system(f"cmake --build build {xsetup.cmake_build_config} -- ")
         os.system(f"cmake --install build {xsetup.cmake_build_config}")
     except Exception as e:
         print(f"{libname} error: %s" % e)
