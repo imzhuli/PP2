@@ -21,7 +21,6 @@ xOptional<xIsoCountryName> xMmdbWrapper::GetCountry(const xNetAddress & Address)
     int  mmdb_error;
     auto result = MMDB_lookup_sockaddr(&MMDB, (sockaddr *)&Sin, &mmdb_error);
     if (mmdb_error != MMDB_SUCCESS) {
-        cerr << "mmdb_error: " << MMDB_strerror(mmdb_error) << endl;
         return {};
     }
     if (!result.found_entry) {
