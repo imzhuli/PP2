@@ -8,8 +8,8 @@ cwd = os.getcwd()
 unzip_dir = f"{cwd}/_3rd_build"
 
 libname = "mmdb"
-src_file = f"{cwd}/_3rd_source/libmaxminddb-1.9.1.tar.gz"
-unzipped_src_dir = f"{unzip_dir}/libmaxminddb-1.9.1"
+src_file = f"{cwd}/_3rd_source/libmaxminddb-1.13.3.tar.gz"
+unzipped_src_dir = f"{unzip_dir}/libmaxminddb-1.13.3"
 install_dir = f"{cwd}/_3rd_installed"
 
 
