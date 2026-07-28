@@ -5,10 +5,14 @@
 #include <pp_protocol/p_small_server_list.hpp>
 
 #ifndef NDEBUG
-static constexpr const uint64_t UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS = 5'000;
+static constexpr const uint64_t UPDATE_SERVER_LIST_TIMEOUT_MS = 60'000;
 #else
-static constexpr const uint64_t UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS = 10 * 60'000;
+static constexpr const uint64_t UPDATE_SERVER_LIST_TIMEOUT_MS = 15 * 60'000;
 #endif
+
+bool xSmallServerListDownloader::Init(const xNetAddress & ServerListServerAddress) {
+    return Init(ServerListServerAddress, ServerListServerAddress.Decay());
+}
 
 bool xSmallServerListDownloader::Init(const xNetAddress & ServerListServerAddress, const xNetAddress & LocalBindAddress) {
     std::random_device rd;
@@ -40,16 +44,17 @@ void xSmallServerListDownloader::Clean() {
 void xSmallServerListDownloader::Tick(uint64_t NowMS) {
     LocalTicker.Update(NowMS);
     UpdateServerListSlaveList();
-    UpdateEnabledServerList();
+    UpdateOneEnabledServerList();
 }
 
 void xSmallServerListDownloader::EnableServerGroup(xServerGroup Type) {
     assert(Type != ST_SERVER_LIST);
     auto & Node = EnabledServerGroupMap[Type];
     assert(!Node.Enabled && !xListNode::IsLinked(Node) && !Node.ServerList && !Node.ServerGroup);
-    Node.Enabled     = true;
-    Node.ServerGroup = Type;
-    Node.ServerList  = new xSmallServerList();
+    Node.Enabled        = true;
+    Node.ServerGroup    = Type;
+    Node.ServerList     = new xSmallServerList();
+    Node.ServerListSize = 0;
     EnabledServerGroupList.AddTail(Node);
 }
 
@@ -74,7 +79,7 @@ xSmallServerListDownloader::xServerListView xSmallServerListDownloader::GetServe
 
 void xSmallServerListDownloader::UpdateServerListSlaveList() {
     auto NowMS = LocalTicker();
-    if (LastUpdateServerListSlaveListTimestampMS > NowMS - UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS) {
+    if (LastUpdateServerListSlaveListTimestampMS > NowMS - UPDATE_SERVER_LIST_TIMEOUT_MS) {
         return;
     }
     LastUpdateServerListSlaveListTimestampMS = NowMS;
@@ -84,9 +89,9 @@ void xSmallServerListDownloader::UpdateServerListSlaveList() {
     DownloadService.PostMessage(ServerListServerMasterAddress, Cmd_DownloadSmallServerList, xPacketRequestId(Req.ServerGroup), Req);
 }
 
-void xSmallServerListDownloader::UpdateEnabledServerList() {
+void xSmallServerListDownloader::UpdateOneEnabledServerList() {
     auto NowMS = LocalTicker();
-    auto Cond  = [Timepoint = NowMS - UPDATE_SERVER_LIST_SLAVE_TIMEOUT_MS](const xEnabledServerGroupNode & Node) {
+    auto Cond  = [Timepoint = NowMS - UPDATE_SERVER_LIST_TIMEOUT_MS](const xEnabledServerGroupNode & Node) {
         return Node.LastUpdateTimestampMS <= Timepoint;
     };
     // update only one server list each time.
@@ -121,15 +126,15 @@ void xSmallServerListDownloader::OnUdpPacket(const xUdpServiceChannelHandle &, x
     if (!PNode->Enabled) {
         return;
     }
-
     bool VersionChange = (PNode->VersionTimestampMS != Resp.VersionTimestampMS);
     if (VersionChange) {
+        auto & List = *PNode->ServerList;
         for (size_t I = 0; I < Resp.ServerListSize; ++I) {
-            PNode->ServerList[I] = Resp.ServerList[I];
+            List[I] = TempSmallServerListForResponse[I];
         }
         PNode->ServerListSize     = Resp.ServerListSize;
         PNode->VersionTimestampMS = Resp.VersionTimestampMS;
-        OnServerListUpdated(ServerGroup, PNode->ServerList->data(), PNode->ServerListSize, PNode->VersionTimestampMS);
+        OnServerListUpdated(ServerGroup, List.data(), PNode->ServerListSize, PNode->VersionTimestampMS);
     }
     return;
 }
