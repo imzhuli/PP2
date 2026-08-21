@@ -518,6 +518,7 @@ void xRelayLocalBindingService::OnData(xUdpChannel * ChannelPtr, ubyte * DataPtr
     DEBUG_LOG();
     auto UdpChannel = static_cast<xRelayLocalDeviceUdpChannel *>(ChannelPtr);
     assert(UdpChannel->ProxySideUdpChannelId);
+    KeepAlive(UdpChannel);
     ProxyService->PostData(UdpChannel->ProxySideUdpChannelId, RemoteAddress, DataPtr, DataSize);
 }
 
@@ -528,6 +529,7 @@ void xRelayLocalBindingService::PostData(uint64_t RelayServerId, uint64_t Connec
         return;
     }
     DEBUG_LOG("Post connection data: size=%zi", PayloadSize);
+    KeepAlive(Connection);
     Connection->PostData(Payload, PayloadSize);
 }
 
@@ -538,5 +540,6 @@ void xRelayLocalBindingService::PostData(uint64_t RelayServerId, uint64_t UdpCha
         return;
     }
     DEBUG_LOG("Post udp channel data: from=%s to=%s, data=\n%s", UdpChannel->GetBindAddress().ToString().c_str(), TargetAddress.ToString().c_str(), HexShow(Payload, PayloadSize).c_str());
+    KeepAlive(UdpChannel);
     UdpChannel->PostData(TargetAddress, Payload, PayloadSize);
 }
