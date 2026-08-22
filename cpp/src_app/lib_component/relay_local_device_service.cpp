@@ -6,8 +6,8 @@ static constexpr const size_t DEVICE_ID_HIGH32_MAGIC           = 0xCDEF7788;
 static constexpr const size_t MAX_MANAGED_CONNECTION_SIZE      = 15'0000;
 static constexpr const size_t MAX_MANAGED_UDPCHANNEL_SIZE      = 10'0000;
 static constexpr const size_t CONNECTION_ESTABLISH_TIMEOUT_MS  = 5'000;
-static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS       = 125'000;
-static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS       = 125'000;
+static constexpr const size_t IDLE_CONNECTION_TIMEOUT_MS       = 8 * 60'000;
+static constexpr const size_t IDLE_UDPCHANNEL_TIMEOUT_MS       = 8 * 60'000;
 static constexpr const size_t MAX_DNS_FUTURE_COUNT             = 1'0000;
 static constexpr const size_t LOCAL_DEVICE_DEFAULT_BUFFER_SIZE = 16'000;
 
@@ -431,6 +431,7 @@ void xRelayLocalBindingService::DeferDestroyIdleConnections() {
         return N.TimestampMS <= KillTimepoint;
     };
     while (auto P = static_cast<xRelayLocalDeviceConnection *>(ConnectionIdleTimeoutList.PopHead(Cond))) {
+        DEBUG_LOG();
         DeferDestroyConnection(P);
     }
 }
@@ -441,6 +442,7 @@ void xRelayLocalBindingService::DeferDestroyIdleUdpChannels() {
         return N.TimestampMS <= KillTimepoint;
     };
     while (auto P = static_cast<xRelayLocalDeviceUdpChannel *>(UdpChannelIdleTimeoutList.PopHead(Cond))) {
+        DEBUG_LOG();
         DeferDestroyUdpChannel(P);
     }
 }
