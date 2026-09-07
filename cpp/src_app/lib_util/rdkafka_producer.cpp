@@ -42,7 +42,7 @@ private:
 void xKfkEventLoggerCb::event_cb(RdKafka::Event & event) {
     switch (event.type()) {
         case RdKafka::Event::EVENT_ERROR: {
-            Logger->E("Kafka error: %s", RdKafka::err2str(event.err()).c_str());
+            // Logger->E("Kafka error: %s", RdKafka::err2str(event.err()).c_str());
         } break;
 
         case RdKafka::Event::EVENT_LOG: {
@@ -51,9 +51,9 @@ void xKfkEventLoggerCb::event_cb(RdKafka::Event & event) {
             auto fac      = event.fac();
             auto msg      = event.str();
             if (severity <= RdKafka::Event::EVENT_SEVERITY_ERROR) {
-                Logger->E("[%s]", msg.c_str());
+                // Logger->E("[%s]", msg.c_str());
             } else {
-                Logger->I("[%s]", msg.c_str());
+                // Logger->I("[%s]", msg.c_str());
             }
         } break;
 

@@ -170,6 +170,7 @@ void xAuditCollectReporter::KfkThreadFunc() {
                 R.BlockPeriodMS         = BlockAccountInfo.PeriodMS;
                 R.Action                = 0x02;
                 auto MSize              = WriteMessage(Buffer, Cmd_BackendBlockAccountReport, R);
+                DEBUG_LOG("BlockMessage:\n%s", xel::HexShow(Buffer, MSize).c_str());
                 KfkContext->KR.Post(KfkContext->BlockAccountTopicId, std::to_string(R.AuditId), Buffer, MSize);
             }
             TempFinishedList.AddTail(*PNode);

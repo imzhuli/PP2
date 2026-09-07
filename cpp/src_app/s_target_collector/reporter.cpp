@@ -120,7 +120,8 @@ void xTargetCollectReporter::KfkThreadFunc() {
         assert(TempFinishedList.IsEmpty());
         while (auto PNode = TempPostList.PopHead()) {
             // do post:
-            DEBUG_LOG("%s", PNode->ToString().c_str());
+            auto MsgKey = std::to_string(PNode->GlobalAuthId);
+            DEBUG_LOG("%s: %s", MsgKey.c_str(), PNode->ToString().c_str());
 
             auto R              = xPPB_TargetCollect();
             R.TimeMs            = NowMS;
@@ -132,7 +133,6 @@ void xTargetCollectReporter::KfkThreadFunc() {
             R.TotalRequestCount = PNode->Count;
             auto MSize          = WriteMessage(Buffer, Cmd_BackendTargetReport, R);
 
-            auto MsgKey = std::to_string(PNode->GlobalAuthId);
             KfkContext->KR.Post(MsgKey, Buffer, MSize);
 
             TempFinishedList.AddTail(*PNode);
